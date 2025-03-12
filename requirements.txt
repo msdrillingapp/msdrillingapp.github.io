@@ -1,5 +1,7 @@
-pandas
-numpy
+
 dash
-dash_leaflet
-plotly
+dash-core-components
+dash-html-components
+dash-leaflet
+dash-table
+pandas
