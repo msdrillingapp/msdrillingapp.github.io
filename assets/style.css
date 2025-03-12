@@ -1,0 +1,22 @@
+.dark-dropdown .Select-control {
+    background-color: #193153 !important;
+    color: white !important;
+}
+
+.dark-dropdown .Select-menu-outer {
+    background-color: #193153 !important;
+    color: white !important;
+}
+
+.dark-dropdown .Select-option {
+    background-color: #193153 !important;
+    color: white !important;
+}
+
+.dark-dropdown .Select-option.is-focused {
+    background-color: #1f4068 !important;
+}
+
+.dark-dropdown .Select-value-label {
+    color: white !important;
+}

@@ -1,0 +1,130 @@
+Field,Group
+Project,Project 
+Owner ,Project 
+JobNo,Project 
+JobName,Project 
+JobID,Project 
+Client,Project 
+Contractor,Project 
+City,Project 
+State ,Project 
+Country,Project 
+GeneralContractor ,Project 
+Industry ,Project 
+PileID,Design
+LocationID,Design
+PileType,Design
+CageType,Design
+CageColor,Design
+ProductCode,Design
+PileCode,Design
+PileCap,Design
+PileCutoff,Design
+PileType,Design
+PileDiameter,Design
+PileArea,Design
+TopOfCage,Design
+TopOfCap,Design
+TargetOverBreak,Design
+CapBeamType,Design
+Drawing,Design
+Area,Coordinates
+Unit,Coordinates
+XEasting,Coordinates
+YNorthing,Coordinates
+CoordinateSystem,Coordinates
+Zone,Coordinates
+Latitude,Coordinates
+Longitude,Coordinates
+DatumElevation,Coordinates
+Azimuth,Coordinates
+Dip,Coordinates
+Elevation,Coordinates
+PileStatus,AsBuilt
+WorkingGrade,AsBuilt
+StartDepth,AsBuilt
+PileLength,AsBuilt
+TipElevation,AsBuilt
+PileVolume,AsBuilt
+MaxStrokes,asBuilit
+GroutVolume,AsBuilt
+OverBreak,AsBuilt
+Operator,AsBuilt
+Comments,AsBuilt
+Notes,AsBuilt
+FileName,AsBuilt 
+DrillStartTime,AsBuiltTime
+DrillEndTime,AsBuiltTime
+ToolOutTime,AsBuiltTime
+GroutStartTime,AsBuiltTime
+GroutEndTime,AsBuiltTime
+RecordStartTime,AsBuiltTime
+RecordEndTime,AsBuiltTime
+TotalTime,AsBuiltTime
+DrillTime,AsBuiltTime
+GroutTime,AsBuiltTime
+RecordTime,AsBuiltTime
+HydFlow,Equipment
+PumpID,Equipment
+PumpCalibration,Equipment
+RigID,Equipment
+PowerPackID,Equipment
+ToolWeight,Equipment
+TurntableID,Equipment
+TurntableWeight,Equipment
+Label,Orphans 
+TestPileID,Orphans 
+Time,Orphans 
+Units,Orphans 
+unit,Coordinates
+owner ,Project 
+delayTime ,AsBuiltTime
+delay,AsBuiltTime
+moveDistance ,AsBuilt 
+moveTime ,AsBuiltTime
+targetMoveTime ,Design
+targetOverbreak,Design
+minimumOverbreak,Design
+projectLatitude ,Project 
+projectLonigtude ,Project 
+Le ,Equipment 
+City ,Project 
+State ,Project 
+Country,Project 
+GeneralContractor ,Project 
+Industry ,Project 
+ConcreteDelivered ,AsBuilt
+ManHours,AsBuilt
+ManHoursperpile ,AsBuilt
+CageColor,Design
+PileID,ProfileView
+PileLength,ProfileView
+MaxStrokes,ProfileView
+OverBreak,ProfileView
+LocationID,ProfileView
+PumpID,ProfileView
+PumpCalibration,ProfileView
+PileStatus,ProfileView
+ProductCode,ProfileView
+PileCode,ProfileView
+WorkingGrade,ProfileView
+DrillStartTime,ProfileView
+GroutStartTime,ProfileView
+DrillTime,ProfileView
+GroutTime,ProfileView
+TotalTime ,ProfileView
+CageColor,ProfileView
+PileType,ProfileView
+PileDiameter,ProfileView
+MaxStrokes,Edit
+OverBreak,Edit
+LocationID,Edit
+PumpID,Edit
+PumpCalibration,Edit
+PileStatus,Edit
+PileCode,Edit
+Dip,Edit
+Elevation,Edit
+Comments,Edit
+Notes,Edit
+Delay,Edit
