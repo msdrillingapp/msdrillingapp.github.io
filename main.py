@@ -10,7 +10,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-# \\header 2025-01-09.json
 # Folder containing GeoJSON files
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
