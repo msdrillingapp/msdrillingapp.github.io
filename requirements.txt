@@ -5,7 +5,6 @@ aioitertools==0.7.1
 aiosignal==1.2.0
 aiosqlite==0.18.0
 alabaster==0.7.12
-anaconda-anon-usage
 anaconda-catalogs
 anaconda-client
 anaconda-navigator
