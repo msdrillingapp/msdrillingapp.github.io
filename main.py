@@ -1,10 +1,8 @@
 import dash
 import pandas as pd
-from dash import dcc, html
 import dash_leaflet as dl
 import json
 from dash import dcc, html, Output, Input, ctx, dash_table,callback_context,MATCH, State
-from pyproj import Proj, transform
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
@@ -74,25 +72,6 @@ def load_geojson_data():
 # Load all datasets
 properties_df, pile_data,latitudes,longitudes,markers = load_geojson_data()
 
-
-
-# with open(file_path, "r") as f:
-#     geojson_data = json.load(f)
-
-# Extract coordinates from geometry field
-# features = geojson_data.get("features", [])
-# markers = []
-# latitudes = []
-# longitudes = []
-# data = []
-# Extract first feature's properties for title
-# if features:
-#     first_feature = features[0].get("properties", {})
-#     title_text = f"Daily Summary: {first_feature.get('date', '2025-01-09')} - RigID : {first_feature.get('RigID', 'Unknw')} - {first_feature.get('JobName', 'Unknown JobName')} - {first_feature.get('JobNo', '1608 GPA M&O')}"
-# else:
-#     title_text = "GeoJSON Map Viewer"
-
-# properties_df = pd.DataFrame(data)
 properties_df.drop(columns=['Data','UID','FileName'],inplace=True)
 
 # Melt the dataframe so each property is mapped to a Field and PileID
@@ -107,6 +86,9 @@ merged_df["Group"].fillna("Undefined", inplace=True)  # Ensure Group is always a
 # Keep only relevant columns
 filtered_columns = ["PileID", "RigID", "Group", "Field", "Value", "latitude", "longitude", "date"]
 merged_df = merged_df[filtered_columns]
+groups_list = list(merged_df["Group"].dropna().unique())
+groups_list.remove('Edit')
+groups_list.insert(0, 'Edit')
 # Track changed values
 # changed_values = set()
 changed_values ={}
@@ -116,7 +98,7 @@ if latitudes and longitudes:
     center_lat = np.mean(latitudes)
     center_lon = np.mean(longitudes)
     map_center = [center_lat, center_lon]
-    zoom_level = 4  # Adjust zoom for a closer view
+    zoom_level = 10  # Adjust zoom for a closer view
 else:
     map_center = [40, -100]
     zoom_level = 4
@@ -135,21 +117,39 @@ app.layout = html.Div([
         # style = {'width': '100%', 'height': '100%'}
 )
     ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between'}),
-
-    # dcc.DatePickerSingle(
-    #             id="date-filter",
-    #             min_date_allowed=pd.to_datetime("2025-01-01"),
-    #             max_date_allowed=pd.to_datetime("2025-12-31"),
-    #             initial_visible_month=pd.to_datetime("2025-01-29"),
-    #             date="2025-01-29",
-    #             style={'marginBottom': '10px','backgroundColor': '#193153', 'color': 'white'}
-    #         ),
-    dcc.Dropdown(
+html.Div([
+        dcc.Dropdown(
             id="date-filter",
             options=[{"label": d, "value": d} for d in sorted(properties_df["date"].unique())],
             placeholder="Select a Date",
-            style={'width': '250px', 'marginBottom': '10px'}
+            style={'width': '250px', 'marginBottom': '10px'},
+            className="dark-dropdown"
         ),
+        dcc.Dropdown(
+                id="rigid-filter",
+                options=[{"label": str(r), "value": str(r)} for r in merged_df["RigID"].dropna().unique()],
+                placeholder="Filter by RigID",
+                # style={'width': '250px', 'marginBottom': '10px','backgroundColor': '#193153', 'color': 'white'}
+                # style={'width': '250px', 'marginBottom': '10px'},
+                style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+                className="dark-dropdown"
+            ),
+        dcc.Dropdown(
+            id="pileid-filter",
+            options=[{"label": str(p), "value": str(p)} for p in merged_df["PileID"].dropna().unique()],
+            placeholder="Filter by PileID",
+            style={'width': '300px', 'marginRight': '10px','marginLeft': '10px'},
+            className="dark-dropdown"
+        ),
+        dcc.Dropdown(
+            id="group-filter",
+            options=[{"label": g, "value": g} for g in groups_list],
+            placeholder="Filter by Group",
+            style={'width': '300px', 'marginLeft': '10px','marginLeft': '10px'},
+            className="dark-dropdown"
+        )
+    ], style={'marginBottom': '20px', 'display': 'flex', 'justifyContent': 'center'}),
+
     html.Br(),
     #  MAP ===============================================
     dl.Map(id="map", center=map_center, zoom=zoom_level, children=[
@@ -158,38 +158,12 @@ app.layout = html.Div([
     ], style={'width': '100%', 'height': '500px'}),
     html.Br(),
 
-
     # ===============================================
-
-
-    html.Div([
-        dcc.Dropdown(
-                id="rigid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in merged_df["RigID"].dropna().unique()],
-                placeholder="Filter by RigID",
-                # style={'width': '250px', 'marginBottom': '10px','backgroundColor': '#193153', 'color': 'white'}
-                # style={'width': '250px', 'marginBottom': '10px'},
-                style={'width': '250px', 'marginBottom': '10px'},
-                className="dark-dropdown"
-            ),
-        dcc.Dropdown(
-            id="pileid-filter",
-            options=[{"label": str(p), "value": str(p)} for p in merged_df["PileID"].dropna().unique()],
-            placeholder="Filter by PileID",
-            style={'width': '300px', 'marginRight': '10px'},
-            className="dark-dropdown"
-        ),
-        dcc.Dropdown(
-            id="group-filter",
-            options=[{"label": g, "value": g} for g in merged_df["Group"].dropna().unique()],
-            placeholder="Filter by Group",
-            style={'width': '300px'},
-            className="dark-dropdown"
-        )
-    ], style={'marginBottom': '20px', 'display': 'flex', 'justifyContent': 'center'}),
 
     # Table & Chart Side by Side
     html.Div([
+        # Graph
+        dcc.Graph(id="strokes-depth-time-graph"),
         # Table
         dash_table.DataTable(
             id="filtered-table",
@@ -202,10 +176,7 @@ app.layout = html.Div([
             sort_action="native",
             page_size=10,
             # style_table={'overflowX': 'auto', 'width': '50%', 'backgroundColor': '#193153'},
-            style_table={'overflowX': 'auto', 'width': '60%', 'margin': 'auto', 'border': '2px solid white'},
-            # style_cell={'textAlign': 'left', 'color': 'white', 'backgroundColor': '#193153'},
-            # style_data={ 'border': '1px solid blue' },
-            # style_header={'fontWeight': 'bold', 'backgroundColor': '#1f4068', 'color': 'white'},
+            style_table={'overflowX': 'auto', 'width': '75%', 'margin': 'auto', 'border': '2px solid white'},
             style_cell={
                 'textAlign': 'left',
                 'color': 'white',
@@ -221,35 +192,9 @@ app.layout = html.Div([
             }
         ),
 
-        # Graph
-        dcc.Graph(id="strokes-depth-time-graph")
+
     ], style={'display': 'flex', 'gap': '20px', 'justifyContent': 'center', 'padding': '20px'})
 
-#     dash_table.DataTable(
-#         id="filtered-table",
-#         columns=[
-#             {"name": "Field", "id": "Field", "editable": False},
-#             # {"name": "Group", "id": "Group", "editable": False},
-#             {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
-#         ],
-#         data=merged_df.to_dict("records"),
-#         filter_action="native",
-#         sort_action="native",
-#         page_size=10,
-#         style_table={'overflowX': 'auto', 'width': '50%', 'margin': 'auto', 'backgroundColor': '#193153'},
-#         style_data_conditional=[],
-#         style_cell={'textAlign': 'left', 'whiteSpace': 'normal', 'height': 'auto', 'padding': '5px', 'color': 'white',
-#                     'backgroundColor': '#193153'},
-#         style_header={'fontWeight': 'bold', 'backgroundColor': '#1f4068', 'color': 'white'}
-#     ),
-#     html.Div(id="point-details", style={'color': 'white', 'marginTop': '20px'}),
-#
-#     html.Br(),
-# # Graphs
-#     html.Div([
-#         dcc.Graph(id="strokes-depth-time-graph"),
-#         # dcc.Graph(id="depth-time-graph")
-#     ], style={'display': 'flex', 'gap': '20px', 'justifyContent': 'center'})
 
 ], style={'backgroundColor': '#193153', 'height': '300vh', 'padding': '20px', 'position': 'relative'})
 
@@ -287,35 +232,40 @@ def update_pileid_options(selected_date,selected_rigid):
 
     return [{"label": str(p), "value": str(p)} for p in filtered_df["PileID"].dropna().unique()]
 
+@app.callback(
+    Output("rigid-filter", "options"),
+    [Input("date-filter", "value")]
+)
+def update_pileid_options(selected_date):
+    if not selected_date:
+        return []
+    if selected_date:
+        filtered_df = properties_df[properties_df["date"] == selected_date]
+
+    return [{"label": str(p), "value": str(p)} for p in filtered_df["RigID"].dropna().unique()]
 
 # Callback to update map markers and recenter the map
 @app.callback(
-    [Output("map-markers", "children"), Output("map", "center")],
+    [Output("map-markers", "children"), Output("map", "center"),Output('map','zoom')],
     [Input("date-filter", "value"), Input("rigid-filter", "value"), Input("pileid-filter", "value")]
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid):
     filtered_df = properties_df.copy()
-
+    zoom_level = 5
     # Apply filters
     if selected_date:
         filtered_df = filtered_df[filtered_df["date"] == selected_date]
     if selected_rigid:
         filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
+        zoom_level = 15
     if selected_pileid:
         filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
+        zoom_level =25
 
     markers = []
-    center = [properties_df["latitude"].mean(), properties_df["longitude"].mean()]  # Default center
+    center = [filtered_df["latitude"].mean(), filtered_df["longitude"].mean()]  # Default center
 
     for _, row in filtered_df.iterrows():
-        # markers.append(
-        #     dl.Marker(
-        #         position=(row["latitude"], row["longitude"]),
-        #         children=[
-        #             dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")
-        #         ]
-        #     )
-        # )
         markers.append(dl.CircleMarker(
                             center=[row["latitude"], row["longitude"]],
                             radius=8,  # Bigger marker
@@ -329,7 +279,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid):
         if selected_pileid:  # Recenter on selected PileID
             center = [row["latitude"], row["longitude"]]
 
-    return markers, center
+    return markers, center,zoom_level
 
 # Callback to track edited values and highlight changes
 @app.callback(
@@ -390,18 +340,7 @@ def update_combined_graph(selected_pileid, selected_date):
     pile_info = pile_data[selected_pileid][selected_date]
 
     # Create figure with two y-axes
-    fig = px.line(title=f"Strokes & Depth vs Time for PileID {selected_pileid} on {selected_date}")
-
-    # Add Strokes vs Time (Primary Y-Axis)
-    fig.add_scatter(
-        x=pile_info["Time"],
-        y=pile_info["Strokes"],
-        mode="lines",
-        name="Strokes",
-        yaxis="y1",
-        line_color="green"
-
-    )
+    fig = px.line(title=f"Depth & Strokes vs Time for PileID {selected_pileid} on {selected_date}")
 
     # Add Depth vs Time (Secondary Y-Axis)
     fig.add_scatter(
@@ -409,15 +348,27 @@ def update_combined_graph(selected_pileid, selected_date):
         y=pile_info["Depth"],
         mode="lines",
         name="Depth",
-        yaxis="y2",
+        yaxis="y1",
         line_color="#f7b500"
     )
+
+    # Add Strokes vs Time (Primary Y-Axis)
+    fig.add_scatter(
+        x=pile_info["Time"],
+        y=pile_info["Strokes"],
+        mode="lines",
+        name="Strokes",
+        yaxis="y2",
+        line_color="green"
+
+    )
+
 
     # Update layout for dual y-axes and dark background
     fig.update_layout(
         xaxis_title="Time",
-        yaxis=dict(title="Strokes", side="left", showgrid=False),
-        yaxis2=dict(title="Depth", overlaying="y", side="right", showgrid=False),
+        yaxis=dict(title="Depth", side="left", showgrid=False),
+        yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
         font=dict(color="white")
