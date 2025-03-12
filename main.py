@@ -124,6 +124,7 @@ else:
 # Create Dash app
 app = dash.Dash(__name__, external_stylesheets=["/assets/style.css"])
 app.title = 'MS Drill Tracker'
+server = app.server
 
 app.layout = html.Div([
     html.Div([
