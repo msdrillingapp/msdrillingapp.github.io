@@ -46,7 +46,7 @@ StartDepth,AsBuilt
 PileLength,AsBuilt
 TipElevation,AsBuilt
 PileVolume,AsBuilt
-MaxStrokes,asBuilit
+MaxStroke,asBuilit
 GroutVolume,AsBuilt
 OverBreak,AsBuilt
 Operator,AsBuilt
@@ -99,7 +99,7 @@ ManHoursperpile ,AsBuilt
 CageColor,Design
 PileID,ProfileView
 PileLength,ProfileView
-MaxStrokes,ProfileView
+MaxStroke,ProfileView
 OverBreak,ProfileView
 LocationID,ProfileView
 PumpID,ProfileView
@@ -116,15 +116,11 @@ TotalTime ,ProfileView
 CageColor,ProfileView
 PileType,ProfileView
 PileDiameter,ProfileView
-MaxStrokes,Edit
+MaxStroke,Edit
 OverBreak,Edit
 LocationID,Edit
 PumpID,Edit
 PumpCalibration,Edit
 PileStatus,Edit
-PileCode,Edit
-Dip,Edit
-Elevation,Edit
 Comments,Edit
 Notes,Edit
-Delay,Edit
