@@ -254,7 +254,16 @@ app.layout = html.Div([
                     'color': 'white',
                     'border': '2px solid white'  # Add border to the header
                 }
-            ),]),
+            ),# Save Button
+            html.Button("Save Changes", id="save-button", n_clicks=0, style={
+                'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
+                'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
+                'border': 'none', 'borderRadius': '5px'
+            }),
+
+            # Save Confirmation Message
+            html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'})
+        ]),
 
 
     ], style={'display': 'flex', 'gap': '20px', 'justifyContent': 'center', 'padding': '20px'}),
@@ -553,6 +562,24 @@ def sync_pileid_filters(sidebar_value, top_value):
         return sidebar_value, sidebar_value
     else:
         return top_value, top_value
+
+@app.callback(
+    Output("save-message", "children"),
+    Input("save-button", "n_clicks"),
+    State("filtered-table", "data"),
+    State("group-filter", "value")
+)
+def save_changes(n_clicks, table_data, selected_group):
+    if n_clicks > 0 and selected_group == "Edit":
+        # Convert table data to a DataFrame
+        df_edited = pd.DataFrame(table_data)
+
+        # Save only if there is data
+        if not df_edited.empty:
+            df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
+            return "Changes saved successfully!"
+
+    return ""
 
 # Run the app
 if __name__ == "__main__":
