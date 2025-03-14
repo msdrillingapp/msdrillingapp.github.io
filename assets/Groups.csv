@@ -116,11 +116,14 @@ TotalTime ,ProfileView
 CageColor,ProfileView
 PileType,ProfileView
 PileDiameter,ProfileView
+LocationID,Edit
+PileLength,Edit
 MaxStroke,Edit
 OverBreak,Edit
-LocationID,Edit
 PumpID,Edit
 PumpCalibration,Edit
 PileStatus,Edit
+ProductCode,Edit
+PileCode,Edit
 Comments,Edit
 Notes,Edit

@@ -302,8 +302,8 @@ def update_table(selected_pileid, selected_date, selected_group):
 
     # Custom Order for "Edit" Group
     custom_order = [
-        "PileID", "LocationID", "Length", "MaxStroke", "OverBreak",
-        "PumpID", "PumpCalibration", "PileStatus", "Comments", "Notes"
+        "PileID", "LocationID", "PileLength", "MaxStroke", "OverBreak",
+        "PumpID", "PumpCalibration", "PileStatus","ProductCode","PileCode", "Comments", "Notes"
     ]
     if selected_group:
         filtered_df = filtered_df[filtered_df["Group"] == selected_group]
@@ -313,21 +313,18 @@ def update_table(selected_pileid, selected_date, selected_group):
         sorted_fields = sorted(filtered_df["Field"].unique(), key=lambda x: custom_order.index(x) if x in custom_order else len(custom_order))
         filtered_df = filtered_df.set_index("Field").loc[sorted_fields].reset_index()
 
-    return filtered_df[["Field", "Value"]].to_dict("records")
+    out = filtered_df[["Field", "Value"]].to_dict("records")
 
-# @app.callback(
-#     Output("filtered-table", "data"),
-#     Input("pileid-filter", "value"),
-#     Input("group-filter", "value")
-# )
-# def filter_table(pileid, group):
-#     filtered_df = merged_df.copy()
-#     if pileid:
-#         filtered_df = filtered_df[filtered_df["PileID"].astype(str) == pileid]
-#     if group:
-#         filtered_df = filtered_df[filtered_df["Group"] == group]
-#     return filtered_df[["Field", "Value"]].to_dict("records")
+    out_dict = {item['Field']: item['Value'] for item in out}
 
+    # Modify OverBreak if it exists
+    if 'OverBreak' in out_dict:
+        out_dict['OverBreak'] = f"{float(out_dict['OverBreak']) * 100:.2f}%"
+
+    # Convert back to list of dictionaries
+    out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
+
+    return out
 
 # Callback to update PileID dropdown based on selected date
 @app.callback(
@@ -389,6 +386,22 @@ def update_rigid_options(selected_date,selected_jobid,selected_pilecode,selected
         filtered_df= filtered_df[filtered_df['ProductCode'] == selected_productcode]
 
     return [{"label": str(p), "value": str(p)} for p in filtered_df["RigID"].dropna().unique()]
+
+# Callback to update date based on JobID
+@app.callback(
+    Output("date-filter", "options"),
+    [Input("jobid-filter", "value"),]
+)
+def update_rigid_options(selected_jobid):
+    if not selected_jobid:
+        return []
+    filtered_df = properties_df.copy()
+
+    if selected_jobid:
+        filtered_df = filtered_df[filtered_df['JobID'] == selected_jobid]
+
+
+    return [{"label": str(p), "value": str(p)} for p in filtered_df["date"].dropna().unique()]
 
 
 # Callback to update map markers and recenter the map
