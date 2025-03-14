@@ -277,7 +277,7 @@ app.layout = html.Div([
     })
 
 
-], style={'backgroundColor': '#193153', 'height': '200vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '250vh', 'padding': '20px', 'position': 'relative'})
 
 
 
