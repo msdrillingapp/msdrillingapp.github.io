@@ -106,8 +106,8 @@ changed_values ={}
 # Calculate map center and zoom
 if latitudes and longitudes:
     # lat = [float(item) for var in latitudes for item in latitudes if item != 'None']
-    center_lat = np.mean([float(item) for var in latitudes for item in latitudes if not item is None])
-    center_lon = np.mean([float(item) for var in longitudes for item in longitudes if not item is None])
+    center_lat = np.nanmean([float(item) for var in latitudes for item in latitudes if not item is None])
+    center_lon = np.nanmean([float(item) for var in longitudes for item in longitudes if not item is None])
     map_center = [center_lat, center_lon]
     zoom_level = 10  # Adjust zoom for a closer view
 else:
@@ -628,7 +628,7 @@ def update_columns(selected_group):
 
 # Run the app
 if __name__ == "__main__":
-    app.run_server(debug=True)
-    # app.run_server(debug=False)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
 
 #
