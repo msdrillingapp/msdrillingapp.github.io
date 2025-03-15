@@ -8,6 +8,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
+
+def filter_none(lst):
+    return filter(lambda x: not x is None, lst)
+
 # Folder containing GeoJSON files
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
@@ -25,7 +29,7 @@ def load_geojson_data():
     longitudes =[]
     for filename in os.listdir(geojson_folder):
         if filename.endswith(".json"):
-            file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
+            # file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
             file_path = os.path.join(geojson_folder, filename)
 
             with open(file_path, "r", encoding = "utf-8") as f:
@@ -44,21 +48,26 @@ def load_geojson_data():
                     properties["longitude"] = lon
                     latitudes.append(lat)
                     longitudes.append(lon)
-                    properties["date"] = file_date  # Store the date from the filename
-                    markers.append(dl.CircleMarker(
-                        center=[lat, lon],
-                        radius=8,  # Bigger marker
-                        color="yellow",
-                        fill=True,
-                        fillColor="yellow",
-                        fillOpacity=0.7,
-                        # children=dl.Popup(feature.get("properties", {}).get("JobName", "Unknown"))
-                        children=dl.Popup("PileID: " + feature.get("properties", {}).get("PileID", "Unknown"))
-                    ))
+                    try:
+                        date= pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
+                    except:
+                        date = 'NA'
+                    properties["date"] = date # Store the date from the filename
+                    if not lat is None and not lon is None:
+                        markers.append(dl.CircleMarker(
+                            center=[lat, lon],
+                            radius=8,  # Bigger marker
+                            color="yellow",
+                            fill=True,
+                            fillColor="yellow",
+                            fillOpacity=0.7,
+                            # children=dl.Popup(feature.get("properties", {}).get("JobName", "Unknown"))
+                            children=dl.Popup("PileID: " + feature.get("properties", {}).get("PileID", "Unknown"))
+                        ))
                     # Store time-series data separately for graph plotting
                     pile_id = properties.get("PileID")
                     if pile_id and "Data" in properties:
-                        pile_data.setdefault(pile_id, {})[file_date] = {
+                        pile_data.setdefault(pile_id, {})[properties['date']] = {
                             "Time": properties["Data"].get("Time", []),
                             "Strokes": properties["Data"].get("Strokes", []),
                             "Depth": properties["Data"].get("Depth", [])
@@ -96,8 +105,9 @@ changed_values ={}
 
 # Calculate map center and zoom
 if latitudes and longitudes:
-    center_lat = np.mean(latitudes)
-    center_lon = np.mean(longitudes)
+    # lat = [float(item) for var in latitudes for item in latitudes if item != 'None']
+    center_lat = np.mean([float(item) for var in latitudes for item in latitudes if not item is None])
+    center_lon = np.mean([float(item) for var in longitudes for item in longitudes if not item is None])
     map_center = [center_lat, center_lon]
     zoom_level = 10  # Adjust zoom for a closer view
 else:
@@ -253,7 +263,14 @@ app.layout = html.Div([
                     'backgroundColor': '#1f4068',
                     'color': 'white',
                     'border': '2px solid white'  # Add border to the header
-                }
+                },
+                style_data_conditional=[
+                    {
+                        "if": {"filter_query": '{Field} = "Overbreak"'},  # Target Overbreak field
+                        "backgroundColor": "#808080",  # Grey out
+                        "color": "white",
+                    }
+    ]
             ),# Save Button
             html.Button("Save Changes", id="save-button", n_clicks=0, style={
                 'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
@@ -275,7 +292,6 @@ app.layout = html.Div([
         'backgroundColor': '#1f4068', 'color': 'white', 'border': 'none',
         'borderRadius': '5px'
     })
-
 
 ], style={'backgroundColor': '#193153', 'height': '250vh', 'padding': '20px', 'position': 'relative'})
 
@@ -303,7 +319,7 @@ def update_table(selected_pileid, selected_date, selected_group):
     # Custom Order for "Edit" Group
     custom_order = [
         "PileID", "LocationID", "PileLength", "MaxStroke", "OverBreak",
-        "PumpID", "PumpCalibration", "PileStatus","ProductCode","PileCode", "Comments", "Notes"
+        "PumpID", "PumpCalibration", "PileStatus","ProductCode","PileCode","WorkingGrade", "Comments", "Notes"
     ]
     if selected_group:
         filtered_df = filtered_df[filtered_df["Group"] == selected_group]
@@ -312,6 +328,21 @@ def update_table(selected_pileid, selected_date, selected_group):
         # Reorder fields based on custom_order, keeping other fields at the end
         sorted_fields = sorted(filtered_df["Field"].unique(), key=lambda x: custom_order.index(x) if x in custom_order else len(custom_order))
         filtered_df = filtered_df.set_index("Field").loc[sorted_fields].reset_index()
+        # tmp = pd.DataFrame([selected_pileid,selected_group,'PileID',selected_pileid,1,1,selected_date],columns=filtered_df.columns)
+        filtered_df.loc[0] = ['PileID',selected_pileid,selected_group,selected_pileid,filtered_df.loc[1,'latitude'],filtered_df.loc[1,'longitude'],selected_date]
+        # Add "Edited Value" column
+        # filtered_df["Original Value"] = filtered_df["Value"]
+        filtered_df["Edited Value"] = filtered_df["Value"]  # User edits this column
+        out = filtered_df[["Field", "Value", "Edited Value"]].to_dict("records")
+        out_dict = {item['Field']: item['Value'] for item in out}
+
+        # Modify OverBreak if it exists
+        if 'OverBreak' in out_dict:
+            out_dict['OverBreak'] = f"{float(out_dict['OverBreak']) * 100:.2f}%"
+
+        # Convert back to list of dictionaries
+        out = [{'Field': k, 'Value': v,'Edited Value':v} for k, v in out_dict.items()]
+        return out
 
     out = filtered_df[["Field", "Value"]].to_dict("records")
 
@@ -392,12 +423,11 @@ def update_rigid_options(selected_date,selected_jobid,selected_pilecode,selected
     Output("date-filter", "options"),
     [Input("jobid-filter", "value"),]
 )
-def update_rigid_options(selected_jobid):
-    if not selected_jobid:
-        return []
+def update_date_options(selected_jobid):
+
     filtered_df = properties_df.copy()
 
-    if selected_jobid:
+    if not selected_jobid is None:
         filtered_df = filtered_df[filtered_df['JobID'] == selected_jobid]
 
 
@@ -419,7 +449,8 @@ def update_rigid_options(selected_jobid):
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     filtered_df = properties_df.copy()
-    center = [properties_df["latitude"].mean(), properties_df["longitude"].mean()]
+
+    center = [np.nanmean(list(filter_none(properties_df["latitude"]))), np.nanmean(list(filter_none(properties_df["longitude"])))]
     zoom_level = 8
     # Apply filters
     if selected_date:
@@ -445,21 +476,22 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     markers = []
     if len(filtered_df)>0:
 
-        center = [filtered_df["latitude"].mean(), filtered_df["longitude"].mean()]  # Default center
+        center = [np.nanmean(list(filter_none(filtered_df["latitude"]))), np.nanmean(list(filter_none(filtered_df["longitude"])))]  # Default center
 
         for _, row in filtered_df.iterrows():
-            markers.append(dl.CircleMarker(
-                                center=[row["latitude"], row["longitude"]],
-                                radius=8,  # Bigger marker
-                                color="yellow",
-                                fill=True,
-                                fillColor="yellow",
-                                fillOpacity=0.7,
-                                # children=dl.Popup(feature.get("properties", {}).get("JobName", "Unknown"))
-                              children = dl.Popup(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")
-                            ))
-            if selected_pileid:  # Recenter on selected PileID
-                center = [row["latitude"], row["longitude"]]
+            if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
+                markers.append(dl.CircleMarker(
+                                    center=[row["latitude"], row["longitude"]],
+                                    radius=8,  # Bigger marker
+                                    color="yellow",
+                                    fill=True,
+                                    fillColor="yellow",
+                                    fillOpacity=0.7,
+                                    # children=dl.Popup(feature.get("properties", {}).get("JobName", "Unknown"))
+                                  children = dl.Popup(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")
+                                ))
+                if selected_pileid:  # Recenter on selected PileID
+                    center = [row["latitude"], row["longitude"]]
 
     return markers, center,zoom_level
 
@@ -487,26 +519,7 @@ def highlight_changes(prev_data, selected_group, current_data):
     return styles
 
 
-@app.callback(
-    Output("filtered-table", "columns"),
-    [Input("pileid-filter", "value"), Input("date-filter", "value"),Input("group-filter", "value")])
-def update_editable_columns(selected_pileid, selected_date,selected_group):
-    if not selected_pileid or not selected_date:
-        return []  # Return an empty table before selection
-    if not selected_group:
-        return [
-            {"name": "Field", "id": "Field", "editable": False},
-            {"name": "Value", "id": "Value", "editable": False, "presentation": "input"},
-        ]
 
-    return [
-        {"name": "Field", "id": "Field", "editable": False},
-        { "name": "Value",
-            "id": "Value",
-            "editable": selected_group == "Edit",  # Only editable if group is "Edit"
-            "presentation": "input"
-        }
-    ]
 
 
 # Callback to update the combined graph
@@ -594,9 +607,28 @@ def save_changes(n_clicks, table_data, selected_group):
 
     return ""
 
+
+@app.callback(
+    Output("filtered-table", "columns"),
+    Input("group-filter", "value")
+)
+def update_columns(selected_group):
+    if selected_group == "Edit":
+        return [
+            {"name": "Field", "id": "Field", "editable": False},
+            {"name": "Value", "id": "Value", "editable": False},
+            {"name": "Edited Value", "id": "Edited Value", "editable": True, "presentation": "input"}
+        ]
+    else:
+        return [
+            {"name": "Field", "id": "Field", "editable": False},
+            {"name": "Value", "id": "Value", "editable": False}  # No "Edited Value" column
+        ]
+
+
 # Run the app
 if __name__ == "__main__":
-    # app.run_server(debug=True)
-    app.run_server(debug=False)
+    app.run_server(debug=True)
+    # app.run_server(debug=False)
 
 #
