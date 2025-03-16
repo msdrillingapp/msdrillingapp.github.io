@@ -430,8 +430,11 @@ def update_date_options(selected_jobid):
     if not selected_jobid is None:
         filtered_df = filtered_df[filtered_df['JobID'] == selected_jobid]
 
-
-    return [{"label": str(p), "value": str(p)} for p in filtered_df["date"].dropna().unique()]
+    out = list(filtered_df["date"].dropna().unique())
+    out = [pd.to_datetime(x).date() for x in out]
+    out.sort()
+    out = [x.strftime(format='%Y-%m-%d') for x in out]
+    return [{"label": str(p), "value": str(p)} for p in out]
 
 
 # Callback to update map markers and recenter the map
