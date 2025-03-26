@@ -1,7 +1,7 @@
 Field,Group
 Project,Project 
 Owner ,Project 
-JobNo,Project 
+JobNumber,Project 
 JobName,Project 
 JobID,Project 
 Client,Project 
@@ -120,11 +120,10 @@ PileID,Edit
 LocationID,Edit
 PileLength,Edit
 MaxStroke,Edit
-OverBreak,Edit
 PumpID,Edit
 PumpCalibration,Edit
 PileStatus,Edit
-ProductCode,Edit
 PileCode,Edit
 WorkingGrade,Edit
 Comments,Edit
+Delay,Edit
