@@ -292,7 +292,7 @@ app.layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '250vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '300vh', 'padding': '20px', 'position': 'relative'})
 
 # ================================================================================================
 # ================================================================================================
@@ -756,19 +756,24 @@ def update_columns(selected_group):
 @app.callback(
     [Output("delay-label", "style"),
      Output("edit-options", "style"),
-     Output("edit-options-container", "style")],
-    Input("group-filter", "value")  # Assuming this is the dropdown that selects the group
+     Output("edit-options-container", "style"),Output("free-text-input", "style")],
+    [Input("group-filter", "value"), Input("edit-options", "value")]  # Assuming this is the dropdown that selects the group
 )
-def toggle_edit_dropdown(selected_group):
+def toggle_edit_dropdown(selected_group, selected_option):
     if selected_group == "Edit":
         visible_style = {"color": "white", "fontWeight": "bold", "marginBottom": "5px"}  # Show label
-        dropdown_style = {"width": "300px", "backgroundColor": "#1f4068", "color": "white"}  # Show dropdown
+        dropdown_style = {"display": "block", "width": "300px", "padding": "5px", "backgroundColor": "#1f4068","color": "white"}  # Show dropdown
+        input_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide input initially  # Show dropdown
         container_style = {"display": "flex", "flexDirection": "column", "alignItems": "flex-start"}  # Show container
+        if selected_option == "free_text":
+                input_style = {"display": "block", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Show input field
+                dropdown_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide dropdown
+        return visible_style, dropdown_style, container_style,input_style
     else:
         hidden_style = {"display": "none"}
-        return hidden_style, hidden_style, hidden_style  # Hide everything
+        return hidden_style, hidden_style, hidden_style ,hidden_style # Hide everything
 
-    return visible_style, dropdown_style, container_style
+    return visible_style, dropdown_style, container_style,input_style
 
 # Run the app
 if __name__ == "__main__":
