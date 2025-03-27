@@ -159,7 +159,7 @@ app.layout = html.Div([
         dl.TileLayer(),
         dl.LayerGroup(markers,id="map-markers"),
 
-    ], style={'width': '100%', 'height': '300px','align':'center','marginleft': '10px', 'display': 'flex', 'justifyContent': 'center'}),
+    ], style={'width': '100%', 'height': '400px','align':'center','marginleft': '10px', 'display': 'flex', 'justifyContent': 'center'}),
     html.Br(),
 
     # ===============================================
@@ -205,12 +205,20 @@ app.layout = html.Div([
                     {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
                 ],
                 data=[],  # Start with an empty table
+                # dropdown_conditional=[],  # Will be updated dynamically
                 filter_action="native",
                 # sort_action="native",
                 sort_action=None,  # ❌ Disable sorting
                 page_size=10,
+                style_table={
+                    'overflowX': 'auto',
+                    'overflowY': 'visible',  # Allow dropdown to expand outside the table
+                    'width': '75%',
+                    'margin': 'auto',
+                    'border': '2px solid white',
+                    'position': 'relative'  # Ensure the dropdown can break out of container
+                },
 
-                style_table={'overflowX': 'auto', 'width': '75%', 'margin': 'auto', 'border': '2px solid white'},
                 style_cell={
                     'textAlign': 'left',
                     'color': 'white',
@@ -229,9 +237,38 @@ app.layout = html.Div([
                         "if": {"filter_query": '{Field} = "Overbreak"'},  # Target Overbreak field
                         "backgroundColor": "#808080",  # Grey out
                         "color": "white",
-                    }
-    ]
-            ),# Save Button
+                    } ],
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'minHeight': '50px'  # Adjust row height to fit the dropdown
+                }
+            ),
+            html.Br(),
+            html.Div(
+                id="edit-options-container",
+                children=[
+                    html.Label("Delay",id='delay-label', style={"color": "white", "fontWeight": "bold", "marginBottom": "5px"}),
+                    dcc.Dropdown(
+                        id="edit-options",
+                        options=[
+                            {"label": "Waiting on Concrete", "value": "Waiting on Concrete"},
+                            {"label": "Site access", "value": "Site access"},
+                            {"label": "Layout", "value": "Layout"},
+                            {"label": "Enter free text", "value": "free_text"}
+                        ],
+                        placeholder="Select an option",
+                        style={"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"},
+                        className="dark-dropdown"
+                    ),
+                    dcc.Input(
+                        id="free-text-input",
+                        type="text",
+                        placeholder="Enter text",
+                        style={"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white" }  # Increased width
+                    )
+                ]),
+            # Save Button
             html.Button("Approve Status", id="save-button", n_clicks=0, style={
                 'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
                 'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
@@ -239,7 +276,9 @@ app.layout = html.Div([
             }),
 
             # Save Confirmation Message
-            html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'})
+            html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
+
+
         ],style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}),
 
 
@@ -299,13 +338,13 @@ def update_table(selected_pileid, selected_date, selected_group):
         out = filtered_df[["Field", "Value", "Edited Value"]].to_dict("records")
         out_dict = {item['Field']: item['Value'] for item in out}
 
-        # Modify OverBreak if it exists
-        if 'OverBreak' in out_dict:
-            out_dict['OverBreak'] = f"{float(out_dict['OverBreak']) * 100:.2f}%"
-
-        # Convert back to list of dictionaries
-        out = [{'Field': k, 'Value': v,'Edited Value':v} for k, v in out_dict.items()]
-        return out
+        # # Modify OverBreak if it exists
+        # if 'OverBreak' in out_dict:
+        #     out_dict['OverBreak'] = f"{float(out_dict['OverBreak']) * 100:.2f}%"
+        #
+        # # Convert back to list of dictionaries
+        # out = [{'Field': k, 'Value': v,'Edited Value':v} for k, v in out_dict.items()]
+        # return out
 
     out = filtered_df[["Field", "Value"]].to_dict("records")
 
@@ -465,7 +504,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
         zoom_level = 20
     if not selected_pileid is None:
         filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
-        zoom_level = 35
+        zoom_level = 45
     if not selected_jobid is None:
         filtered_df = filtered_df[filtered_df['JobID'] == selected_jobid]
         zoom_level = 20
@@ -552,8 +591,6 @@ def highlight_changes(prev_data, selected_group, current_data):
 
 
 
-
-
 # Callback to update the combined graph
 @app.callback(
     Output("strokes-depth-time-graph", "figure"),
@@ -618,8 +655,8 @@ def update_summary_cards(selected_pileid, selected_jobid):
     move_time = filtered_df["MoveTime"].iloc[0] if "MoveTime" in filtered_df.columns else "N/A"
     move_distance = filtered_df["MoveDistance"].iloc[0] if "MoveDistance" in filtered_df.columns else "N/A"
     delay_time = filtered_df["DelayTime"].iloc[0] if "DelayTime" in filtered_df.columns else "N/A"
-    overbreak = filtered_df["Overbreak"].iloc[0] if "Overbreak" in filtered_df.columns else "N/A"
-
+    overbreak = f"{float(filtered_df['OverBreak'].iloc[0]) * 100:.2f}%" if "OverBreak" in filtered_df.columns else "N/A"
+    # f"{float(filtered_df["OverBreak"].iloc[0]) * 100:.2f}%"
     # Count distinct PileIDs for the selected JobID
     unique_pile_count = properties_df[properties_df["JobID"] == selected_jobid]["PileID"].nunique()
 
@@ -628,27 +665,10 @@ def update_summary_cards(selected_pileid, selected_jobid):
         html.Div([html.P("⏳ Move Time"), html.H4(move_time)], style={'textAlign': 'center', 'padding': '10px'}),
         html.Div([html.P("📏 Move Distance"), html.H4(move_distance)], style={'textAlign': 'center', 'padding': '10px'}),
         html.Div([html.P("⏰ Delay Time"), html.H4(delay_time)], style={'textAlign': 'center', 'padding': '10px'}),
-        html.Div([html.P("🚧 Overbreak"), html.H4(overbreak)], style={'textAlign': 'center', 'padding': '10px'}),
+        html.Div([html.P("🚧 OverBreak"), html.H4(overbreak)], style={'textAlign': 'center', 'padding': '10px'}),
         html.Div([html.P("🔢 Piles in Job"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'})
     ]
 
-#
-# @app.callback(
-#     [Output("pileid-filter", "value"), Output("pileid-filter-top", "value")],
-#     [Input("pileid-filter", "value"), Input("pileid-filter-top", "value")]
-# )
-# def sync_pileid_filters(sidebar_value, top_value):
-#     ctx = dash.callback_context
-#     if not ctx.triggered:
-#         return dash.no_update, dash.no_update
-#
-#     # Determine which dropdown was changed
-#     changed_id = ctx.triggered[0]["prop_id"].split(".")[0]
-#
-#     if changed_id == "pileid-filter":
-#         return sidebar_value, sidebar_value
-#     else:
-#         return top_value, top_value
 
 @app.callback(
     Output("save-message", "children"),
@@ -671,20 +691,26 @@ def save_changes(n_clicks, table_data, selected_group):
 
 @app.callback(
     Output("filtered-table", "columns"),
-    Input("group-filter", "value"),prevent_initial_call=True
+    [Input("group-filter", "value")],
+    prevent_initial_call=True
 )
+# , Output("filtered-table", "dropdown_conditional")
 def update_columns(selected_group):
     if selected_group == "Edit":
-        return [
+        columns = [
             {"name": "Field", "id": "Field", "editable": False},
             {"name": "Value", "id": "Value", "editable": False},
             {"name": "Edited Value", "id": "Edited Value", "editable": True, "presentation": "input"}
         ]
+
     else:
-        return [
+        columns = [
             {"name": "Field", "id": "Field", "editable": False},
-            {"name": "Value", "id": "Value", "editable": False}  # No "Edited Value" column
+            {"name": "Value", "id": "Value", "editable": False}
         ]
+
+
+    return columns#, dropdown_conditional
 # =======================================================================================
 # @app.callback(
 #     [
@@ -706,6 +732,43 @@ def update_columns(selected_group):
 #     if n_clicks > 0:
 #         return None, None,None,None, None,None,None,None         # Reset all filters to default (empty)
 #     return dash.no_update  # Don't change anything if the button hasn't been clicked
+# ====================================================
+# Callback to show/hide dropdown and input field
+# @app.callback(
+#     [Output("edit-options", "style"),
+#      Output("free-text-input", "style")],
+#     [Input("group-filter", "value"),
+#      Input("edit-options", "value")]
+# )
+# def toggle_dropdown(selected_group, selected_option):
+#     if selected_group == "Edit":
+#         dropdown_style = {"display": "block", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Show dropdown
+#         input_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide input initially
+#
+#         if selected_option == "free_text":
+#             input_style = {"display": "block", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Show input field
+#             dropdown_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide dropdown
+#
+#         return dropdown_style, input_style
+#
+#     return {"display": "none"}, {"display": "none"}  # Hide both if group isn't "Edit"
+
+@app.callback(
+    [Output("delay-label", "style"),
+     Output("edit-options", "style"),
+     Output("edit-options-container", "style")],
+    Input("group-filter", "value")  # Assuming this is the dropdown that selects the group
+)
+def toggle_edit_dropdown(selected_group):
+    if selected_group == "Edit":
+        visible_style = {"color": "white", "fontWeight": "bold", "marginBottom": "5px"}  # Show label
+        dropdown_style = {"width": "300px", "backgroundColor": "#1f4068", "color": "white"}  # Show dropdown
+        container_style = {"display": "flex", "flexDirection": "column", "alignItems": "flex-start"}  # Show container
+    else:
+        hidden_style = {"display": "none"}
+        return hidden_style, hidden_style, hidden_style  # Hide everything
+
+    return visible_style, dropdown_style, container_style
 
 # Run the app
 if __name__ == "__main__":

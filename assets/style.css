@@ -44,3 +44,45 @@
       zoom: 1;
     }
   }
+
+  Select-menu-outer {
+    position: absolute !important;
+    z-index: 1050 !important; /* Ensures it stays on top */
+}
+
+.dash-spreadsheet-container {
+    overflow: visible !important;
+}
+
+.dash-spreadsheet {
+    overflow: visible !important;
+}
+
+/* Style the dropdown menu options */
+.Select-menu-outer, .VirtualizedSelectOption {
+    background-color: #193153 !important; /* Dark blue background for dropdown */
+    color: white !important;  /* White text for dropdown */
+}
+
+/* Highlight dropdown option when hovering */
+.VirtualizedSelectFocusedOption {
+    background-color: #1f4068 !important; /* Lighter blue for hover effect */
+}
+
+/* Style for the selected dropdown value */
+.Select-value-label {
+    color: white !important;  /* Ensure selected text is white */
+    font-weight: bold; /* Optional: Bold text for selected option */
+}
+
+/* Ensure the editable input fields (not the dropdown) retain their default styling */
+.dash-spreadsheet-container input {
+    background-color: #193153 !important;  /* Dark background for input fields */
+    color: white !important;  /* White text for input fields */
+    border: 1px solid #ccc !important;  /* Border around input for clarity */
+}
+
+/* Optional: Apply hover effect for input fields */
+.dash-spreadsheet-container input:hover {
+    background-color: #1f4068 !important;  /* Lighter background on hover */
+}
