@@ -1,4 +1,5 @@
 import dash
+from dash.exceptions import PreventUpdate
 import pandas as pd
 import dash_leaflet as dl
 import json
@@ -381,6 +382,7 @@ def update_table(selected_pileid, selected_date, selected_group):
         Output("pilestatus-filter", "value"),
         Output("piletype-filter", "value"),
         Output("productcode-filter", "value"),
+        # Output("group-filer","value")
     ],
     [
         Input("jobid-filter", "value"),
@@ -673,21 +675,49 @@ def update_summary_cards(selected_pileid, selected_jobid):
 @app.callback(
     Output("save-message", "children"),
     Input("save-button", "n_clicks"),
+    Input("pileid-filter", "value"),
     State("filtered-table", "data"),
-    State("group-filter", "value"),prevent_initial_call=True,
+    State("group-filter", "value"),
+    prevent_initial_call=True
 )
-def save_changes(n_clicks, table_data, selected_group):
+def save_changes(n_clicks, selected_pileid,table_data, selected_group):
+    ctx = dash.callback_context  # Get the trigger
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+    if triggered_id=="pileid-filter":
+        return ""
     if n_clicks > 0 and selected_group == "Edit":
         # Convert table data to a DataFrame
         df_edited = pd.DataFrame(table_data)
 
         # Save only if there is data
         if not df_edited.empty:
-            df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
+            # df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
             return "Changes saved successfully!"
 
     return ""
 
+@app.callback(
+    [Output("save-button", "style"),  # Show/Hide Save button
+     Output("save-button", "disabled")],  # Disable after clicking
+    [Input("group-filter", "value"),  # Trigger when Group changes
+     Input("save-button", "n_clicks"),  # Track Save button clicks
+     Input("pileid-filter", "value")],  # Reset on PileID change
+    [State("save-button", "disabled")],  # Keep track of the disabled state
+    prevent_initial_call=True
+)
+def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled):
+    # Show button only if "Edit" is selected
+    button_style = {"display": "block"} if selected_group == "Edit" else {"display": "none"}
+
+    # If PileID changes, re-enable the button
+    if selected_pileid:
+        return button_style, False
+
+    # Disable only after clicking the button
+    if save_clicks:
+        return button_style, True
+
+    raise PreventUpdate  # Prevent unnecessary updates
 
 @app.callback(
     Output("filtered-table", "columns"),
@@ -774,6 +804,16 @@ def toggle_edit_dropdown(selected_group, selected_option):
         return hidden_style, hidden_style, hidden_style ,hidden_style # Hide everything
 
     return visible_style, dropdown_style, container_style,input_style
+
+
+@app.callback(
+    [Output("edit-options", "value"),  # Reset Delay dropdown
+     Output("group-filter", "value")],  # Reset Group filter
+    Input("pileid-filter", "value") ,
+    prevent_initial_call=True # Trigger when PileID changes
+)
+def reset_dropdowns(selected_pileid):
+    return None, None  # Reset values
 
 # Run the app
 if __name__ == "__main__":
