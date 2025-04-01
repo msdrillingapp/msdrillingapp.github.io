@@ -8,24 +8,18 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import os
-from utility_funtions import filter_none,load_geojson_data,get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples
-
+from utility_funtions import *
+import dash_auth
+import dash_bootstrap_components as dbc
+import dash_ag_grid as dag
+from datetime import timedelta
+from plotly.subplots import make_subplots
+# Keep this out of source code repository - save in a file or a database
+VALID_USERNAME_PASSWORD_PAIRS = {
+    'hello': 'world'
+}
 
 #####################
-# Empty row
-def get_emptyrow(h='45px'):
-    """This returns an empty row of a defined height"""
-
-    emptyrow = html.Div([
-        html.Div([
-            html.Br()
-        ], className = 'col-12')
-    ],
-    className = 'row',
-    style = {'height' : h})
-
-    return emptyrow
-
 # Folder containing GeoJSON files
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
@@ -43,7 +37,6 @@ properties_df.drop(columns=['Data','UID','FileName'],inplace=True)
 melted_df = properties_df.melt(id_vars=["PileID","latitude", "longitude", "date"], var_name="Field", value_name="Value")
 # Convert non-string values to strings to avoid DataTable errors
 melted_df["Value"] = melted_df["Value"].astype(str)
-
 # Merge with Groups.csv
 merged_df = melted_df.merge(groups_df, on="Field", how="left")
 merged_df["Group"].fillna("Undefined", inplace=True)  # Ensure Group is always a string
@@ -53,6 +46,7 @@ merged_df = merged_df[filtered_columns]
 groups_list = list(merged_df["Group"].dropna().unique())
 groups_list.remove('Edit')
 groups_list.insert(0, 'Edit')
+
 # Track changed values
 changed_values ={}
 
@@ -68,25 +62,29 @@ else:
     zoom_level = 4
 
 # Create Dash app
-app = dash.Dash(__name__, external_stylesheets=["/assets/style.css"],suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=["/assets/style.css",dbc.themes.BOOTSTRAP],suppress_callback_exceptions=True)
 app.title = 'MS Drill Tracker'
 server = app.server
+# auth = dash_auth.BasicAuth(
+#     app,
+#     VALID_USERNAME_PASSWORD_PAIRS
+# )
 
 app.layout = html.Div([
+    # ============================================================
     html.Div([
         html.H1(title_text, style={'textAlign': 'left', 'color': 'white', 'flex': '1'}),
         html.Img(src="/assets/MSB.logo.JPG",
-                 style={'height': '80px', 'position': 'absolute', 'top': '10px', 'right': '20px'}
-)
+                 style={'height': '80px', 'position': 'absolute', 'top': '10px', 'right': '20px'})
     ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between'}),
-
+    html.Br(),
     # FILTERS ===================================================================
     html.Div([
         dcc.Dropdown(
                 id="jobid-filter",
                 options=[{"label": str(r), "value": str(r)} for r in properties_df["JobID"].dropna().unique()],
                 placeholder="Filter by JobID",
-                style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
             ),
 
@@ -94,40 +92,40 @@ app.layout = html.Div([
             id="date-filter",
             options=[{"label": d, "value": d} for d in sorted(properties_df["date"].unique())],
             placeholder="Select a Date",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
         dcc.Dropdown(
                 id="rigid-filter",
                 options=[{"label": str(r), "value": str(r)} for r in properties_df["RigID"].dropna().unique()],
                 placeholder="Filter by RigID",
-                style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
             ),
         dcc.Dropdown(
             id="pileid-filter",
             options=[{"label": str(p), "value": str(p)} for p in properties_df["PileID"].dropna().unique()],
             placeholder="Filter by PileID",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
 
     ], style={'marginBottom': '10px', 'display': 'flex', 'justifyContent': 'center'}),
 
-    # html.Br(),
+    # ======================================================================================
     html.Div([
         dcc.Dropdown(
             id="pilecode-filter",
             options=[{"label": str(r), "value": str(r)} for r in properties_df["PileCode"].dropna().unique()],
             placeholder="Filter by PileCode",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
         dcc.Dropdown(
             id="productcode-filter",
             options=[{"label": str(r), "value": str(r)} for r in properties_df["ProductCode"].dropna().unique()],
             placeholder="Filter by ProductCode",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
         #
@@ -135,19 +133,19 @@ app.layout = html.Div([
             id="piletype-filter",
             options=[{"label": str(r), "value": str(r)} for r in properties_df["PileType"].dropna().unique()],
             placeholder="Filter by PileType",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
         dcc.Dropdown(
             id="pilestatus-filter",
             options=[{"label": str(r), "value": str(r)} for r in properties_df["PileStatus"].dropna().unique()],
             placeholder="Filter by PileStatus",
-            style={'width': '250px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
             className="dark-dropdown"
         ),
 
-    ], style={'marginBottom': '20px', 'display': 'flex', 'justifyContent': 'center'}),
-
+    ], style={'marginBottom': '10px', 'display': 'flex', 'justifyContent': 'center'}),
+    # =====================================================================================
     # html.Button(
     #     "Reset Filters", id="reset-button", n_clicks=0, style={
     #         'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
@@ -155,12 +153,33 @@ app.layout = html.Div([
     #         'border': 'none', 'borderRadius': '5px'
     #     }
     # ),
-    # =============================MAP=================================================
-    dl.Map(id="map", center=map_center, zoom=zoom_level,zoomControl=True,  children=[
-        dl.TileLayer(),
-        dl.LayerGroup(markers,id="map-markers"),
+    # ===============================================
+    html.Div([
+        # Statistics Info Cards
+        html.Div(id="pile-summary-cards-jobid", style={
+            'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center',
+            'backgroundColor': '#193153', 'color': 'white', 'padding': '10px',
+            'borderRadius': '5px', 'marginTop': '5px'
+        }),
+    ]),
+    # =====================================================================================
+    # MAP==================================================================================
+    # =====================================================================================
+    html.Div([
+        # Map Section
+        dbc.Button("Toggle Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
+        dbc.Collapse(
+            dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
+                dl.TileLayer(),
+                dl.LayerGroup(markers, id="map-markers"),
 
-    ], style={'width': '100%', 'height': '400px','align':'center','marginleft': '10px', 'display': 'flex', 'justifyContent': 'center'}),
+            ], style={'width': '100%', 'height': '400px', 'align': 'center', 'marginleft': '10px', 'display': 'flex',
+                      'justifyContent': 'center'}),
+            id="collapse-map",
+            is_open=True
+        ),
+    ]),
+    # ======================================================
     html.Br(),
 
     # ===============================================
@@ -168,123 +187,110 @@ app.layout = html.Div([
         # Statistics Info Cards
         html.Div(id="pile-summary-cards", style={
             'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center',
-            'backgroundColor': '#1f4068', 'color': 'white', 'padding': '10px',
+            'backgroundColor': '#193153', 'color': 'white', 'padding': '10px',
             'borderRadius': '5px', 'marginTop': '10px'
         }),
     ]),
-# ===============================================
+    # ===============================================
     # Table & Chart Side by Side
     html.Div([
 
         # Graph
-        dcc.Graph(id="strokes-depth-time-graph"),
-            # ]),
-        # Table (Right)
+        # dcc.Graph(id="strokes-depth-time-graph"),
+        # Plots Section
+        dbc.Button("Show Time Plot", id="toggle-plots", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        dbc.Collapse(
+            dcc.Graph(id="time_graph", style={"height": "500px", "backgroundColor": "#193153"}),
+            id="collapse-plots",
+            is_open=False
+        ),
+        dbc.Button("Show Depth Plots", id="toggle_depth_plots", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        dbc.Collapse(
+            dcc.Graph(id="depth_graph", style={"height": "500px", "backgroundColor": "#193153"}),
+            id="collapse_depth_plots",
+            is_open=False
+        ),
 
-        html.Div([
-            html.Label("Select PileID:", style={'color': 'white'}),
-            dcc.Dropdown(
-                id="pileid-filter-top",
-                placeholder="Filter by PileID",
-                style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
-                className="dark-dropdown"
-            ),
-            # Group Filter Dropdown (Above Table)
-            html.Label("Filter by Group:", style={'color': 'white'}),
-            dcc.Dropdown(
-                id="group-filter",
-                options=[{"label": g, "value": g} for g in groups_list],
-                placeholder="Filter by Group",
-                style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
-                className="dark-dropdown"
-             ),
-            # Table
-            dash_table.DataTable(
-                id="filtered-table",
-                columns=[
-                    {"name": "Field", "id": "Field", "editable": False},
-                    {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
-                ],
-                data=[],  # Start with an empty table
-                # dropdown_conditional=[],  # Will be updated dynamically
-                filter_action="native",
-                # sort_action="native",
-                sort_action=None,  # ❌ Disable sorting
-                page_size=10,
-                style_table={
-                    'overflowX': 'auto',
-                    'overflowY': 'visible',  # Allow dropdown to expand outside the table
-                    'width': '75%',
-                    'margin': 'auto',
-                    'border': '2px solid white',
-                    'position': 'relative'  # Ensure the dropdown can break out of container
-                },
+    # ]),
+    # =======================================================================
+    # html.Div([
+        # Views Section (Main Table)
+        dbc.Button("Show Table", id="toggle-views", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        dbc.Collapse(
+            html.Div([
+                # dbc.Row([
+                #     dbc.Col(
+                        html.Label("Select PileID:", style={'color': 'white'}),
+                        dcc.Dropdown(
+                            id="pileid-filter-top",
+                            placeholder="Filter by PileID",
+                            style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
+                            className="dark-dropdown"
+                        ),
+                # ,),
+                #     dbc.Col(
+                        html.Label("Filter by Group:", style={'color': 'white'}),
+                        dcc.Dropdown(
+                            id="group-filter",
+                            options=[{"label": g, "value": g} for g in groups_list],
+                            placeholder="Filter by Group",
+                            style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
+                            className="dark-dropdown"
+                        ),
+                # ,)
+                # ]),
+                dash_table.DataTable(
+                    id="filtered-table",
+                    columns=[
+                        {"name": "Field", "id": "Field", "editable": False},
+                        {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
+                    ],
+                    data=[],
+                    filter_action="none",
+                    sort_action=None,
+                    page_size=10,
+                    style_table={'overflowX': 'auto', 'width': '75%', 'margin': 'auto', 'border': '1px grey'},#
+                    style_cell={'textAlign': 'left', 'color': 'white', 'backgroundColor': '#193153'},
+                    style_header={'fontWeight': 'bold', 'backgroundColor': '#1f4068', 'color': 'white'}
+                ),
+                html.Br(),
+                html.Div(
+                    id="edit-options-container",
+                    children=[
+                        html.Label("Delay", id='delay-label', style={"color": "white", "fontWeight": "bold"}),
+                        dcc.Dropdown(
+                            id="edit-options",
+                            options=[
+                                {"label": "Waiting on Concrete", "value": "Waiting on Concrete"},
+                                {"label": "Site access", "value": "Site access"},
+                                {"label": "Layout", "value": "Layout"},
+                                {"label": "Enter free text", "value": "free_text"}],
+                            placeholder="Select an option",
+                            style={"display": "none", "width": "300px"},
+                            className="dark-dropdown"
+                        ),
+                        dcc.Input(
+                            id="free-text-input",
+                            type="text",
+                            placeholder="Enter text",
+                            style={"display": "none", "width": "300px"}
+                        )
+                    ]
+                ),
+                html.Button("Approve Status", id="save-button", n_clicks=0, style={
+                    'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
+                    'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
+                    'border': 'none', 'borderRadius': '5px'
+                }),
+                html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
+            ]),
+            id="collapse-views",
+            is_open=False
+        ),
 
-                style_cell={
-                    'textAlign': 'left',
-                    'color': 'white',
-                    'backgroundColor': '#193153',
-                    'border': '1px solid white',  # Add borders to each cell
-                    'padding': '8px'
-                },
-                style_header={
-                    'fontWeight': 'bold',
-                    'backgroundColor': '#1f4068',
-                    'color': 'white',
-                    'border': '2px solid white'  # Add border to the header
-                },
-                style_data_conditional=[
-                    {
-                        "if": {"filter_query": '{Field} = "Overbreak"'},  # Target Overbreak field
-                        "backgroundColor": "#808080",  # Grey out
-                        "color": "white",
-                    } ],
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto',
-                    'minHeight': '50px'  # Adjust row height to fit the dropdown
-                }
-            ),
-            html.Br(),
-            html.Div(
-                id="edit-options-container",
-                children=[
-                    html.Label("Delay",id='delay-label', style={"color": "white", "fontWeight": "bold", "marginBottom": "5px"}),
-                    dcc.Dropdown(
-                        id="edit-options",
-                        options=[
-                            {"label": "Waiting on Concrete", "value": "Waiting on Concrete"},
-                            {"label": "Site access", "value": "Site access"},
-                            {"label": "Layout", "value": "Layout"},
-                            {"label": "Enter free text", "value": "free_text"}
-                        ],
-                        placeholder="Select an option",
-                        style={"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"},
-                        className="dark-dropdown"
-                    ),
-                    dcc.Input(
-                        id="free-text-input",
-                        type="text",
-                        placeholder="Enter text",
-                        style={"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white" }  # Increased width
-                    )
-                ]),
-            # Save Button
-            html.Button("Approve Status", id="save-button", n_clicks=0, style={
-                'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
-                'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
-                'border': 'none', 'borderRadius': '5px'
-            }),
-
-            # Save Confirmation Message
-            html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
-
-
-        ],style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}),
-
-
-    ], style={'display': 'flex', 'gap': '20px', 'justifyContent': 'center', 'padding': '20px'}),
-
+        ]),
+    # ,style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}
+    # ===============================================================================================
     # Scroll to Top Button
     html.Button("⬆ Scroll to Top", id="scroll-top-button", n_clicks=0, style={
         'position': 'fixed', 'bottom': '20px', 'right': '20px', 'zIndex': '1000',
@@ -293,7 +299,7 @@ app.layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '300vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '400vh', 'padding': '20px', 'position': 'relative'})
 
 # ================================================================================================
 # ================================================================================================
@@ -323,7 +329,7 @@ def update_table(selected_pileid, selected_date, selected_group):
         "PumpID", "PumpCalibration", "PileStatus","PileCode","WorkingGrade", "Comments", "Delay"
     ]
     # "ProductCode""OverBreak",
-    if selected_group:
+    if not selected_group is None:
         filtered_df = filtered_df[filtered_df["Group"] == selected_group]
 
     if selected_group == "Edit":
@@ -346,14 +352,15 @@ def update_table(selected_pileid, selected_date, selected_group):
         # # Convert back to list of dictionaries
         # out = [{'Field': k, 'Value': v,'Edited Value':v} for k, v in out_dict.items()]
         # return out
-
-    out = filtered_df[["Field", "Value"]].to_dict("records")
-
-    out_dict = {item['Field']: item['Value'] for item in out}
+    else:
+        out = filtered_df[["Field", "Value"]].to_dict("records")
+        out_dict = {item['Field']: item['Value'] for item in out}
 
     # Modify OverBreak if it exists
     if 'OverBreak' in out_dict:
-        out_dict['OverBreak'] = f"{float(out_dict['OverBreak']) * 100:.2f}%"
+        overbreak = float(out_dict['OverBreak'])
+        overbreak = overbreak* 100-100.0
+        out_dict['OverBreak'] = f"{overbreak :.2f}%"
 
     # Convert back to list of dictionaries
     out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
@@ -595,7 +602,7 @@ def highlight_changes(prev_data, selected_group, current_data):
 
 # Callback to update the combined graph
 @app.callback(
-    Output("strokes-depth-time-graph", "figure"),
+    Output("time_graph", "figure"),
     [Input("pileid-filter", "value"), Input("date-filter", "value")],
     State("jobid-filter","value")
 )
@@ -608,7 +615,11 @@ def update_combined_graph(selected_pileid, selected_date,selected_jobid):
 
     # Create figure with two y-axes
     fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
-
+    time_interval = pd.to_datetime(pile_info["Time"]).to_pydatetime()
+    minT = min(time_interval)-timedelta(minutes=2)
+    maxT = max(time_interval)+timedelta(minutes=2)
+    minT=minT.strftime(format='%Y-%m-%d %H:%M:%S')
+    maxT = maxT.strftime(format='%Y-%m-%d %H:%M:%S')
     # Add Depth vs Time (Secondary Y-Axis)
     fig.add_scatter(
         x=pile_info["Time"],
@@ -633,20 +644,120 @@ def update_combined_graph(selected_pileid, selected_date,selected_jobid):
     # Update layout for dual y-axes and dark background
     fig.update_layout(
         xaxis_title="Time",
-        yaxis=dict(title="Depth", side="left", showgrid=False),
+        yaxis=dict(title="Depth", side="left", showgrid=True),
         yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
-        font=dict(color="white")
+        font=dict(color="white"),
+        xaxis_range=[minT, maxT],
+        # yaxis_range = [min(pile_info['Depth'])-5,max(pile_info['Depth'])+5],
+        # yaxis2_range=[min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
+
     )
+    # fig.update_layout(
+    #     xaxis=dict(
+    #         showgrid=True,  # Show major grid lines
+    #         gridcolor='lightgrey',  # Major grid color
+    #         gridwidth=1,  # Major grid thickness
+    #         tickmode='linear',  # Ensure ticks follow a linear pattern
+    #         dtick=1,  # Set major grid spacing
+    #         minor=dict(
+    #             tickmode='linear',
+    #             dtick=0.5,  # Set minor grid spacing (smaller than major)
+    #             gridcolor='lightblue',  # Lighter color for minor grid
+    #             gridwidth=0.5  # Thinner minor grid
+    #         )
+    #     ),
+    #     yaxis=dict(
+    #         showgrid=True,
+    #         gridcolor='lightgrey',
+    #         gridwidth=1,
+    #         tickmode='linear',
+    #         dtick=5,  # Major tick spacing
+    #         minor=dict(
+    #             tickmode='linear',
+    #             dtick=2.5,  # Minor tick spacing
+    #             gridcolor='lightblue',
+    #             gridwidth=0.5
+    #         )
+    #     )
+    # )
+    # fig.update_yaxes(range=[min(pile_info['Depth'])-5,max(pile_info['Depth'])+5])
 
     return fig
 
 @app.callback(
-    Output("pile-summary-cards", "children"),
-    [Input("pileid-filter", "value"), Input("jobid-filter", "value")]
+    Output("depth_graph", "figure"),
+    [Input("pileid-filter", "value"), Input("date-filter", "value")],
+    State("jobid-filter","value")
 )
-def update_summary_cards(selected_pileid, selected_jobid):
+def update_depth_graph(selected_pileid, selected_date,selected_jobid):
+    if not selected_pileid or selected_pileid not in pile_data or selected_date not in pile_data[selected_pileid]:
+        return go.Figure(
+            layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) # Dark background even if empty
+
+    pile_info = pile_data[selected_pileid][selected_date]
+
+    # Create figure with two y-axes
+    # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    minD = min(pile_info['Depth'])-5
+    maxD = max(pile_info['Depth'])+5
+    # ================================================================================
+    # Create subplots with shared y-axis
+    fig1 = make_subplots(rows=1, cols=5, shared_yaxes=True,
+                        subplot_titles=("Penetration Rate", "Rotary Head Pressure", "Pulldown", "Rotation"))
+
+    # Add traces
+    increasing_PR,increasing_D,decreasing_PR,decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines',line=dict(color='red', width=2), name='UP'), row=1,col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),name='DOWN'), row=1, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
+    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False),row=1, col=2)
+    fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False),row=1, col=2)
+    # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
+    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False), row=1,col=3)
+    fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False), row=1,col=3)
+    # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
+    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False), row=1, col=4)
+    fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False), row=1, col=4)
+    # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
+
+    # Update layout for dual y-axes and dark background
+    fig1.update_layout(
+        yaxis_title="Depth (ft)",
+        # yaxis=dict(title="Depth", side="left", showgrid=False),
+        # yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font=dict(color="white"),
+        # yaxis_range=[minD, maxD]
+    )
+    # fig1.update_layout(
+    #     legend=dict(
+    #         orientation="h",  # Horizontal legend
+    #         yanchor="top",
+    #         y=-0.2,  # Position below the chart
+    #         xanchor="center",
+    #         x=0.5
+    #     ),
+    #     # height=600, width=800
+    # )
+    fig1.update_yaxes(range=[minD, maxD])
+    tils = ['(ft/min)','(bar)','(tons)','(rpm)']
+    for i in range(0, 4):
+        fig1.update_xaxes(title_text=tils[i] , row=1, col=i+1)
+
+    return fig1
+
+@app.callback(
+    Output("pile-summary-cards", "children"),
+    [Input("pileid-filter", "value"), Input("jobid-filter", "value")],
+    State('date-filter','value')
+)
+def update_summary_cards(selected_pileid, selected_jobid,selected_date):
     if not selected_pileid or not selected_jobid:
         return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
 
@@ -656,20 +767,128 @@ def update_summary_cards(selected_pileid, selected_jobid):
     # Extract statistics
     move_time = filtered_df["MoveTime"].iloc[0] if "MoveTime" in filtered_df.columns else "N/A"
     move_distance = filtered_df["MoveDistance"].iloc[0] if "MoveDistance" in filtered_df.columns else "N/A"
+    move_distance =round(move_distance,2)
     delay_time = filtered_df["DelayTime"].iloc[0] if "DelayTime" in filtered_df.columns else "N/A"
-    overbreak = f"{float(filtered_df['OverBreak'].iloc[0]) * 100:.2f}%" if "OverBreak" in filtered_df.columns else "N/A"
+    if "OverBreak" in filtered_df.columns:
+        overbreak = float(filtered_df['OverBreak'].iloc[0])
+        overbreak = overbreak* 100 - 100.0
+        overbreak = f"{overbreak :.2f}%"
+    else:
+        "N/A"
+    # overbreak = f"{float(filtered_df['OverBreak'].iloc[0]) * 100:.2f}%" if "OverBreak" in filtered_df.columns else "N/A"
     # f"{float(filtered_df["OverBreak"].iloc[0]) * 100:.2f}%"
     # Count distinct PileIDs for the selected JobID
+    # unique_pile_count = properties_df[properties_df["JobID"] == selected_jobid]["PileID"].nunique()
+    title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
+
+    # Create info cards
+    return [html.Div([
+    html.H5(title),
+    dbc.Row([
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.P("⏳ Move Time", className="card-title"),
+                    html.H4(move_time, className="card-text")
+                ]), className="mb-3"
+            ), width=3
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.P("📐Distance", className="card-title"),
+                    html.H4(move_distance, className="card-text")
+                ]), className="mb-3"
+            ), width=3
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.P("⏰ Delay Time", className="card-title"),
+                    html.H4(delay_time, className="card-text")
+                ]), className="mb-3"
+            ), width=3
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.P("🚧 OverBreak", className="card-title"),
+                    html.H4(overbreak, className="card-text")
+                ]), className="mb-3"
+            ), width=3
+        ),
+    ], className="g-3")
+], style={'padding': '20px'})
+        # html.Div([html.P("⏳ Move Time"), html.H4(move_time)], style={'textAlign': 'center', 'padding': '10px'}),
+        # html.Div([html.P("📏 Move Distance"), html.H4(move_distance)], style={'textAlign': 'center', 'padding': '10px'}),
+        # html.Div([html.P("⏰ Delay Time"), html.H4(delay_time)], style={'textAlign': 'center', 'padding': '10px'}),
+        # html.Div([html.P("🚧 OverBreak"), html.H4(overbreak)], style={'textAlign': 'center', 'padding': '10px'}),
+        # html.Div([html.P("🔢 Piles in Job"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'})
+    ]
+
+@app.callback(
+    Output("pile-summary-cards-jobid", "children"),
+    [Input("jobid-filter", "value"),
+     Input("date-filter", "value"),
+     Input("rigid-filter", "value"),
+     # Input("pileid-filter", "value"),
+     Input('pilecode-filter', "value"),
+     Input('pilestatus-filter', "value"),
+     Input('piletype-filter', "value"),
+     Input('productcode-filter', "value")
+     ]
+)
+def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selected_pilecode, selected_pilestatus,selected_piletype,selected_productcode):
+    if not selected_jobid:
+        return html.Div("Select a JobID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
+
+    # Filter data for the selected PileID
+    filtered_df = properties_df[properties_df["JobID"] == selected_jobid]
+
+
+    if not selected_date is None:
+        filtered_df=filtered_df[filtered_df['date']==selected_date]
+    if not selected_rigid is None:
+        filtered_df = filtered_df[filtered_df['RigID'] == selected_rigid]
+    if not selected_pilecode is None:
+        filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
+    if not selected_pilestatus is None:
+        filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
+    if not selected_pilestatus is None:
+        filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
+    if not selected_piletype is None:
+        filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
+    if not selected_productcode is None:
+        filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
+
+    # Extract statistics
     unique_pile_count = properties_df[properties_df["JobID"] == selected_jobid]["PileID"].nunique()
+    unique_pile_count_filters = filtered_df['PileID'].nunique()
 
     # Create info cards
     return [
-        html.Div([html.P("⏳ Move Time"), html.H4(move_time)], style={'textAlign': 'center', 'padding': '10px'}),
-        html.Div([html.P("📏 Move Distance"), html.H4(move_distance)], style={'textAlign': 'center', 'padding': '10px'}),
-        html.Div([html.P("⏰ Delay Time"), html.H4(delay_time)], style={'textAlign': 'center', 'padding': '10px'}),
-        html.Div([html.P("🚧 OverBreak"), html.H4(overbreak)], style={'textAlign': 'center', 'padding': '10px'}),
-        html.Div([html.P("🔢 Piles in Job"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'})
-    ]
+        dbc.Row([
+                    dbc.Col(
+                        dbc.Card(
+                            dbc.CardBody([
+                                html.P("🔢 Piles in JobID: "+str(unique_pile_count), className="card-title"),
+                                # html.H4(unique_pile_count, className="card-text")
+                            ]), className="mb-3"
+                        ), width=5
+                    ),
+                    dbc.Col(
+                        dbc.Card(
+                            dbc.CardBody([
+                                html.P("🔢 Piles count with Filters: "+str(unique_pile_count_filters), className="card-title"),
+                                # html.H4(unique_pile_count_filters, className="card-text")
+                            ]), className="mb-3"
+                        ), width=7
+                    )
+
+                ], style = {'padding': '20px'})]
+        # html.Div([html.P("🔢 Piles in JobID"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'}),
+        # html.Div([html.P("🔢 Piles count with Filters"), html.H4(unique_pile_count_filters)],style={'textAlign': 'center', 'padding': '10px'})
+
 
 
 @app.callback(
@@ -815,9 +1034,61 @@ def toggle_edit_dropdown(selected_group, selected_option):
 def reset_dropdowns(selected_pileid):
     return None, None  # Reset values
 
+
+# Callbacks to toggle each collapsible section
+@app.callback(
+    Output("collapse-map", "is_open"),
+    [Input("toggle-map", "n_clicks")],
+    [State("collapse-map", "is_open")]
+)
+def toggle_map(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("collapse-plots", "is_open"),
+    [Input("toggle-plots", "n_clicks")],
+    [State("collapse-plots", "is_open")]
+)
+def toggle_plots(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("collapse_depth_plots", "is_open"),
+    [Input("toggle_depth_plots", "n_clicks")],
+    [State("collapse_depth_plots", "is_open")]
+)
+def toggle_plots(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
+    Output("collapse-views", "is_open"),
+    [Input("toggle-views", "n_clicks")],
+    [State("collapse-views", "is_open")]
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+# @app.callback(
+#     Output("collapse-pilelist", "is_open"),
+#     [Input("toggle-pilelist", "n_clicks")],
+#     [State("collapse-pilelist", "is_open")]
+# )
+# def toggle_pilelist(n_clicks, is_open):
+#     if n_clicks:
+#         return not is_open
+#     return is_open
+
 # Run the app
 if __name__ == "__main__":
-    # app.run_server(debug=True)
-    app.run_server(debug=False)
+    app.run(debug=True)
+    # app.run_server(debug=False)
 
 #

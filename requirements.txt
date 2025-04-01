@@ -6,3 +6,5 @@ dash-leaflet
 dash-table
 pandas
 gunicorn
+dash_bootstrap_components
+dash_auth

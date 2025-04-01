@@ -3,6 +3,7 @@ import pandas as pd
 import dash_leaflet as dl
 import json
 import os
+from dash import html
 
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
@@ -60,7 +61,7 @@ def load_geojson_data():
                                     dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
                             )
 
-                        elif pile_code.lower() ==  "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
+                        elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
                             marker = dl.Rectangle(
                                 bounds=[(lat - 0.0001, lon - 0.0001),
                                         (lat + 0.0001, lon + 0.0001)],
@@ -97,11 +98,16 @@ def load_geojson_data():
                         pile_data.setdefault(pile_id, {})[properties['date']] = {
                             "Time": properties["Data"].get("Time", []),
                             "Strokes": properties["Data"].get("Strokes", []),
-                            "Depth": properties["Data"].get("Depth", [])
+                            "Depth": properties["Data"].get("Depth", []),
+                            'RotaryHeadPressure':properties['Data'].get('RotaryHeadPressure',[]),
+                            'Rotation':properties['Data'].get('Rotation',[]),
+                            'PenetrationRate': properties['Data'].get('PenetrationRate', []),
+                            'Pulldown': properties['Data'].get('Pulldown', []),
+                            'Torque': properties['Data'].get('Torque', []),
+
                         }
-
                     all_data.append(properties)
-
+    # dict_keys(['Time', 'Depth', 'PConcrete', 'RotaryHeadPressure', 'Rotation', 'PenetrationRate', 'Pulldown', 'Strokes', 'Torque', 'DrillDirection'])
     return pd.DataFrame(all_data), pile_data,latitudes,longitudes,markers
 
 
@@ -139,3 +145,33 @@ def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes
 
     # Finally, return the zoom level and the associated boundary-box center coordinates
     return zoom, b_box['center']
+
+
+def get_emptyrow(h='45px'):
+    """This returns an empty row of a defined height"""
+
+    emptyrow = html.Div([
+        html.Div([
+            html.Br()
+        ], className = 'col-12')
+    ],
+    className = 'row',
+    style = {'height' : h})
+
+    return emptyrow
+
+
+def indrease_decrease_split(x,y):
+    increasing_x = []
+    increasing_y = []
+    decreasing_x = []
+    decreasing_y = []
+    for i in range(1, len(y)):
+        if y[i] > y[i - 1]:
+            increasing_x.append(x[i])
+            increasing_y.append(y[i])
+        else:
+            decreasing_x.append(x[i])
+            decreasing_y.append(y[i])
+
+    return increasing_x,increasing_y,decreasing_x,decreasing_y

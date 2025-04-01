@@ -86,3 +86,17 @@
 .dash-spreadsheet-container input:hover {
     background-color: #1f4068 !important;  /* Lighter background on hover */
 }
+
+
+.mb-2 {
+    background-color: #f7b500 !important;
+    color: black !important;
+    border: 2px solid #f7b500 !important;
+    font-weight: bold !important;  /* Make text bold */
+}
+
+.mb-3 {background-color: #1f4068 !important;
+    color: white !important;
+    border: 2px solid #1f4068 !important;
+     white-space: nowrap;
+     }
