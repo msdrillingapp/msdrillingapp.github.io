@@ -11,7 +11,7 @@ import os
 from utility_funtions import *
 import dash_auth
 import dash_bootstrap_components as dbc
-import dash_ag_grid as dag
+# import dash_ag_grid as dag
 from datetime import timedelta
 from plotly.subplots import make_subplots
 # Keep this out of source code repository - save in a file or a database
