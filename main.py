@@ -299,7 +299,7 @@ app.layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '400vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '450vh', 'padding': '20px', 'position': 'relative'})
 
 # ================================================================================================
 # ================================================================================================
