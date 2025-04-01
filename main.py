@@ -16,7 +16,7 @@ from datetime import timedelta
 from plotly.subplots import make_subplots
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
-    'hello': 'world'
+    'Dennis': 'Meara'
 }
 
 #####################
@@ -65,10 +65,10 @@ else:
 app = dash.Dash(__name__, external_stylesheets=["/assets/style.css",dbc.themes.BOOTSTRAP],suppress_callback_exceptions=True)
 app.title = 'MS Drill Tracker'
 server = app.server
-# auth = dash_auth.BasicAuth(
-#     app,
-#     VALID_USERNAME_PASSWORD_PAIRS
-# )
+auth = dash_auth.BasicAuth(
+    app,
+    VALID_USERNAME_PASSWORD_PAIRS
+)
 
 app.layout = html.Div([
     # ============================================================
