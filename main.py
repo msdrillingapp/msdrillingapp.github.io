@@ -1,18 +1,21 @@
 import dash
-from dash.exceptions import PreventUpdate
 import pandas as pd
-import dash_leaflet as dl
-import json
+from dash.exceptions import PreventUpdate
+# import pandas as pd
+# import dash_leaflet as dl
+# import json
+# import numpy as np
+
 from dash import dcc, html, Output, Input, ctx, dash_table,callback_context,MATCH, State,ClientsideFunction
-import numpy as np
+
 import plotly.express as px
 import plotly.graph_objects as go
 import os
 from utility_funtions import *
 import dash_auth
 import dash_bootstrap_components as dbc
-# import dash_ag_grid as dag
-from datetime import timedelta
+import dash_ag_grid as dag
+from datetime import timedelta, datetime
 from plotly.subplots import make_subplots
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
@@ -181,6 +184,41 @@ app.layout = html.Div([
     ]),
     # ======================================================
     html.Br(),
+# =====================================================================================
+    html.Div([
+        # Map Section
+        dbc.Button("Toggle Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
+        dbc.Collapse(
+            [
+                dag.AgGrid(
+                    id="pilelist-table",
+                    columnDefs=[
+                        {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True},
+                        {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True,
+                         "editable": True},
+                        {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,
+                         "editable": True},
+                        {"headerName": "OverBreak", "field": "OverBreak", "sortable": True, "filter": True,
+                         "editable": True},
+                        {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True,
+                         "editable": True},
+                    ],
+                    rowData=[],  # Initially empty
+                    defaultColDef={"resizable": True, "sortable": True, "filter": True, "editable": True},
+                    className="ag-theme-alpine-dark",
+                ),
+                # Print Button
+                html.Button("Download Pile List", id="btn_download", n_clicks=0),
+                dcc.Download(id="download-csv")
+            ],
+            id="collapse-pilelist",
+            is_open=False
+        ),
+
+
+    ], style={"backgroundColor": "#193153", "padding": "20px"}),
+    # ======================================================
+    html.Br(),
 
     # ===============================================
     html.Div([
@@ -234,6 +272,7 @@ app.layout = html.Div([
                             id="group-filter",
                             options=[{"label": g, "value": g} for g in groups_list],
                             placeholder="Filter by Group",
+                            value='Edit',
                             style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
                             className="dark-dropdown"
                         ),
@@ -299,7 +338,7 @@ app.layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '450vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 # ================================================================================================
 # ================================================================================================
@@ -366,6 +405,65 @@ def update_table(selected_pileid, selected_date, selected_group):
     out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
 
     return out
+
+@app.callback(
+    Output("pilelist-table", "rowData"),
+    [Input("jobid-filter", "value"),
+     Input("date-filter", "value"),
+    Input("rigid-filter", "value")
+     ],prevent_initial_call=True,
+)
+def update_table(selected_jobid, selected_date,selected_rigid):
+    if not selected_jobid or not selected_date:
+        return []  # Return an empty table before selection
+    filtered_df = properties_df.copy()
+    # Filter DataFrame based on selected PileID and Date
+    filtered_df = filtered_df[(filtered_df["JobID"] == selected_jobid)]
+    if not selected_date is None:
+        filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
+    if not selected_rigid is None:
+        filtered_df = filtered_df[(filtered_df["RigID"] == selected_rigid)]
+
+        # Custom Order for "Edit" Group
+    columns = [
+        "PileID","Depth", "MaxStroke", "PileStatus","PileCode", "Comments"
+    ]
+    summary_data = []
+    for _, row in filtered_df.iterrows():
+        pile_id = row["PileID"]
+
+        # Retrieve Depth & Strokes from pile_data
+        if pile_id in pile_data and selected_date in pile_data[pile_id]:
+            depth_values = pile_data[pile_id][selected_date]["Depth"]
+            strokes_values = pile_data[pile_id][selected_date]["Strokes"]
+
+            min_depth = min(depth_values) if depth_values else None
+            max_strokes = max(strokes_values) if strokes_values else None
+        else:
+            min_depth = None
+            max_strokes = None
+
+        dict_data = {
+            "PileID": pile_id,
+            "MaxStrokes": max_strokes,
+            "MinDepth": min_depth,
+            "OverBreak": f"{(row['OverBreak']-1) * 100:.2f}%",
+            "Comments": row["Comments"]
+        }
+        summary_data.append(dict_data)
+    # out = filtered_df[columns].to_dict("records")
+    # out_dict = {item['Field']: item['Value'] for item in out}
+
+    # Modify OverBreak if it exists
+    # if 'OverBreak' in out_dict:
+    #     overbreak = float(out_dict['OverBreak'])
+    #     overbreak = overbreak* 100-100.0
+    #     out_dict['OverBreak'] = f"{overbreak :.2f}%"
+    #
+    # # Convert back to list of dictionaries
+    # out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
+
+    return summary_data
 
 
 # =================================================================================================
@@ -871,7 +969,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                     dbc.Col(
                         dbc.Card(
                             dbc.CardBody([
-                                html.P("🔢 Piles in JobID: "+str(unique_pile_count), className="card-title"),
+                                html.P("🔢 # Piles: "+str(unique_pile_count), className="card-title"),
                                 # html.H4(unique_pile_count, className="card-text")
                             ]), className="mb-3"
                         ), width=5
@@ -879,7 +977,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                     dbc.Col(
                         dbc.Card(
                             dbc.CardBody([
-                                html.P("🔢 Piles count with Filters: "+str(unique_pile_count_filters), className="card-title"),
+                                html.P("🔢 # Piles with Filters: "+str(unique_pile_count_filters), className="card-title"),
                                 # html.H4(unique_pile_count_filters, className="card-text")
                             ]), className="mb-3"
                         ), width=7
@@ -1076,15 +1174,31 @@ def toggle_views(n_clicks, is_open):
         return not is_open
     return is_open
 
-# @app.callback(
-#     Output("collapse-pilelist", "is_open"),
-#     [Input("toggle-pilelist", "n_clicks")],
-#     [State("collapse-pilelist", "is_open")]
-# )
-# def toggle_pilelist(n_clicks, is_open):
-#     if n_clicks:
-#         return not is_open
-#     return is_open
+#
+@app.callback(
+    Output("collapse-pilelist", "is_open"),
+    [Input("toggle-pilelist", "n_clicks")],
+    [State("collapse-pilelist", "is_open")]
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+
+@app.callback(
+    Output("download-csv", "data"),
+    Input("btn_download", "n_clicks"),
+    State("pilelist-table","rowData"),
+    prevent_initial_call=True
+)
+def download_csv(n_clicks,data):
+    if n_clicks:
+        # Convert DataFrame to CSV in memory
+        df = pd.DataFrame(data)
+        csv_string = df.to_csv(index=False, encoding='utf-8')
+        return dict(content=csv_string, filename=f"PileList_data_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+
 
 # Run the app
 if __name__ == "__main__":
