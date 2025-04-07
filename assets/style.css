@@ -89,15 +89,15 @@
 
 
 .mb-2 {
-    background-color: #f7b500 !important;
-    color: black !important;
-    border: 2px solid #f7b500 !important;
+    background-color: black !important;
+    color: white !important;
+     border: 2px solid black !important;
     font-weight: bold !important;  /* Make text bold */
 }
 
-.mb-3 {background-color: #1f4068 !important;
+.mb-3 {background-color: #193153  !important;
     color: white !important;
-    border: 2px solid #1f4068 !important;
+    border: 2px solid #193153 !important;
      white-space: nowrap;
      }
 
@@ -111,7 +111,9 @@
     --ag-header-background-color: #1f4068!important;
     --ag-header-cell-hover-background-color: #c7c4bf;
 }
-
+.ag-theme-alpine-dark.compact {
+    --ag-grid-size: 3px;
+}
 /* change the font style of a single UI component
 .ag-theme-alpine .ag-header-cell-label {
     font-style: italic !important;

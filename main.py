@@ -17,6 +17,7 @@ import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 from datetime import timedelta, datetime
 from plotly.subplots import make_subplots
+from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
     'Dennis': 'Meara'
@@ -48,7 +49,7 @@ filtered_columns = ["PileID", "Group", "Field", "Value", "latitude", "longitude"
 merged_df = merged_df[filtered_columns]
 groups_list = list(merged_df["Group"].dropna().unique())
 groups_list.remove('Edit')
-groups_list.insert(0, 'Edit')
+# groups_list.insert(0, 'Edit')
 
 # Track changed values
 changed_values ={}
@@ -65,97 +66,26 @@ else:
     zoom_level = 4
 
 # Create Dash app
-app = dash.Dash(__name__, external_stylesheets=["/assets/style.css",dbc.themes.BOOTSTRAP],suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=["/assets/style.css",dbc.themes.BOOTSTRAP],suppress_callback_exceptions=True,
+                meta_tags=[{'name': 'viewport',
+                            'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}])
 app.title = 'MS Drill Tracker'
 server = app.server
 auth = dash_auth.BasicAuth(
     app,
     VALID_USERNAME_PASSWORD_PAIRS
 )
-
+flts = get_filters(properties_df)
+pilelist =get_pilelist()
+header = get_header()
+filtered_table = get_filtered_table()
 app.layout = html.Div([
     # ============================================================
-    html.Div([
-        html.H1(title_text, style={'textAlign': 'left', 'color': 'white', 'flex': '1'}),
-        html.Img(src="/assets/MSB.logo.JPG",
-                 style={'height': '80px', 'position': 'absolute', 'top': '10px', 'right': '20px'})
-    ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between'}),
+    header,
     html.Br(),
     # FILTERS ===================================================================
-    html.Div([
-        dcc.Dropdown(
-                id="jobid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["JobID"].dropna().unique()],
-                placeholder="Filter by JobID",
-                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-                className="dark-dropdown"
-            ),
+    flts,
 
-        dcc.Dropdown(
-            id="date-filter",
-            options=[{"label": d, "value": d} for d in sorted(properties_df["date"].unique())],
-            placeholder="Select a Date",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-        dcc.Dropdown(
-                id="rigid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["RigID"].dropna().unique()],
-                placeholder="Filter by RigID",
-                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-                className="dark-dropdown"
-            ),
-        dcc.Dropdown(
-            id="pileid-filter",
-            options=[{"label": str(p), "value": str(p)} for p in properties_df["PileID"].dropna().unique()],
-            placeholder="Filter by PileID",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-
-    ], style={'marginBottom': '10px', 'display': 'flex', 'justifyContent': 'center'}),
-
-    # ======================================================================================
-    html.Div([
-        dcc.Dropdown(
-            id="pilecode-filter",
-            options=[{"label": str(r), "value": str(r)} for r in properties_df["PileCode"].dropna().unique()],
-            placeholder="Filter by PileCode",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-        dcc.Dropdown(
-            id="productcode-filter",
-            options=[{"label": str(r), "value": str(r)} for r in properties_df["ProductCode"].dropna().unique()],
-            placeholder="Filter by ProductCode",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-        #
-        dcc.Dropdown(
-            id="piletype-filter",
-            options=[{"label": str(r), "value": str(r)} for r in properties_df["PileType"].dropna().unique()],
-            placeholder="Filter by PileType",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-        dcc.Dropdown(
-            id="pilestatus-filter",
-            options=[{"label": str(r), "value": str(r)} for r in properties_df["PileStatus"].dropna().unique()],
-            placeholder="Filter by PileStatus",
-            style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
-            className="dark-dropdown"
-        ),
-
-    ], style={'marginBottom': '10px', 'display': 'flex', 'justifyContent': 'center'}),
-    # =====================================================================================
-    # html.Button(
-    #     "Reset Filters", id="reset-button", n_clicks=0, style={
-    #         'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
-    #         'cursor': 'pointer', 'backgroundColor': '#dc3545', 'color': 'white',
-    #         'border': 'none', 'borderRadius': '5px'
-    #     }
-    # ),
     # ===============================================
     html.Div([
         # Statistics Info Cards
@@ -170,7 +100,7 @@ app.layout = html.Div([
     # =====================================================================================
     html.Div([
         # Map Section
-        dbc.Button("Toggle Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
+        dbc.Button("Show Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
         dbc.Collapse(
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
                 dl.TileLayer(),
@@ -185,40 +115,10 @@ app.layout = html.Div([
     # ======================================================
     html.Br(),
 # =====================================================================================
-    html.Div([
-        # Map Section
-        dbc.Button("Toggle Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
-        dbc.Collapse(
-            [
-                dag.AgGrid(
-                    id="pilelist-table",
-                    columnDefs=[
-                        {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True},
-                        {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True,
-                         "editable": True},
-                        {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,
-                         "editable": True},
-                        {"headerName": "OverBreak", "field": "OverBreak", "sortable": True, "filter": True,
-                         "editable": True},
-                        {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True,
-                         "editable": True},
-                    ],
-                    rowData=[],  # Initially empty
-                    defaultColDef={"resizable": True, "sortable": True, "filter": True, "editable": True},
-                    className="ag-theme-alpine-dark",
-                ),
-                # Print Button
-                html.Button("Download Pile List", id="btn_download", n_clicks=0),
-                dcc.Download(id="download-csv")
-            ],
-            id="collapse-pilelist",
-            is_open=False
-        ),
+    pilelist,
 
-
-    ], style={"backgroundColor": "#193153", "padding": "20px"}),
     # ======================================================
-    html.Br(),
+    # html.Br(),
 
     # ===============================================
     html.Div([
@@ -254,78 +154,85 @@ app.layout = html.Div([
     # html.Div([
         # Views Section (Main Table)
         dbc.Button("Show Table", id="toggle-views", color="primary", className="mb-2", style={"marginTop": "20px"}),
+
         dbc.Collapse(
             html.Div([
-                # dbc.Row([
-                #     dbc.Col(
-                        html.Label("Select PileID:", style={'color': 'white'}),
-                        dcc.Dropdown(
-                            id="pileid-filter-top",
-                            placeholder="Filter by PileID",
-                            style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
-                            className="dark-dropdown"
-                        ),
-                # ,),
-                #     dbc.Col(
-                        html.Label("Filter by Group:", style={'color': 'white'}),
-                        dcc.Dropdown(
-                            id="group-filter",
-                            options=[{"label": g, "value": g} for g in groups_list],
-                            placeholder="Filter by Group",
-                            value='Edit',
-                            style={'width': '200px', 'marginBottom': '10px', 'marginRight': '10px'},
-                            className="dark-dropdown"
-                        ),
-                # ,)
-                # ]),
-                dash_table.DataTable(
-                    id="filtered-table",
-                    columns=[
-                        {"name": "Field", "id": "Field", "editable": False},
-                        {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
-                    ],
-                    data=[],
-                    filter_action="none",
-                    sort_action=None,
-                    page_size=10,
-                    style_table={'overflowX': 'auto', 'width': '75%', 'margin': 'auto', 'border': '1px grey'},#
-                    style_cell={'textAlign': 'left', 'color': 'white', 'backgroundColor': '#193153'},
-                    style_header={'fontWeight': 'bold', 'backgroundColor': '#1f4068', 'color': 'white'}
-                ),
+                dbc.Row([
+                    dbc.Col(
+                            html.Div([
+                            html.Label("Select PileID:", style={'color': 'white'}),
+                            dcc.Dropdown(
+                                id="pileid-filter-top",
+                                placeholder="Filter by PileID",
+                                style={'marginBottom': '5px', 'marginRight': '5px', 'marginLeft': '5px'},
+                                className="dark-dropdown"
+                            ),]),
+                        xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
+                    ),
+                    dbc.Col(
+                        html.Div([
+                                html.Label("Filter by Group:", style={'color': 'white'}),
+                                dcc.Dropdown(
+                                    id="group-filter",
+                                    options=[{"label": g, "value": g} for g in groups_list],
+                                    placeholder="Filter by Group",
+                                    value='Edit',
+                                    style={'marginBottom': '20px', 'marginRight': '10px', 'marginLeft': '10px'},
+                                    className="dark-dropdown"
+                                ),]),
+                        xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
+                    )
+                ]),
+                filtered_table,
+                # dash_table.DataTable(
+                #     id="filtered-table",
+                #     columns=[
+                #         {"name": "Field", "id": "Field", "editable": False},
+                #         {"name": "Value", "id": "Value", "editable": True, "presentation": "input"}
+                #     ],
+                #     data=[],
+                #     filter_action="none",
+                #     sort_action=None,
+                #     page_size=10,
+                #     style_table={'overflowX': 'auto', 'width': '75%', 'margin': 'auto', 'border': '1px grey'},
+                #     style_cell={'textAlign': 'left', 'color': 'white', 'backgroundColor': '#193153'},
+                #     style_header={'fontWeight': 'bold', 'backgroundColor': '#1f4068', 'color': 'white'}
+                # ),
                 html.Br(),
-                html.Div(
-                    id="edit-options-container",
-                    children=[
-                        html.Label("Delay", id='delay-label', style={"color": "white", "fontWeight": "bold"}),
-                        dcc.Dropdown(
-                            id="edit-options",
-                            options=[
-                                {"label": "Waiting on Concrete", "value": "Waiting on Concrete"},
-                                {"label": "Site access", "value": "Site access"},
-                                {"label": "Layout", "value": "Layout"},
-                                {"label": "Enter free text", "value": "free_text"}],
-                            placeholder="Select an option",
-                            style={"display": "none", "width": "300px"},
-                            className="dark-dropdown"
-                        ),
-                        dcc.Input(
-                            id="free-text-input",
-                            type="text",
-                            placeholder="Enter text",
-                            style={"display": "none", "width": "300px"}
-                        )
-                    ]
-                ),
-                html.Button("Approve Status", id="save-button", n_clicks=0, style={
-                    'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
-                    'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
-                    'border': 'none', 'borderRadius': '5px'
-                }),
-                html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
-            ]),
-            id="collapse-views",
-            is_open=False
-        ),
+        #         html.Div(
+        #             id="edit-options-container",
+        #             children=[
+        #                 html.Label("Delay", id='delay-label', style={"color": "white", "fontWeight": "bold"}),
+        #                 dcc.Dropdown(
+        #                     id="edit-options",
+        #                     options=[
+        #                         {"label": "Waiting on Concrete", "value": "Waiting on Concrete"},
+        #                         {"label": "Site access", "value": "Site access"},
+        #                         {"label": "Layout", "value": "Layout"},
+        #                         {"label": "Enter free text", "value": "free_text"}],
+        #                     placeholder="Select an option",
+        #                     style={"display": "none", "width": "300px"},
+        #                     className="dark-dropdown"
+        #                 ),
+        #                 dcc.Input(
+        #                     id="free-text-input",
+        #                     type="text",
+        #                     placeholder="Enter text",
+        #                     style={"display": "none", "width": "300px"}
+        #                 )
+        #             ]
+        # ),
+        # html.Button("Approve Status", id="save-button", n_clicks=0, style={
+        #     'marginTop': '10px', 'padding': '10px 15px', 'fontSize': '16px',
+        #     'cursor': 'pointer', 'backgroundColor': '#28a745', 'color': 'white',
+        #     'border': 'none', 'borderRadius': '5px'
+        # }),
+        # html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
+    ]),
+    id="collapse-views",
+    is_open=False
+)
+
 
         ]),
     # ,style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}
@@ -350,7 +257,8 @@ app.clientside_callback(
 )
 # Callback to filter table
 @app.callback(
-    Output("filtered-table", "data"),
+    # Output("filtered-table", "data"),
+    Output("filtered-table", "rowData"),
     [Input("pileid-filter", "value"),
      Input("date-filter", "value"),
      Input("group-filter", "value")],prevent_initial_call=True,
@@ -400,6 +308,15 @@ def update_table(selected_pileid, selected_date, selected_group):
         overbreak = float(out_dict['OverBreak'])
         overbreak = overbreak* 100-100.0
         out_dict['OverBreak'] = f"{overbreak :.2f}%"
+    if 'MoveDistance' in out_dict:
+        movetime = round(float(out_dict['MoveDistance']),1)
+        out_dict['MoveDistance'] = movetime
+    if 'PileArea' in out_dict:
+        movetime = round(float(out_dict['PileArea']),1)
+        out_dict['PileArea'] = movetime
+    if 'PileAVolume' in out_dict:
+        movetime = round(float(out_dict['PileAVolume']),1)
+        out_dict['PileAVolume'] = movetime
 
     # Convert back to list of dictionaries
     out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
@@ -414,41 +331,88 @@ def update_table(selected_pileid, selected_date, selected_group):
      ],prevent_initial_call=True,
 )
 def update_table(selected_jobid, selected_date,selected_rigid):
-    if not selected_jobid or not selected_date:
+    if not selected_jobid and not selected_date:
         return []  # Return an empty table before selection
     filtered_df = properties_df.copy()
     # Filter DataFrame based on selected PileID and Date
-    filtered_df = filtered_df[(filtered_df["JobID"] == selected_jobid)]
+    if not selected_jobid is None:
+        filtered_df = filtered_df[(filtered_df["JobID"] == selected_jobid)]
     if not selected_date is None:
         filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
     if not selected_rigid is None:
         filtered_df = filtered_df[(filtered_df["RigID"] == selected_rigid)]
 
         # Custom Order for "Edit" Group
-    columns = [
-        "PileID","Depth", "MaxStroke", "PileStatus","PileCode", "Comments"
-    ]
+    # columns = [
+    #     "PileID","Depth", "MaxStroke", "PileStatus","PileCode", "Comments"
+    # ]
     summary_data = []
     for _, row in filtered_df.iterrows():
         pile_id = row["PileID"]
 
-        # Retrieve Depth & Strokes from pile_data
-        if pile_id in pile_data and selected_date in pile_data[pile_id]:
-            depth_values = pile_data[pile_id][selected_date]["Depth"]
-            strokes_values = pile_data[pile_id][selected_date]["Strokes"]
+        time = row['Time']
+        try:
+            time = pd.to_datetime(time)
+        except:
+            pass
+        movetime = row['MoveTime']
+        try:
+            movetime = datetime.strptime(movetime, '%H:%M:%S').time()
+        except:
+            pass
+        totaltime = row['TotalTime']
+        try:
+            totaltime = datetime.strptime(totaltime, '%H:%M:%S').time()
+        except:
+            pass
+        delaytime = row['DelayTime']
+        try:
+            delaytime = datetime.strptime(delaytime, '%H:%M:%S').time()
+        except:
+            pass
+        movedistance = row['MoveDistance']
+        try:
+            movedistance = round(float(movedistance),1)
+        except:
+            pass
 
+        if not selected_date is None:
+            use_date = selected_date
+        else:
+            use_date = time.date().strftime(format='%Y-%m-%d')
+        # Retrieve Depth & Strokes from pile_data
+        if pile_id in pile_data and use_date in pile_data[pile_id]:
+            depth_values = pile_data[pile_id][use_date]["Depth"]
+            strokes_values = pile_data[pile_id][use_date]["Strokes"]
             min_depth = min(depth_values) if depth_values else None
             max_strokes = max(strokes_values) if strokes_values else None
         else:
             min_depth = None
             max_strokes = None
 
+        # try:
+        #     pile_id = int(pile_id)
+        # except:
+        #     pass
+
         dict_data = {
+            "Time":time,
+            "JobID":row['JobID'],
+            "LocationID": row['LocationID'],
             "PileID": pile_id,
-            "MaxStrokes": max_strokes,
+            "PileStatus": row['PileStatus'],
+            "PileType": row['PileType'],
+            "Distance" : movedistance,
+            "MoveTime": movetime,
+            "DelayTime": delaytime,
+            "Totaltime": totaltime,
             "MinDepth": min_depth,
+            "MaxStrokes": max_strokes,
             "OverBreak": f"{(row['OverBreak']-1) * 100:.2f}%",
-            "Comments": row["Comments"]
+            "PumpID": row['PumpID'],
+            "Calibration": row['PumpCalibration'],
+            "Comments": row["Comments"],
+            "Delay": row['Delay'],
         }
         summary_data.append(dict_data)
     # out = filtered_df[columns].to_dict("records")
@@ -674,27 +638,27 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     return markers, center,zoom_level, f"map-{center_lat}-{center_lon}-{zoom_level}"
 
 # Callback to track edited values and highlight changes
-@app.callback(
-    Output("filtered-table", "style_data_conditional"),
-    [Input("filtered-table", "data_previous"), Input("group-filter", "value")],
-    State("filtered-table", "data"),prevent_initial_call=True
-)
-def highlight_changes(prev_data, selected_group, current_data):
-    if not prev_data or not selected_group:
-        return []
-
-    styles = []
-    changed_values[selected_group] = set()
-    for i, (prev_row, curr_row) in enumerate(zip(prev_data, current_data)):
-        if prev_row["Value"] != curr_row["Value"] and selected_group=='Edit':
-            changed_values[selected_group].add(i)
-
-    styles.extend([
-        {"if": {"row_index": i, "column_id": "Value"}, "color": "#ffcc00", "fontWeight": "bold"}
-        for i in changed_values.get(selected_group, [])
-    ])
-
-    return styles
+# @app.callback(
+#     Output("filtered-table", "style_data_conditional"),
+#     [Input("filtered-table", "data_previous"), Input("group-filter", "value")],
+#     State("filtered-table", "data"),prevent_initial_call=True
+# )
+# def highlight_changes(prev_data, selected_group, current_data):
+#     if not prev_data or not selected_group:
+#         return []
+#
+#     styles = []
+#     changed_values[selected_group] = set()
+#     for i, (prev_row, curr_row) in enumerate(zip(prev_data, current_data)):
+#         if prev_row["Value"] != curr_row["Value"] and selected_group=='Edit':
+#             changed_values[selected_group].add(i)
+#
+#     styles.extend([
+#         {"if": {"row_index": i, "column_id": "Value"}, "color": "#ffcc00", "fontWeight": "bold"}
+#         for i in changed_values.get(selected_group, [])
+#     ])
+#
+#     return styles
 
 
 
@@ -752,35 +716,7 @@ def update_combined_graph(selected_pileid, selected_date,selected_jobid):
         # yaxis2_range=[min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
 
     )
-    # fig.update_layout(
-    #     xaxis=dict(
-    #         showgrid=True,  # Show major grid lines
-    #         gridcolor='lightgrey',  # Major grid color
-    #         gridwidth=1,  # Major grid thickness
-    #         tickmode='linear',  # Ensure ticks follow a linear pattern
-    #         dtick=1,  # Set major grid spacing
-    #         minor=dict(
-    #             tickmode='linear',
-    #             dtick=0.5,  # Set minor grid spacing (smaller than major)
-    #             gridcolor='lightblue',  # Lighter color for minor grid
-    #             gridwidth=0.5  # Thinner minor grid
-    #         )
-    #     ),
-    #     yaxis=dict(
-    #         showgrid=True,
-    #         gridcolor='lightgrey',
-    #         gridwidth=1,
-    #         tickmode='linear',
-    #         dtick=5,  # Major tick spacing
-    #         minor=dict(
-    #             tickmode='linear',
-    #             dtick=2.5,  # Minor tick spacing
-    #             gridcolor='lightblue',
-    #             gridwidth=0.5
-    #         )
-    #     )
-    # )
-    # fig.update_yaxes(range=[min(pile_info['Depth'])-5,max(pile_info['Depth'])+5])
+
 
     return fig
 
@@ -833,16 +769,7 @@ def update_depth_graph(selected_pileid, selected_date,selected_jobid):
         font=dict(color="white"),
         # yaxis_range=[minD, maxD]
     )
-    # fig1.update_layout(
-    #     legend=dict(
-    #         orientation="h",  # Horizontal legend
-    #         yanchor="top",
-    #         y=-0.2,  # Position below the chart
-    #         xanchor="center",
-    #         x=0.5
-    #     ),
-    #     # height=600, width=800
-    # )
+
     fig1.update_yaxes(range=[minD, maxD])
     tils = ['(ft/min)','(bar)','(tons)','(rpm)']
     for i in range(0, 4):
@@ -873,56 +800,10 @@ def update_summary_cards(selected_pileid, selected_jobid,selected_date):
         overbreak = f"{overbreak :.2f}%"
     else:
         "N/A"
-    # overbreak = f"{float(filtered_df['OverBreak'].iloc[0]) * 100:.2f}%" if "OverBreak" in filtered_df.columns else "N/A"
-    # f"{float(filtered_df["OverBreak"].iloc[0]) * 100:.2f}%"
-    # Count distinct PileIDs for the selected JobID
-    # unique_pile_count = properties_df[properties_df["JobID"] == selected_jobid]["PileID"].nunique()
-    title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
 
-    # Create info cards
-    return [html.Div([
-    html.H5(title),
-    dbc.Row([
-        dbc.Col(
-            dbc.Card(
-                dbc.CardBody([
-                    html.P("⏳ Move Time", className="card-title"),
-                    html.H4(move_time, className="card-text")
-                ]), className="mb-3"
-            ), width=3
-        ),
-        dbc.Col(
-            dbc.Card(
-                dbc.CardBody([
-                    html.P("📐Distance", className="card-title"),
-                    html.H4(move_distance, className="card-text")
-                ]), className="mb-3"
-            ), width=3
-        ),
-        dbc.Col(
-            dbc.Card(
-                dbc.CardBody([
-                    html.P("⏰ Delay Time", className="card-title"),
-                    html.H4(delay_time, className="card-text")
-                ]), className="mb-3"
-            ), width=3
-        ),
-        dbc.Col(
-            dbc.Card(
-                dbc.CardBody([
-                    html.P("🚧 OverBreak", className="card-title"),
-                    html.H4(overbreak, className="card-text")
-                ]), className="mb-3"
-            ), width=3
-        ),
-    ], className="g-3")
-], style={'padding': '20px'})
-        # html.Div([html.P("⏳ Move Time"), html.H4(move_time)], style={'textAlign': 'center', 'padding': '10px'}),
-        # html.Div([html.P("📏 Move Distance"), html.H4(move_distance)], style={'textAlign': 'center', 'padding': '10px'}),
-        # html.Div([html.P("⏰ Delay Time"), html.H4(delay_time)], style={'textAlign': 'center', 'padding': '10px'}),
-        # html.Div([html.P("🚧 OverBreak"), html.H4(overbreak)], style={'textAlign': 'center', 'padding': '10px'}),
-        # html.Div([html.P("🔢 Piles in Job"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'})
-    ]
+    title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
+    details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak)
+    return details
 
 @app.callback(
     Output("pile-summary-cards-jobid", "children"),
@@ -966,52 +847,61 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     # Create info cards
     return [
         dbc.Row([
-                    dbc.Col(
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.P("🔢 # Piles: "+str(unique_pile_count), className="card-title"),
-                                # html.H4(unique_pile_count, className="card-text")
-                            ]), className="mb-3"
-                        ), width=5
-                    ),
-                    dbc.Col(
-                        dbc.Card(
-                            dbc.CardBody([
-                                html.P("🔢 # Piles with Filters: "+str(unique_pile_count_filters), className="card-title"),
-                                # html.H4(unique_pile_count_filters, className="card-text")
-                            ]), className="mb-3"
-                        ), width=7
-                    )
-
-                ], style = {'padding': '20px'})]
+            dbc.Col(
+                # html.Div([
+                #     html.Div("🔢 # Piles:", style={"fontWeight": "bold", "fontSize": "14px"}),
+                #     html.Div(str(unique_pile_count), style={"fontSize": "14px", "color": "white"})
+                # ], style={ "textAlign": "center"}),
+                # xs=6, sm=5, md=5, lg=5, xl=5
+                dbc.Card(
+                    dbc.CardBody([
+                        html.P("🔢 # Piles: " + str(unique_pile_count), className="card-title",style={"display": "flex", "alignItems": "center", "whiteSpace": "nowrap"}),
+                    ]), className="mb-3"
+                ),
+                xs=5, sm=5, md=6, lg=6, xl=6  # Full width on xs, 50% on sm, 5 cols on md+
+            ),
+            dbc.Col(
+                # html.Div([
+                #     html.Div("🔢 # Piles with filters:", style={"fontWeight": "bold", "fontSize": "14px"}),
+                #     html.Div(str(unique_pile_count_filters), style={"fontSize": "14px", "color": "white"})
+                # ], style={"textAlign": "center"}),
+                # xs=6, sm=5, md=7, lg=7, xl=7
+                dbc.Card(
+                    dbc.CardBody([
+                        html.P("🔢 # Piles with Filters: " + str(unique_pile_count_filters), className="card-title",style={"display": "flex", "alignItems": "center", "whiteSpace": "nowrap"}),
+                    ]), className="mb-3"
+                ),
+                xs=7, sm=7, md=6, lg=6, xl=6  # Full width on xs, 50% on sm, 7 cols on md+
+            )
+        ], style={'padding': '5px'})]
         # html.Div([html.P("🔢 Piles in JobID"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'}),
         # html.Div([html.P("🔢 Piles count with Filters"), html.H4(unique_pile_count_filters)],style={'textAlign': 'center', 'padding': '10px'})
 
 
 
-@app.callback(
-    Output("save-message", "children"),
-    Input("save-button", "n_clicks"),
-    Input("pileid-filter", "value"),
-    State("filtered-table", "data"),
-    State("group-filter", "value"),
-    prevent_initial_call=True
-)
-def save_changes(n_clicks, selected_pileid,table_data, selected_group):
-    ctx = dash.callback_context  # Get the trigger
-    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
-    if triggered_id=="pileid-filter":
-        return ""
-    if n_clicks > 0 and selected_group == "Edit":
-        # Convert table data to a DataFrame
-        df_edited = pd.DataFrame(table_data)
-
-        # Save only if there is data
-        if not df_edited.empty:
-            # df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
-            return "Changes saved successfully!"
-
-    return ""
+# @app.callback(
+#     Output("save-message", "children"),
+#     Input("save-button", "n_clicks"),
+#     Input("pileid-filter", "value"),
+#     State("filtered-table", "data"),
+#     State("group-filter", "value"),
+#     prevent_initial_call=True
+# )
+# def save_changes(n_clicks, selected_pileid,table_data, selected_group):
+#     ctx = dash.callback_context  # Get the trigger
+#     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+#     if triggered_id=="pileid-filter":
+#         return ""
+#     if n_clicks > 0 and selected_group == "Edit":
+#         # Convert table data to a DataFrame
+#         df_edited = pd.DataFrame(table_data)
+#
+#         # Save only if there is data
+#         if not df_edited.empty:
+#             # df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
+#             return "Changes saved successfully!"
+#
+#     return ""
 
 @app.callback(
     [Output("save-button", "style"),  # Show/Hide Save button
@@ -1036,28 +926,28 @@ def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled
 
     raise PreventUpdate  # Prevent unnecessary updates
 
-@app.callback(
-    Output("filtered-table", "columns"),
-    [Input("group-filter", "value")],
-    prevent_initial_call=True
-)
-# , Output("filtered-table", "dropdown_conditional")
-def update_columns(selected_group):
-    if selected_group == "Edit":
-        columns = [
-            {"name": "Field", "id": "Field", "editable": False},
-            {"name": "Value", "id": "Value", "editable": False},
-            {"name": "Edited Value", "id": "Edited Value", "editable": True, "presentation": "input"}
-        ]
-
-    else:
-        columns = [
-            {"name": "Field", "id": "Field", "editable": False},
-            {"name": "Value", "id": "Value", "editable": False}
-        ]
-
-
-    return columns#, dropdown_conditional
+# @app.callback(
+#     Output("filtered-table", "columns"),
+#     [Input("group-filter", "value")],
+#     prevent_initial_call=True
+# )
+# # , Output("filtered-table", "dropdown_conditional")
+# def update_columns(selected_group):
+#     if selected_group == "Edit":
+#         columns = [
+#             {"name": "Field", "id": "Field", "editable": False},
+#             {"name": "Value", "id": "Value", "editable": False},
+#             {"name": "Edited Value", "id": "Edited Value", "editable": True, "presentation": "input"}
+#         ]
+#
+#     else:
+#         columns = [
+#             {"name": "Field", "id": "Field", "editable": False},
+#             {"name": "Value", "id": "Value", "editable": False}
+#         ]
+#
+#
+#     return columns#, dropdown_conditional
 # =======================================================================================
 # @app.callback(
 #     [
@@ -1100,37 +990,37 @@ def update_columns(selected_group):
 #
 #     return {"display": "none"}, {"display": "none"}  # Hide both if group isn't "Edit"
 
-@app.callback(
-    [Output("delay-label", "style"),
-     Output("edit-options", "style"),
-     Output("edit-options-container", "style"),Output("free-text-input", "style")],
-    [Input("group-filter", "value"), Input("edit-options", "value")]  # Assuming this is the dropdown that selects the group
-)
-def toggle_edit_dropdown(selected_group, selected_option):
-    if selected_group == "Edit":
-        visible_style = {"color": "white", "fontWeight": "bold", "marginBottom": "5px"}  # Show label
-        dropdown_style = {"display": "block", "width": "300px", "padding": "5px", "backgroundColor": "#1f4068","color": "white"}  # Show dropdown
-        input_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide input initially  # Show dropdown
-        container_style = {"display": "flex", "flexDirection": "column", "alignItems": "flex-start"}  # Show container
-        if selected_option == "free_text":
-                input_style = {"display": "block", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Show input field
-                dropdown_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide dropdown
-        return visible_style, dropdown_style, container_style,input_style
-    else:
-        hidden_style = {"display": "none"}
-        return hidden_style, hidden_style, hidden_style ,hidden_style # Hide everything
+# @app.callback(
+#     [Output("delay-label", "style"),
+#      Output("edit-options", "style"),
+#      Output("edit-options-container", "style"),Output("free-text-input", "style")],
+#     [Input("group-filter", "value"), Input("edit-options", "value")]  # Assuming this is the dropdown that selects the group
+# )
+# def toggle_edit_dropdown(selected_group, selected_option):
+#     if selected_group == "Edit":
+#         visible_style = {"color": "white", "fontWeight": "bold", "marginBottom": "5px"}  # Show label
+#         dropdown_style = {"display": "block", "width": "300px", "padding": "5px", "backgroundColor": "#1f4068","color": "white"}  # Show dropdown
+#         input_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide input initially  # Show dropdown
+#         container_style = {"display": "flex", "flexDirection": "column", "alignItems": "flex-start"}  # Show container
+#         if selected_option == "free_text":
+#                 input_style = {"display": "block", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Show input field
+#                 dropdown_style = {"display": "none", "width": "300px", "padding": "5px","backgroundColor": "#1f4068", "color": "white"}  # Hide dropdown
+#         return visible_style, dropdown_style, container_style,input_style
+#     else:
+#         hidden_style = {"display": "none"}
+#         return hidden_style, hidden_style, hidden_style ,hidden_style # Hide everything
+#
+#     return visible_style, dropdown_style, container_style,input_style
 
-    return visible_style, dropdown_style, container_style,input_style
 
-
-@app.callback(
-    [Output("edit-options", "value"),  # Reset Delay dropdown
-     Output("group-filter", "value")],  # Reset Group filter
-    Input("pileid-filter", "value") ,
-    prevent_initial_call=True # Trigger when PileID changes
-)
-def reset_dropdowns(selected_pileid):
-    return None, None  # Reset values
+# @app.callback(
+#     [Output("edit-options", "value"),  # Reset Delay dropdown
+#      Output("group-filter", "value")],  # Reset Group filter
+#     Input("pileid-filter", "value") ,
+#     prevent_initial_call=True # Trigger when PileID changes
+# )
+# def reset_dropdowns(selected_pileid):
+#     return None, None  # Reset values
 
 
 # Callbacks to toggle each collapsible section
