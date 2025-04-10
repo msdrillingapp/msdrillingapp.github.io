@@ -1262,16 +1262,16 @@ def download_csv(n_clicks,data):
         csv_string = df.to_csv(index=False, encoding='utf-8')
         return dict(content=csv_string, filename=f"PileList_data_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
 
-@app.callback(
-    Output("download-pdf", "data"),
-    Input("btn-pdf", "n_clicks"),
-    State('pilelist-table', 'selectedRows'),
-    prevent_initial_call=True
-)
-def download_charts(click,selected_row):
-    if not selected_row:
-        return no_update
-    return
+# @app.callback(
+#     Output("download-pdf", "data"),
+#     Input("btn-pdf", "n_clicks"),
+#     State('pilelist-table', 'selectedRows'),
+#     prevent_initial_call=True
+# )
+# def download_charts(click,selected_row):
+#     if not selected_row:
+#         return no_update
+#     return
 
 # Run the app
 if __name__ == "__main__":

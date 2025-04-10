@@ -31,65 +31,6 @@ def get_header():
     return header
 
 #####################
-# Nav bar
-def get_navbar():
-
-    navbar = html.Div([
-
-        html.Div([], className = 'col-3'),
-
-        html.Div([
-            dcc.Link(
-                html.H4(children = 'Job Overview',
-                        style = ""),
-                href='/apps/job_overview'
-                )
-        ],
-        className='col-2'),
-
-        html.Div([
-            dcc.Link(
-                html.H4(children = 'DailySummary'),
-                href='/apps/daily_summary'
-                )
-        ],
-        className='col-2'),
-
-        html.Div([
-            dcc.Link(
-                html.H4(children = 'PileList'),
-                href='/apps/pile_list'
-                )
-        ],
-        className='col-2'),
-
-        html.Div([], className = 'col-3')
-
-    ],
-    className = 'row',
-    style = {'background-color' :  '#193153',
-            'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
-    )
-
-
-    return navbar
-
-#####################
-# Empty row
-
-def get_emptyrow(h='45px'):
-    """This returns an empty row of a defined height"""
-
-    emptyrow = html.Div([
-        html.Div([
-            html.Br()
-        ], className = 'col-12')
-    ],
-    className = 'row',
-    style = {'height' : h})
-
-    return emptyrow
-
 
 def get_filters(properties_df):
     filters = html.Div([
@@ -167,14 +108,8 @@ def get_filters(properties_df):
 
 
 def get_pilelist():
-    # custom_order = [
-    #     "PileID", "LocationID", "PileLength", "MaxStroke",
-    #     "PumpID", "PumpCalibration", "PileStatus", "PileCode", "WorkingGrade", "Comments", "Delay"
-    # ]
-   #  Time ,     # PileID    # LocationID    # Depth    # Strokes
-    # Over break not editable     # Pile status     # Pile code     # Comments
-    # Delay time  not editable     # Delay    # PumpCalibration    # PumpId
-   pileList =  html.Div([
+
+   pileList = html.Div([
         # Map Section
         dbc.Button("Show Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
         dbc.Collapse(
