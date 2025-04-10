@@ -3,7 +3,7 @@ import pandas as pd
 import dash_leaflet as dl
 import json
 import os
-from dash import html
+
 
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
@@ -145,21 +145,6 @@ def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes
 
     # Finally, return the zoom level and the associated boundary-box center coordinates
     return zoom, b_box['center']
-
-
-def get_emptyrow(h='45px'):
-    """This returns an empty row of a defined height"""
-
-    emptyrow = html.Div([
-        html.Div([
-            html.Br()
-        ], className = 'col-12')
-    ],
-    className = 'row',
-    style = {'height' : h})
-
-    return emptyrow
-
 
 def indrease_decrease_split(x,y):
     increasing_x = []

@@ -1,10 +1,7 @@
 import dash
 import pandas as pd
 from dash.exceptions import PreventUpdate
-# import pandas as pd
-# import dash_leaflet as dl
-# import json
-# import numpy as np
+from dash import no_update
 
 from dash import dcc, html, Output, Input, ctx, dash_table,callback_context,MATCH, State,ClientsideFunction
 
@@ -71,10 +68,10 @@ app = dash.Dash(__name__, external_stylesheets=["/assets/style.css",dbc.themes.B
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}])
 app.title = 'MS Drill Tracker'
 server = app.server
-auth = dash_auth.BasicAuth(
-    app,
-    VALID_USERNAME_PASSWORD_PAIRS
-)
+# auth = dash_auth.BasicAuth(
+#     app,
+#     VALID_USERNAME_PASSWORD_PAIRS
+# )
 flts = get_filters(properties_df)
 pilelist =get_pilelist()
 header = get_header()
@@ -85,7 +82,6 @@ app.layout = html.Div([
     html.Br(),
     # FILTERS ===================================================================
     flts,
-
     # ===============================================
     html.Div([
         # Statistics Info Cards
@@ -103,11 +99,20 @@ app.layout = html.Div([
         dbc.Button("Show Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
         dbc.Collapse(
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
-                dl.TileLayer(),
+                dl.TileLayer(
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
+                    maxZoom=19,  # Higher max zoom (OSM supports up to 19)
+                    minZoom=2,  # Lower min zoom (adjust as needed)
+                ),
                 dl.LayerGroup(markers, id="map-markers"),
 
-            ], style={'width': '100%', 'height': '400px', 'align': 'center', 'marginleft': '10px', 'display': 'flex',
-                      'justifyContent': 'center'}),
+            ], style={
+                    'width': '100%',
+                    'height': '400px',
+                    'margin': '0 auto',  # Better centering
+                },),
+                   # style={'width': '100%', 'height': '400px', 'align': 'center', 'marginleft': '10px', 'display': 'flex',
+                   #    'justifyContent': 'center'}),
             id="collapse-map",
             is_open=True
         ),
@@ -132,9 +137,6 @@ app.layout = html.Div([
     # ===============================================
     # Table & Chart Side by Side
     html.Div([
-
-        # Graph
-        # dcc.Graph(id="strokes-depth-time-graph"),
         # Plots Section
         dbc.Button("Show Time Plot", id="toggle-plots", color="primary", className="mb-2", style={"marginTop": "20px"}),
         dbc.Collapse(
@@ -145,6 +147,9 @@ app.layout = html.Div([
         dbc.Button("Show Depth Plots", id="toggle_depth_plots", color="primary", className="mb-2", style={"marginTop": "20px"}),
         dbc.Collapse(
             dcc.Graph(id="depth_graph", style={"height": "500px", "backgroundColor": "#193153"}),
+            # dcc.Store(id='stored-figure_depth'),
+            # dcc.Download(id="download-pdf"),
+            # html.Button("Export to PDF", id="btn-pdf"),
             id="collapse_depth_plots",
             is_open=False
         ),
@@ -158,17 +163,17 @@ app.layout = html.Div([
         dbc.Collapse(
             html.Div([
                 dbc.Row([
-                    dbc.Col(
-                            html.Div([
-                            html.Label("Select PileID:", style={'color': 'white'}),
-                            dcc.Dropdown(
-                                id="pileid-filter-top",
-                                placeholder="Filter by PileID",
-                                style={'marginBottom': '5px', 'marginRight': '5px', 'marginLeft': '5px'},
-                                className="dark-dropdown"
-                            ),]),
-                        xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
-                    ),
+                    # dbc.Col(
+                    #         html.Div([
+                    #         html.Label("Select PileID:", style={'color': 'white'}),
+                    #         dcc.Dropdown(
+                    #             id="pileid-filter-top",
+                    #             placeholder="Filter by PileID",
+                    #             style={'marginBottom': '5px', 'marginRight': '5px', 'marginLeft': '5px'},
+                    #             className="dark-dropdown"
+                    #         ),]),
+                    #     xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
+                    # ),
                     dbc.Col(
                         html.Div([
                                 html.Label("Filter by Group:", style={'color': 'white'}),
@@ -177,7 +182,7 @@ app.layout = html.Div([
                                     options=[{"label": g, "value": g} for g in groups_list],
                                     placeholder="Filter by Group",
                                     value='Edit',
-                                    style={'marginBottom': '20px', 'marginRight': '10px', 'marginLeft': '10px'},
+                                    style={'marginBottom': '20px', 'marginRight': '10px'},
                                     className="dark-dropdown"
                                 ),]),
                         xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
@@ -228,10 +233,10 @@ app.layout = html.Div([
         #     'border': 'none', 'borderRadius': '5px'
         # }),
         # html.Div(id="save-message", style={'marginTop': '10px', 'color': 'white'}),
-    ]),
-    id="collapse-views",
-    is_open=False
-)
+                ]),
+                id="collapse-views",
+                is_open=False
+            )
 
 
         ]),
@@ -259,38 +264,45 @@ app.clientside_callback(
 @app.callback(
     # Output("filtered-table", "data"),
     Output("filtered-table", "rowData"),
-    [Input("pileid-filter", "value"),
-     Input("date-filter", "value"),
+    # [Input("pileid-filter", "value"),
+    #  Input("date-filter", "value"),
+    [ Input('pilelist-table', 'selectedRows'),
      Input("group-filter", "value")],prevent_initial_call=True,
 )
-def update_table(selected_pileid, selected_date, selected_group):
-    if not selected_pileid or not selected_date:
+# def update_table(selected_pileid, selected_date, selected_group):
+#     if not selected_pileid or not selected_date:
+def update_table(selected_row, selected_group):
+    if not selected_row:
         return []  # Return an empty table before selection
     filtered_df = merged_df.copy()
+
+    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+    selected_pileid = selected_row['PileID']
+    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
     # Filter DataFrame based on selected PileID and Date
     filtered_df = filtered_df[(filtered_df["PileID"] == selected_pileid) & (filtered_df["date"] == selected_date)]
 
-    # Custom Order for "Edit" Group
-    custom_order = [
-        "PileID", "LocationID", "PileLength", "MaxStroke",
-        "PumpID", "PumpCalibration", "PileStatus","PileCode","WorkingGrade", "Comments", "Delay"
-    ]
+    # # Custom Order for "Edit" Group
+    # custom_order = [
+    #     "PileID", "LocationID", "PileLength", "MaxStroke",
+    #     "PumpID", "PumpCalibration", "PileStatus","PileCode","WorkingGrade", "Comments", "Delay"
+    # ]
     # "ProductCode""OverBreak",
     if not selected_group is None:
         filtered_df = filtered_df[filtered_df["Group"] == selected_group]
 
-    if selected_group == "Edit":
-        # Reorder fields based on custom_order, keeping other fields at the end
-        sorted_fields = sorted(filtered_df["Field"].unique(), key=lambda x: custom_order.index(x) if x in custom_order else len(custom_order))
-        filtered_df = filtered_df.set_index("Field").loc[sorted_fields].reset_index()
-        # tmp = pd.DataFrame([selected_pileid,selected_group,'PileID',selected_pileid,1,1,selected_date],columns=filtered_df.columns)
-        new_row = ['PileID',selected_pileid,selected_group,selected_pileid,filtered_df.loc[1,'latitude'],filtered_df.loc[1,'longitude'],selected_date]
-        filtered_df = pd.concat([pd.DataFrame([new_row], columns=filtered_df.columns), filtered_df]).reset_index(drop=True)
-        # Add "Edited Value" column
-        # filtered_df["Original Value"] = filtered_df["Value"]
-        filtered_df["Edited Value"] = filtered_df["Value"]  # User edits this column
-        out = filtered_df[["Field", "Value", "Edited Value"]].to_dict("records")
-        out_dict = {item['Field']: item['Value'] for item in out}
+    # if selected_group == "Edit":
+    #     # Reorder fields based on custom_order, keeping other fields at the end
+    #     sorted_fields = sorted(filtered_df["Field"].unique(), key=lambda x: custom_order.index(x) if x in custom_order else len(custom_order))
+    #     filtered_df = filtered_df.set_index("Field").loc[sorted_fields].reset_index()
+    #     # tmp = pd.DataFrame([selected_pileid,selected_group,'PileID',selected_pileid,1,1,selected_date],columns=filtered_df.columns)
+    #     new_row = ['PileID',selected_pileid,selected_group,selected_pileid,filtered_df.loc[1,'latitude'],filtered_df.loc[1,'longitude'],selected_date]
+    #     filtered_df = pd.concat([pd.DataFrame([new_row], columns=filtered_df.columns), filtered_df]).reset_index(drop=True)
+    #     # Add "Edited Value" column
+    #     # filtered_df["Original Value"] = filtered_df["Value"]
+    #     filtered_df["Edited Value"] = filtered_df["Value"]  # User edits this column
+    #     out = filtered_df[["Field", "Value", "Edited Value"]].to_dict("records")
+    #     out_dict = {item['Field']: item['Value'] for item in out}
 
         # # Modify OverBreak if it exists
         # if 'OverBreak' in out_dict:
@@ -299,9 +311,9 @@ def update_table(selected_pileid, selected_date, selected_group):
         # # Convert back to list of dictionaries
         # out = [{'Field': k, 'Value': v,'Edited Value':v} for k, v in out_dict.items()]
         # return out
-    else:
-        out = filtered_df[["Field", "Value"]].to_dict("records")
-        out_dict = {item['Field']: item['Value'] for item in out}
+    # else:
+    out = filtered_df[["Field", "Value"]].to_dict("records")
+    out_dict = {item['Field']: item['Value'] for item in out}
 
     # Modify OverBreak if it exists
     if 'OverBreak' in out_dict:
@@ -314,9 +326,12 @@ def update_table(selected_pileid, selected_date, selected_group):
     if 'PileArea' in out_dict:
         movetime = round(float(out_dict['PileArea']),1)
         out_dict['PileArea'] = movetime
-    if 'PileAVolume' in out_dict:
-        movetime = round(float(out_dict['PileAVolume']),1)
-        out_dict['PileAVolume'] = movetime
+    if 'PileVolume' in out_dict:
+        movetime = round(float(out_dict['PileVolume']),1)
+        out_dict['PileVolume'] = movetime
+    if 'GroutVolume' in out_dict:
+        movetime = round(float(out_dict['GroutVolume']), 1)
+        out_dict['GroutVolume'] = movetime
 
     # Convert back to list of dictionaries
     out = [{'Field': k, 'Value': v} for k, v in out_dict.items()]
@@ -396,23 +411,27 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         #     pass
 
         dict_data = {
-            "Time":time,
-            "JobID":row['JobID'],
-            "LocationID": row['LocationID'],
+
             "PileID": pile_id,
+            "Time": time,
+            "JobID": row['JobID'],
+            "LocationID": row['LocationID'],
+            "MinDepth": min_depth,
+            "MaxStrokes": max_strokes,
+            "OverBreak": f"{(row['OverBreak'] - 1) * 100:.2f}%",
             "PileStatus": row['PileStatus'],
+            "PileCode": row['PileCode'],
+            "Comments": row["Comments"],
+            "DelayTime": delaytime,
+            "Delay": row['Delay'],
+            "PumpID": row['PumpID'],
+            "Calibration": row['PumpCalibration'],
             "PileType": row['PileType'],
             "Distance" : movedistance,
             "MoveTime": movetime,
-            "DelayTime": delaytime,
             "Totaltime": totaltime,
-            "MinDepth": min_depth,
-            "MaxStrokes": max_strokes,
-            "OverBreak": f"{(row['OverBreak']-1) * 100:.2f}%",
-            "PumpID": row['PumpID'],
-            "Calibration": row['PumpCalibration'],
-            "Comments": row["Comments"],
-            "Delay": row['Delay'],
+
+
         }
         summary_data.append(dict_data)
     # out = filtered_df[columns].to_dict("records")
@@ -437,7 +456,7 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         Output("date-filter", "options"),
         Output("rigid-filter", "options"),
         Output("pileid-filter", "options"),
-        Output("pileid-filter-top", "options"),
+        # Output("pileid-filter-top", "options"),
         Output("pilecode-filter", "options"),
         Output("pilestatus-filter", "options"),
         Output("piletype-filter", "options"),
@@ -446,7 +465,7 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         Output("date-filter", "value"),
         Output("rigid-filter", "value"),
         Output("pileid-filter", "value"),
-        Output("pileid-filter-top", "value"),
+        # Output("pileid-filter-top", "value"),
         Output("pilecode-filter", "value"),
         Output("pilestatus-filter", "value"),
         Output("piletype-filter", "value"),
@@ -458,7 +477,7 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         Input("date-filter", "value"),
         Input("rigid-filter", "value"),
         Input("pileid-filter", "value"),
-        Input("pileid-filter-top", "value"),
+        # Input("pileid-filter-top", "value"),
         Input("pilecode-filter", "value"),
         Input("pilestatus-filter", "value"),
         Input("piletype-filter", "value"),
@@ -468,16 +487,16 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         State("date-filter", "value"),
         State("rigid-filter", "value"),
         State("pileid-filter", "value"),
-        State("pileid-filter-top", "value"),
+        # State("pileid-filter-top", "value"),
         State("pilecode-filter", "value"),
         State("pilestatus-filter", "value"),
         State("piletype-filter", "value"),
         State("productcode-filter", "value"),
     ], allow_duplicate=True,prevent_initial_call=True,
 )
-def update_filter_options(selected_jobid, selected_date, selected_rigid, selected_pileid,selected_pileid_top,
+def update_filter_options(selected_jobid, selected_date, selected_rigid, selected_pileid,
                           selected_pilecode, selected_pilestatus, selected_piletype, selected_productcode,
-                          prev_date, prev_rigid, prev_pileid, prev_pileid_top, prev_pilecode, prev_pilestatus, prev_piletype,
+                          prev_date, prev_rigid, prev_pileid,  prev_pilecode, prev_pilestatus, prev_piletype,
                           prev_productcode):
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
@@ -520,27 +539,27 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
 
     # Reset values **ONLY IF JobID was changed**
     if triggered_id == "jobid-filter":
-        return (date_options, rigid_options, pileid_options, pileid_options, pilecode_options, pilestatus_options,
+        return (date_options, rigid_options, pileid_options,  pilecode_options, pilestatus_options,
                 piletype_options, productcode_options,
-                None, None, None, None, None, None, None, None)  # Reset everything
+                None, None, None, None,  None, None, None)  # Reset everything
 
     # Sync pileid-filter and pileid-filter-top
     if triggered_id == "pileid-filter":
-        return (date_options, rigid_options, pileid_options, pileid_options, pilecode_options, pilestatus_options,
+        return (date_options, rigid_options, pileid_options,  pilecode_options, pilestatus_options,
                 piletype_options, productcode_options,
-                prev_date, prev_rigid, selected_pileid, selected_pileid, prev_pilecode, prev_pilestatus, prev_piletype,
+                prev_date, prev_rigid, selected_pileid,  prev_pilecode, prev_pilestatus, prev_piletype,
                 prev_productcode)
 
-    if triggered_id == "pileid-filter-top":
-        return (date_options, rigid_options, pileid_options, pileid_options, pilecode_options, pilestatus_options,
-                piletype_options, productcode_options,
-                prev_date, prev_rigid, selected_pileid_top, selected_pileid_top, prev_pilecode, prev_pilestatus,
-                prev_piletype, prev_productcode)
+    # if triggered_id == "pileid-filter-top":
+    #     return (date_options, rigid_options, pileid_options, pileid_options, pilecode_options, pilestatus_options,
+    #             piletype_options, productcode_options,
+    #             prev_date, prev_rigid, selected_pileid_top, selected_pileid_top, prev_pilecode, prev_pilestatus,
+    #             prev_piletype, prev_productcode)
 
     # Otherwise, **keep previous selections**
-    return (date_options, rigid_options, pileid_options,pileid_options, pilecode_options, pilestatus_options, piletype_options,
+    return (date_options, rigid_options, pileid_options, pilecode_options, pilestatus_options, piletype_options,
             productcode_options,
-            prev_date, prev_rigid, prev_pileid, prev_pileid_top, prev_pilecode, prev_pilestatus, prev_piletype, prev_productcode)
+            prev_date, prev_rigid, prev_pileid,  prev_pilecode, prev_pilestatus, prev_piletype, prev_productcode)
 
 
 
@@ -596,12 +615,29 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
         for _, row in filtered_df.iterrows():
             if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
                 pile_code = row.get("PileCode", "")
+                piletype = row.get("PileType", "")
+                if piletype=='1':
+                    use_color = '#327ba8'
+                elif piletype=='2':
+                    use_color = 'yellow'
+                elif piletype=='3':
+                    use_color = 'green'
+                elif piletype=='3A':
+                    use_color='purple'
+                elif piletype=='4':
+                    use_color='red'
+                elif piletype=='5':
+                    use_color='orange'
+                else:
+                    use_color='black'
 
                 # Assign different marker styles
                 if pile_code.lower() == "Production Pile".lower():  # Circle
                     marker = dl.CircleMarker(
                         center=(row["latitude"], row["longitude"]),
-                        radius=5, color="blue", fill=True,
+                        radius=5, color=use_color, fill=True,
+                        fillColor=use_color,  # Set fill color (can be same as stroke)
+                        fillOpacity=1.0,  # Make sure it's fully opaque
                         children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
                     )
 
@@ -609,7 +645,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                     marker = dl.Rectangle(
                         bounds=[(row["latitude"] - 0.0001, row["longitude"] - 0.0001),
                                 (row["latitude"] + 0.0001, row["longitude"] + 0.0001)],
-                        color="green", fill=True,
+                        color=use_color, fill=True,fillOpacity=1.0,
                         children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
                     )
 
@@ -627,6 +663,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                 else:  # Default marker for other PileCodes
                     marker = dl.Marker(
                         position=(row["latitude"], row["longitude"]),
+                        color=use_color, fill=True,fillOpacity=1.0,
                         children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
                     )
                 center = [row["latitude"], row["longitude"]]
@@ -663,20 +700,138 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 
 
 # Callback to update the combined graph
+# @app.callback(
+#     Output("time_graph", "figure"),
+#     [Input("pileid-filter", "value"), Input("date-filter", "value")],
+#     State("jobid-filter","value")
+# )
+# def update_combined_graph(selected_pileid, selected_date,selected_jobid):
+#     if not selected_pileid or selected_pileid not in pile_data or selected_date not in pile_data[selected_pileid]:
+#         return go.Figure(
+#             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) # Dark background even if empty
+#
+#     pile_info = pile_data[selected_pileid][selected_date]
+#
+#     # Create figure with two y-axes
+#     fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+#     time_interval = pd.to_datetime(pile_info["Time"]).to_pydatetime()
+#     minT = min(time_interval)-timedelta(minutes=2)
+#     maxT = max(time_interval)+timedelta(minutes=2)
+#     minT=minT.strftime(format='%Y-%m-%d %H:%M:%S')
+#     maxT = maxT.strftime(format='%Y-%m-%d %H:%M:%S')
+#     # Add Depth vs Time (Secondary Y-Axis)
+#     fig.add_scatter(
+#         x=pile_info["Time"],
+#         y=pile_info["Depth"],
+#         mode="lines",
+#         name="Depth",
+#         yaxis="y1",
+#         line_color="#f7b500"
+#     )
+#
+#     # Add Strokes vs Time (Primary Y-Axis)
+#     fig.add_scatter(
+#         x=pile_info["Time"],
+#         y=pile_info["Strokes"],
+#         mode="lines",
+#         name="Strokes",
+#         yaxis="y2",
+#         line_color="green"
+#
+#     )
+#
+#     # Update layout for dual y-axes and dark background
+#     fig.update_layout(
+#         xaxis_title="Time",
+#         yaxis=dict(title="Depth", side="left", showgrid=True),
+#         yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+#         plot_bgcolor="#193153",
+#         paper_bgcolor="#193153",
+#         font=dict(color="white"),
+#         xaxis_range=[minT, maxT],
+#         # yaxis_range = [min(pile_info['Depth'])-5,max(pile_info['Depth'])+5],
+#         # yaxis2_range=[min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
+#
+#     )
+#
+#
+#     return fig
+
+# @app.callback(
+#     Output("depth_graph", "figure"),
+#     [Input("pileid-filter", "value"), Input("date-filter", "value")],
+#     State("jobid-filter","value")
+# )
+# def update_depth_graph(selected_pileid, selected_date,selected_jobid):
+#     if not selected_pileid or selected_pileid not in pile_data or selected_date not in pile_data[selected_pileid]:
+#         return go.Figure(
+#             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) # Dark background even if empty
+#
+#     pile_info = pile_data[selected_pileid][selected_date]
+#
+#     # Create figure with two y-axes
+#     # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+#     minD = min(pile_info['Depth'])-5
+#     maxD = max(pile_info['Depth'])+5
+#     # ================================================================================
+#     # Create subplots with shared y-axis
+#     fig1 = make_subplots(rows=1, cols=5, shared_yaxes=True,
+#                         subplot_titles=("Penetration Rate", "Rotary Head Pressure", "Pulldown", "Rotation"))
+#
+#     # Add traces
+#     increasing_PR,increasing_D,decreasing_PR,decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+#     fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines',line=dict(color='red', width=2), name='UP'), row=1,col=1)
+#     fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),name='DOWN'), row=1, col=1)
+#     # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
+#     increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"],pile_info["Depth"])
+#     fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False),row=1, col=2)
+#     fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False),row=1, col=2)
+#     # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
+#     increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"],pile_info["Depth"])
+#     fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False), row=1,col=3)
+#     fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False), row=1,col=3)
+#     # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
+#     increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],pile_info["Depth"])
+#     fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2),showlegend=False), row=1, col=4)
+#     fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2),showlegend=False), row=1, col=4)
+#     # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
+#
+#     # Update layout for dual y-axes and dark background
+#     fig1.update_layout(
+#         yaxis_title="Depth (ft)",
+#         # yaxis=dict(title="Depth", side="left", showgrid=False),
+#         # yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+#         plot_bgcolor="#193153",
+#         paper_bgcolor="#193153",
+#         font=dict(color="white"),
+#         # yaxis_range=[minD, maxD]
+#     )
+#
+#     fig1.update_yaxes(range=[minD, maxD])
+#     tils = ['(ft/min)','(bar)','(tons)','(rpm)']
+#     for i in range(0, 4):
+#         fig1.update_xaxes(title_text=tils[i] , row=1, col=i+1)
+#
+#     return fig1
+
 @app.callback(
     Output("time_graph", "figure"),
-    [Input("pileid-filter", "value"), Input("date-filter", "value")],
+    Input('pilelist-table', 'selectedRows'),
     State("jobid-filter","value")
 )
-def update_combined_graph(selected_pileid, selected_date,selected_jobid):
-    if not selected_pileid or selected_pileid not in pile_data or selected_date not in pile_data[selected_pileid]:
+def update_combined_graph(selected_row, selected_jobid):
+    if not selected_row:
+        # No row selected - you might want to show all data or a default view
         return go.Figure(
-            layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) # Dark background even if empty
-
+            layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})  # Dark background even if empty
+    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+    selected_pileid = selected_row['PileID']
+    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
     pile_info = pile_data[selected_pileid][selected_date]
 
     # Create figure with two y-axes
-    fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    # fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    fig = px.line(title='')
     time_interval = pd.to_datetime(pile_info["Time"]).to_pydatetime()
     minT = min(time_interval)-timedelta(minutes=2)
     maxT = max(time_interval)+timedelta(minutes=2)
@@ -719,16 +874,18 @@ def update_combined_graph(selected_pileid, selected_date,selected_jobid):
 
 
     return fig
-
 @app.callback(
     Output("depth_graph", "figure"),
-    [Input("pileid-filter", "value"), Input("date-filter", "value")],
-    State("jobid-filter","value")
+    Input('pilelist-table', 'selectedRows')
 )
-def update_depth_graph(selected_pileid, selected_date,selected_jobid):
-    if not selected_pileid or selected_pileid not in pile_data or selected_date not in pile_data[selected_pileid]:
+def update_depth_graph(selected_row):
+    if not selected_row:
+        # No row selected - you might want to show all data or a default view
         return go.Figure(
             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) # Dark background even if empty
+    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+    selected_pileid = selected_row['PileID']
+    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
 
     pile_info = pile_data[selected_pileid][selected_date]
 
@@ -768,6 +925,16 @@ def update_depth_graph(selected_pileid, selected_date,selected_jobid):
         paper_bgcolor="#193153",
         font=dict(color="white"),
         # yaxis_range=[minD, maxD]
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.2,  # position below the plot
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
+            font=dict(size=12),  # adjust font size
+            itemwidth=30,  # control item width
+        )
     )
 
     fig1.update_yaxes(range=[minD, maxD])
@@ -776,16 +943,22 @@ def update_depth_graph(selected_pileid, selected_date,selected_jobid):
         fig1.update_xaxes(title_text=tils[i] , row=1, col=i+1)
 
     return fig1
-
 @app.callback(
     Output("pile-summary-cards", "children"),
-    [Input("pileid-filter", "value"), Input("jobid-filter", "value")],
-    State('date-filter','value')
+    [Input('pilelist-table', 'selectedRows'), Input("jobid-filter", "value")]
+    # [Input("pileid-filter", "value"), Input("jobid-filter", "value")],
+    # State('date-filter','value')
 )
-def update_summary_cards(selected_pileid, selected_jobid,selected_date):
-    if not selected_pileid or not selected_jobid:
+# def update_summary_cards(selected_pileid, selected_jobid,selected_date):
+#     if not selected_pileid or not selected_jobid:
+#         return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
+def update_summary_cards(selected_row,selected_jobid):
+    if not selected_row:
         return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
 
+    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+    selected_pileid = selected_row['PileID']
+    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
     # Filter data for the selected PileID
     filtered_df = properties_df[properties_df["PileID"] == selected_pileid]
 
@@ -848,32 +1021,32 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     return [
         dbc.Row([
             dbc.Col(
-                # html.Div([
-                #     html.Div("🔢 # Piles:", style={"fontWeight": "bold", "fontSize": "14px"}),
-                #     html.Div(str(unique_pile_count), style={"fontSize": "14px", "color": "white"})
-                # ], style={ "textAlign": "center"}),
-                # xs=6, sm=5, md=5, lg=5, xl=5
                 dbc.Card(
                     dbc.CardBody([
-                        html.P("🔢 # Piles: " + str(unique_pile_count), className="card-title",style={"display": "flex", "alignItems": "center", "whiteSpace": "nowrap"}),
-                    ]), className="mb-3"
+                        html.P("🔢 # Piles: " + str(unique_pile_count),
+                               className="card-title",
+                               style={"display": "flex", "alignItems": "center",
+                                      "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
+                    ]),
+                    className="mb-3" # Reduced bottom margin
                 ),
-                xs=5, sm=5, md=6, lg=6, xl=6  # Full width on xs, 50% on sm, 5 cols on md+
+                xs=12, sm=6, md=6, lg=6, xl=6
             ),
             dbc.Col(
-                # html.Div([
-                #     html.Div("🔢 # Piles with filters:", style={"fontWeight": "bold", "fontSize": "14px"}),
-                #     html.Div(str(unique_pile_count_filters), style={"fontSize": "14px", "color": "white"})
-                # ], style={"textAlign": "center"}),
-                # xs=6, sm=5, md=7, lg=7, xl=7
                 dbc.Card(
                     dbc.CardBody([
-                        html.P("🔢 # Piles with Filters: " + str(unique_pile_count_filters), className="card-title",style={"display": "flex", "alignItems": "center", "whiteSpace": "nowrap"}),
-                    ]), className="mb-3"
+                        html.P("🔢 # Piles filtered: " + str(unique_pile_count_filters),
+                               className="card-title",
+                               style={"display": "flex", "alignItems": "center",
+                                      "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
+                    ]),
+                    className="mb-3"  # Reduced bottom margin
                 ),
-                xs=7, sm=7, md=6, lg=6, xl=6  # Full width on xs, 50% on sm, 7 cols on md+
+                xs=12, sm=6, md=6, lg=6, xl=6,
+                className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
             )
-        ], style={'padding': '5px'})]
+        ])  # , className="g-2" Small gutter between columns when side-by-side
+        ]
         # html.Div([html.P("🔢 Piles in JobID"), html.H4(unique_pile_count)], style={'textAlign': 'center', 'padding': '10px'}),
         # html.Div([html.P("🔢 Piles count with Filters"), html.H4(unique_pile_count_filters)],style={'textAlign': 'center', 'padding': '10px'})
 
@@ -1089,6 +1262,16 @@ def download_csv(n_clicks,data):
         csv_string = df.to_csv(index=False, encoding='utf-8')
         return dict(content=csv_string, filename=f"PileList_data_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
 
+@app.callback(
+    Output("download-pdf", "data"),
+    Input("btn-pdf", "n_clicks"),
+    State('pilelist-table', 'selectedRows'),
+    prevent_initial_call=True
+)
+def download_charts(click,selected_row):
+    if not selected_row:
+        return no_update
+    return
 
 # Run the app
 if __name__ == "__main__":

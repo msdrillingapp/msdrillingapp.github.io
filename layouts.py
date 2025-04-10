@@ -1,16 +1,7 @@
 from dash import dcc
 from dash import html
-import plotly.graph_objs as go
-import pandas as pd
-import numpy as np
-import dash
-from dash import dash_table
-# from dash.dash_table.Format import Group, Format
-# import dash_table.FormatTemplate as FormatTemplate
 from datetime import datetime as dt
-# from main import app
 import dash_ag_grid as dag
-
 import dash_bootstrap_components as dbc
 ####################################################################################################
 # 000 - DEFINE REUSABLE COMPONENTS AS FUNCTIONS
@@ -176,7 +167,13 @@ def get_filters(properties_df):
 
 
 def get_pilelist():
-
+    # custom_order = [
+    #     "PileID", "LocationID", "PileLength", "MaxStroke",
+    #     "PumpID", "PumpCalibration", "PileStatus", "PileCode", "WorkingGrade", "Comments", "Delay"
+    # ]
+   #  Time ,     # PileID    # LocationID    # Depth    # Strokes
+    # Over break not editable     # Pile status     # Pile code     # Comments
+    # Delay time  not editable     # Delay    # PumpCalibration    # PumpId
    pileList =  html.Div([
         # Map Section
         dbc.Button("Show Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
@@ -185,34 +182,40 @@ def get_pilelist():
                 dag.AgGrid(
                     id="pilelist-table",
                     columnDefs=[
+                        {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True, "pinned": "left"},
                         {"headerName": "Time", "field": "Time", "sortable": True, "filter": True},
-                        {"headerName": "JobID", "field": "JobID", "sortable": True, "filter": True},
-                        {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True},
-                        {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True},
-                        {"headerName": "PileStatus", "field": "PileStatus", "sortable": True, "filter": True, "editable": True,"cellEditor": "agSelectCellEditor",
-                        "cellEditorParams": {"values": ["Complete", "Abandoned"]},},
-                        {"headerName": "PileType", "field": "PileType", "sortable": True, "filter": True, "editable": True,
-                            "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ["1", "2", "3", "3A", "4", "5"]},},
-                        {"headerName": "Distance", "field": "Distance", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "MoveTime", "field": "MoveTime", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "DelayTime", "field": "DelayTime", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "Totaltime", "field": "Totaltime", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True},
-                        {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True,"editable": True},
+                        {"headerName": "JobID", "field": "JobID", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
+                        {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
+                        {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
                         {"headerName": "OverBreak", "field": "OverBreak", "sortable": True, "filter": True,"editable": False},
-                        {"headerName": "PumpID", "field": "PumpID", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "Calibration", "field": "Calibration", "sortable": True, "filter": True, "editable": True},
-                        {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True, "editable": True},
+                        {"headerName": "PileStatus", "field": "PileStatus", "sortable": True, "filter": True, "editable": True,"cellEditor": "agSelectCellEditor",
+                        "cellEditorParams": {"values": ["Complete", "Abandoned"]},"headerClass": "header-red"},
+                        {"headerName": "PileCode", "field": "PileCode", "sortable": True, "filter": True,"editable": True, "cellEditor": "agSelectCellEditor",
+                         "cellEditorParams": {"values": ["Production Pile", "Test Pile","Recation Pile","Probe"]},"headerClass": "header-red" },
+                        {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "DelayTime", "field": "DelayTime", "sortable": True, "filter": True, "editable": False},
                         {"headerName": "Delay", "field": "Delay", "sortable": True, "filter": True, "editable": True,
-                         "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ['Waiting on Concrete', 'Site access', 'Layout','Other']},},
+                         "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ['Waiting on Concrete', 'Site access', 'Layout','Other']},"headerClass": "header-red"},
+                         {"headerName": "PumpID", "field": "PumpID", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "Calibration", "field": "Calibration", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "PileType", "field": "PileType", "sortable": True, "filter": True, "editable": False,
+                            "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ["1", "2", "3", "3A", "4", "5"]},},
+                        {"headerName": "Distance", "field": "Distance", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "MoveTime", "field": "MoveTime", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "Totaltime", "field": "Totaltime", "sortable": True, "filter": True, "editable": False},
                     ],
                     rowData=[],  # Initially empty
                     defaultColDef={"resizable": True, "sortable": True, "filter": True, "editable": True},
                     className="ag-theme-alpine-dark",
                     dashGridOptions={
+                            "rowSelection": "single",
+                            "animateRows": True,
                             'undoRedoCellEditing': True,
-                            'undoRedoCellEditingLimit': 20}
+                            'undoRedoCellEditingLimit': 20},
+                    columnSize = "sizeToFit",
                 ),
+
                 # Print Button
                 html.Button("Download Pile List", id="btn_download", n_clicks=0),
                 # ,style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between','marginLeft': '5px'}
@@ -229,7 +232,8 @@ def get_pilelist():
    return pileList
 
 def get_filtered_table():
-    filterd_table = html.Div([dag.AgGrid(
+    filterd_table = html.Div([dbc.Row([
+                dbc.Col(dag.AgGrid(
                         id="filtered-table",
                         columnDefs=[
                         {"headerName": "Field", "field": "Field", "sortable": True, "filter": True},
@@ -237,8 +241,10 @@ def get_filtered_table():
                         rowData = [],  # Initially empty
                         defaultColDef = {"resizable": True, "sortable": True, "filter": True, "editable": True}, \
                         className = "ag-theme-alpine-dark",
+                        columnSize="sizeToFit",
                         # columnSize="autoSize",
-                        )])
+                        ),xs=12, sm=12, md=8, lg=6, xl=6)])],
+    )
     return  filterd_table
 def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak):
     details = html.Div([

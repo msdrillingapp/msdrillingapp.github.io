@@ -114,7 +114,17 @@
 .ag-theme-alpine-dark.compact {
     --ag-grid-size: 3px;
 }
+.ag-theme-alpine-dark .ag-row-selected {
+                background-color: #d6eaf8 !important;
+            }
+            .ag-theme-alpine .ag-row-hover {
+                background-color: #ebf5fb !important;
+            }
 /* change the font style of a single UI component
 .ag-theme-alpine .ag-header-cell-label {
     font-style: italic !important;
 }*/
+
+.header-red {
+            background-color: grey !important;
+        }
