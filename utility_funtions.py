@@ -424,9 +424,9 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         fig['layout']['paper_bgcolor'] = 'white'
         fig['layout']['font']['color'] = 'black'
         # Set axis title and tick font sizes
-        fig['layout']['yaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
+        # fig['layout']['yaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
         # fig['layout']['yaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
-        fig['layout']['xaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
+        # fig['layout']['xaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
         # fig['layout']['xaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
 
 
@@ -452,7 +452,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
             depth_fig['layout'][axis]['gridcolor'] = 'rgba(100,100,100,0.7)'
             depth_fig['layout'][axis]['gridwidth'] = 1.2
             depth_fig['layout'][axis]['showgrid'] = True
-            depth_fig['layout'][axis]['titlefont'] = {'size': 16,'family': 'Helvetica, sans-serif','color': 'black'}
+            # depth_fig['layout'][axis]['titlefont'] = {'size': 16,'family': 'Helvetica, sans-serif','color': 'black'}
             # depth_fig['layout'][axis]['tickfont'] = {'size': 14,'family': 'Helvetica-Bold, sans-serif', 'color': 'black'}
 
     depth_img = BytesIO()
