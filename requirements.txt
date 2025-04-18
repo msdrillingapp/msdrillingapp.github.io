@@ -12,4 +12,3 @@ dash_ag_grid
 flask_caching
 diskcache
 reportlab
-math
