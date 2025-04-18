@@ -261,7 +261,6 @@ def add_charts():
                     dbc.Col(
                             dcc.Graph(id="time_graph", config={'responsive': True},style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
                     xs=12, sm=12, md=12, lg=12, xl=12),
-                # ], style={'height': '500px','width': '100% !important', 'padding': '0','margin': '0'}),'width': '100% !important', 'display': 'inline-block',
                 html.Br(),
                     ]), # close Row
                 # html.Div([
@@ -270,7 +269,7 @@ def add_charts():
                         dcc.Graph(id="depth_graph",config={'responsive': True},  style={"backgroundColor": "#193153",'width': '100%','marginTop':'5px'}),
                         xs=12, sm=12, md=12, lg=12, xl=12),
                 ]),  # close Row
-                # ], style={'height': '500px','width': '100% !important', 'padding': '0','margin': '0'}),,'width': '100% !important', 'display': 'inline-block'
+
                 dcc.Download(id="download-pdf"),
                 ]),
 

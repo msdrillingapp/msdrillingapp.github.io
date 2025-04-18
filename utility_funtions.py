@@ -237,9 +237,10 @@ def create_time_chart(pile_info):
 
     # Update layout for dual y-axes and dark background
     fig.update_layout(
-        xaxis_title="Time",
-        yaxis=dict(title="Depth", side="left", showgrid=True),
-        yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+        # xaxis_title="Time",
+        yaxis=dict(title="Depth", zerolinecolor='black',side="left", showgrid=True, linecolor='black',gridcolor='rgba(100,100,100,0.5)',mirror=True,minor=dict(showgrid=True,gridcolor='rgba(100,100,100,0.5)',griddash='dot')),
+        yaxis2=dict(title="Strokes",zerolinecolor='black', overlaying="y", side="right", showgrid=False, linecolor='black'),
+        xaxis=dict(title="Time",zerolinecolor='black',showgrid=True, linecolor='black',gridcolor='rgba(100,100,100,0.5)',minor=dict(showgrid=True,gridcolor='rgba(100,100,100,0.5)',griddash='dot')),
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
         font=dict(color="white"),
@@ -260,8 +261,9 @@ def create_time_chart(pile_info):
     )
     fig.update_layout(
         autosize=True,
-        margin=dict(l=20, r=20, b=20, t=30),
+        # margin=dict(l=20, r=20, b=20, t=30),
     )
+
     return fig
 
 def create_depth_chart(pile_info,diameter=None):
@@ -326,27 +328,31 @@ def create_depth_chart(pile_info,diameter=None):
     # Configure gridlines for each subplot
     for i in range(0, 5):
         fig1.update_xaxes(
+            zerolinecolor = 'black',
             gridcolor='rgba(100,100,100,0.5)',
             gridwidth=1,
             showgrid=True,
             linecolor='black',
             mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
             row=1,
             col=i+1
         )
         fig1.update_yaxes(
+            zerolinecolor='black',
             gridcolor='rgba(100,100,100,0.5)',
             gridwidth=1,
             showgrid=True,
             linecolor='black',
             mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
             row=1,
             col=i+1
         )
 
     fig1.update_layout(
         autosize=True,
-        margin=dict(l=20, r=20, b=20, t=30),
+        # margin=dict(l=20, r=20, b=20, t=30),
     )
 
     return fig1
