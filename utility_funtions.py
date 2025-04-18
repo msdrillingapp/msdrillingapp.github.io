@@ -3,6 +3,33 @@ import pandas as pd
 import dash_leaflet as dl
 import json
 import os
+from flask_caching import Cache
+from dash import Dash
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime,timedelta
+import base64
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                Table, TableStyle, Frame, PageTemplate,Image)
+# from reportlab.pdfgen.canvas import Canvas
+import plotly.graph_objects as go
+
+import math
+# Create a dummy app just for the cache (fallback if not initialized in main.py)
+dummy_app = Dash(__name__)
+cache = Cache(dummy_app.server, config={'CACHE_TYPE': 'SimpleCache'})
+cache.clear()
+# Try to get the real cache if available (will be replaced when main.py runs)
+try:
+    from main import cache  # This will override the dummy cache when main.py runs first
+except ImportError:
+    pass  # Use the dummy cache
 
 
 file_path = os.path.join(os.getcwd(), "assets",)
@@ -11,7 +38,14 @@ def filter_none(lst):
     return filter(lambda x: not x is None, lst)
 
 # Function to load all GeoJSON files dynamically
+# Cache expensive operations
+@cache.memoize(timeout=3600)
 def load_geojson_data():
+    # Check if cached data exists
+    cache_file = os.path.join(geojson_folder, 'cached_data.pkl')
+    if os.path.exists(cache_file):
+        return pd.read_pickle(cache_file)
+
     all_data = []
     pile_data = {}
     markers = []
@@ -94,6 +128,9 @@ def load_geojson_data():
                         continue
                     # Store time-series data separately for graph plotting
                     pile_id = properties.get("PileID")
+                    calibration = float(properties.get("PumpCalibration"))
+                    strokes = properties["Data"].get("Strokes", [])
+                    volume = [calibration*float(x) for x in strokes]
                     if pile_id and "Data" in properties:
                         pile_data.setdefault(pile_id, {})[properties['date']] = {
                             "Time": properties["Data"].get("Time", []),
@@ -104,11 +141,16 @@ def load_geojson_data():
                             'PenetrationRate': properties['Data'].get('PenetrationRate', []),
                             'Pulldown': properties['Data'].get('Pulldown', []),
                             'Torque': properties['Data'].get('Torque', []),
+                            'Volume': volume
 
                         }
                     all_data.append(properties)
+    # Cache the result for next time
+    result = (pd.DataFrame(all_data), pile_data, latitudes, longitudes, markers)
+    pd.to_pickle(result, cache_file)
+    return result
     # dict_keys(['Time', 'Depth', 'PConcrete', 'RotaryHeadPressure', 'Rotation', 'PenetrationRate', 'Pulldown', 'Strokes', 'Torque', 'DrillDirection'])
-    return pd.DataFrame(all_data), pile_data,latitudes,longitudes,markers
+    # return pd.DataFrame(all_data), pile_data,latitudes,longitudes,markers
 
 
 def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes=None, latitudes=None):
@@ -160,3 +202,404 @@ def indrease_decrease_split(x,y):
             decreasing_y.append(y[i])
 
     return increasing_x,increasing_y,decreasing_x,decreasing_y
+
+
+def create_time_chart(pile_info):
+
+    # Create figure with two y-axes
+    # fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    fig = px.line(title='')
+    time_interval = pd.to_datetime(pile_info["Time"]).to_pydatetime()
+    minT = min(time_interval) - timedelta(minutes=2)
+    maxT = max(time_interval) + timedelta(minutes=2)
+    minT = minT.strftime(format='%Y-%m-%d %H:%M:%S')
+    maxT = maxT.strftime(format='%Y-%m-%d %H:%M:%S')
+    # Add Depth vs Time (Secondary Y-Axis)
+    fig.add_scatter(
+        x=pile_info["Time"],
+        y=pile_info["Depth"],
+        mode="lines",
+        name="Depth",
+        yaxis="y1",
+        line_color="#f7b500"
+    )
+
+    # Add Strokes vs Time (Primary Y-Axis)
+    fig.add_scatter(
+        x=pile_info["Time"],
+        y=pile_info["Strokes"],
+        mode="lines",
+        name="Strokes",
+        yaxis="y2",
+        line_color="green"
+
+    )
+
+    # Update layout for dual y-axes and dark background
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis=dict(title="Depth", side="left", showgrid=True),
+        yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font=dict(color="white"),
+        xaxis_range=[minT, maxT],
+        # yaxis_range = [min(pile_info['Depth'])-5,max(pile_info['Depth'])+5],
+        # yaxis2_range=[min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.2,  # position below the plot
+            xanchor="center",
+            x=0.5,
+            # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
+            font=dict(size=12),  # adjust font size
+            itemwidth=30,  # control item width
+        )
+
+    )
+    fig.update_layout(
+        autosize=True,
+        margin=dict(l=20, r=20, b=20, t=30),
+    )
+    return fig
+
+def create_depth_chart(pile_info,diameter=None):
+
+    # Create figure with two y-axes
+    # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    minD = min(pile_info['Depth']) - 5
+    maxD = max(pile_info['Depth']) + 5
+    # ================================================================================
+    # Create subplots with shared y-axis
+    fig1 = make_subplots(rows=1, cols=5, shared_yaxes=True, subplot_titles=("Penetration<br>Rate",
+        "Rotary<br>Pressure", "Pulldown", "Rotation","Volume"))
+
+    # Add traces
+    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='UP'), row=1,col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='DOWN'), row=1, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
+    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=2)
+    fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=2)
+    # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
+    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"], pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False),row=1, col=3)
+    fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=3)
+    # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
+    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=4)
+    fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=4)
+    # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
+    fig1.add_trace(go.Scatter(x=pile_info["Volume"], y=pile_info["Depth"], name='Actual' , mode='lines', line=dict(color='black', width=2), showlegend=True),row=1, col=5)
+    if not diameter is None:
+        minDepth = float(min(pile_info["Depth"]))
+        volume_cy = cylinder_volume_cy(diameter,-minDepth)
+        fig1.add_trace(go.Scatter(x=[volume_cy,0],y=[0,minDepth],mode='lines',name = 'Theoretical',line=dict(color='grey', width=2, dash='dashdot'), showlegend=True),row=1,col=5)
+    # Update layout for dual y-axes and dark background
+    fig1.update_layout(
+        yaxis_title="Depth (ft)",
+        # yaxis=dict(title="Depth", side="left", showgrid=False),
+        # yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font=dict(color="white"),
+        # yaxis_range=[minD, maxD]
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3,  # position below the plot
+            xanchor="center",
+            x=0.5,
+            # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
+            font=dict(size=11),  # adjust font size
+            itemwidth=30,  # control item width
+        )
+    )
+    fig1.update_annotations(font_size=11)
+    fig1.update_yaxes(range=[minD, maxD])
+    tils = ['(ft/min)', '(bar)', '(tons)', '(rpm)','(yd^3)']
+    for i in range(0, 5):
+        fig1.update_xaxes(title_text=tils[i], row=1, col=i + 1)
+
+    # Configure gridlines for each subplot
+    for i in range(0, 5):
+        fig1.update_xaxes(
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            row=1,
+            col=i+1
+        )
+        fig1.update_yaxes(
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            row=1,
+            col=i+1
+        )
+
+    fig1.update_layout(
+        autosize=True,
+        margin=dict(l=20, r=20, b=20, t=30),
+    )
+
+    return fig1
+
+# ===============================================================================
+
+
+
+def cylinder_volume_cy(diameter_inches, height_feet):
+    """
+    Calculate the volume of a cylinder in cubic yards.
+
+    Parameters:
+    diameter_inches (float): Diameter of the cylinder in inches
+    height_feet (float): Height of the cylinder in feet
+
+    Returns:
+    float: Volume in cubic yards
+    """
+    # Convert diameter from inches to yards (36 inches = 1 yard)
+    diameter_yards = diameter_inches / 36
+    radius_yards = diameter_yards / 2
+
+    # Convert height from feet to yards (3 feet = 1 yard)
+    height_yards = height_feet / 3
+
+    # Calculate volume in cubic yards: V = πr²h
+    volume = math.pi * (radius_yards ** 2) * height_yards
+
+    return volume
+
+def adjust_for_single_page(story, max_height=10.5*inch):
+    total_height = sum([item.wrap(0,0)[1] if hasattr(item, 'wrap') else item for item in story])
+    if total_height > max_height:
+        scale_factor = max_height / total_height * 0.95  # 5% margin
+        for item in story:
+            if isinstance(item, Image):
+                item.drawWidth *= scale_factor
+                item.drawHeight *= scale_factor
+
+
+def generate_mwd_pdf(selected_row, time_fig, depth_fig):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            leftMargin=0.5 * inch,
+                            rightMargin=0.5 * inch,
+                            topMargin=0.5 * inch,
+                            bottomMargin=0.5 * inch)
+
+    styles = getSampleStyleSheet()
+
+    # Custom styles
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Title'],
+        fontSize=14,
+        leading=16,
+        spaceAfter=12,
+        alignment=1  # Center
+    )
+
+    header_style = ParagraphStyle(
+        'Header',
+        parent=styles['Heading2'],
+        fontSize=12,
+        leading=14,
+        spaceAfter=6,
+        textColor=colors.black
+    )
+
+    # Convert Plotly figures to images
+    # Enhance visibility for PDF export
+    for fig in [time_fig, depth_fig]:
+        fig['layout']['plot_bgcolor'] = 'white'
+        fig['layout']['paper_bgcolor'] = 'white'
+        fig['layout']['font']['color'] = 'black'
+        # Set axis title and tick font sizes
+        fig['layout']['yaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
+        fig['layout']['yaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
+        fig['layout']['xaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
+        fig['layout']['xaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
+        # fig['layout']['xaxis']['titlefont'] = {'size': 14}
+        # fig['layout']['xaxis']['tickfont'] = {'size': 12}
+        # fig['layout']['yaxis']['titlefont'] = {'size': 14}
+        # fig['layout']['yaxis']['tickfont'] = {'size': 12}
+
+        # Make gridlines more prominent in PDF
+        fig['layout']['xaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'  # Darker gray
+        fig['layout']['xaxis']['gridwidth'] = 1.2
+        fig['layout']['yaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'
+        fig['layout']['yaxis']['gridwidth'] = 1.2
+
+        # Increase line widths for better visibility
+        if 'data' in fig and len(fig['data']) > 0:
+            if 'line' in fig['data'][0]:
+                fig['data'][0]['line']['width'] = 3
+
+    time_img = BytesIO()
+    go.Figure(time_fig).write_image(time_img, format='png', scale=3)  # Higher resolution
+    time_img.seek(0)
+
+    # Special handling for subplots in depth chart
+    # if 'subplots' in depth_fig.get('layout', {}):
+    for axis in depth_fig['layout']:
+        if axis.startswith(('xaxis', 'yaxis')):
+            depth_fig['layout'][axis]['gridcolor'] = 'rgba(100,100,100,0.7)'
+            depth_fig['layout'][axis]['gridwidth'] = 1.2
+            depth_fig['layout'][axis]['showgrid'] = True
+            depth_fig['layout'][axis]['titlefont'] = {'size': 16,'family': 'Helvetica, sans-serif','color': 'black'}
+            depth_fig['layout'][axis]['tickfont'] = {'size': 14,'family': 'Helvetica-Bold, sans-serif', 'color': 'black'}
+
+    depth_img = BytesIO()
+    # go.Figure(depth_fig).write_image(depth_img, format='png', scale=2)
+    # 4x resolution
+    go.Figure(depth_fig).write_image(depth_img,scale=4,
+        # width=1200,
+        # height=1500,
+        # engine='kaleido'
+    )
+    depth_img.seek(0)
+
+
+    # Create content
+    story = []
+    LOGO_PATH = file_path + '/MSB.logo.JPG'
+
+    header_table = Table(
+        [
+            [
+                Paragraph("Morris Shea Pile Drill Log", title_style),
+                Image(LOGO_PATH, width=1 * inch, height=0.75 * inch) if os.path.exists(LOGO_PATH) else Spacer(1, 1)
+            ]
+        ],
+        colWidths=[5.5 * inch, 1.5 * inch]  # Adjust width as needed
+    )
+
+    header_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Center title
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),  # Align logo to the right
+    ]))
+
+    story.append(header_table)
+
+    # Job Site Data
+    date_drill = pd.to_datetime(selected_row.get('Time', '')).date().strftime(format='%Y-%m-%d')
+    job_data = [
+        ["JOB ID:", selected_row.get('JobID', '')],
+        ["CLIENT:", selected_row.get('Client', '')],
+        ["CONTRACTOR:", "Morris Shea Bridge"],
+        ["DATE:", date_drill],
+        ['','']
+    ]
+
+    # Pile Data
+    pile_data = [
+        ["PILE No:", f"{selected_row.get('PileID', '')}"],
+        ["START TIME:", selected_row.get('DrillStartTime', '')],
+        ["END TIME:", selected_row.get('DrillEndTime', '')],
+        ["TOTAL TIME:", selected_row.get('Totaltime', '')],
+        ["RIG:", selected_row.get('RigID', '')],
+        # ["OPERATOR:", selected_row.get('OPERATOR', '')],
+
+    ]
+    pile_data_2 = [["PILE LENGTH:", str(selected_row.get('PileLength', ''))+' [ft]'],
+        ["PILE DIAMETER:", str(selected_row.get('PileDiameter', ''))+' [in]'],
+        ["STROKES:", selected_row.get('MaxStrokes', '')],
+        ["PUMP CALIB.:", str(selected_row.get('Calibration', ''))+' [cy/str]'],
+        ["OVER BREAK:", selected_row.get('OverBreak', '')]]
+
+    maxdepth = str(selected_row.get('MinDepth',''))
+    # Combine tables horizontally
+    # Make sub-tables
+    # Width for each column = total header width / 3
+    col_width = 7.0 / 3 * inch  # approx 2.33 inches
+
+    # Build job_data, pile_data, and pile_data_2 tables with matching widths
+    job_table = Table(job_data, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+    ])
+
+    pile_table = Table(pile_data, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+    ])
+
+    pile_table_2 = Table(pile_data_2, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+    ])
+
+    # Combine them into one row
+    combined_tables = Table(
+        [[job_table, pile_table, pile_table_2]],
+        colWidths=[col_width] * 3
+    )
+
+    # Set consistent styling across the row
+    combined_tables.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1.2, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+
+    ]))
+
+    # Add some vertical spacing before this block
+    story.append(Spacer(1, 0))
+    story.append(combined_tables)
+
+
+    # Add charts with frames
+    # Combined charts in one box
+    charts_table = Table([
+        [Paragraph("Time Scale", header_style)],
+        [Image(time_img, width=6 * inch, height=2.5 * inch)],
+        [Paragraph("Depth ("+ maxdepth+" ft)", header_style)],
+        [Image(depth_img, width=7 * inch, height=4 * inch)]
+    ],
+        colWidths=[7 * inch],  # 👈 force total width
+        style=[
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5)
+        ])
+
+    story.append(charts_table)
+
+    # Build PDF
+    file_name = 'JobID_' + str(selected_row.get('JobID', '')) + '_PileID_' + str(
+        selected_row.get('PileID', '')) + '_Time_' + str(selected_row.get('Time', '')) + '.pdf'
+    doc.build(story)
+    buffer.seek(0)
+    pdf_data = base64.b64encode(buffer.read()).decode('utf-8')
+    return {
+        'content': pdf_data,
+        'filename': file_name,
+        'type': 'application/pdf',
+        'base64': True
+    }
+
+

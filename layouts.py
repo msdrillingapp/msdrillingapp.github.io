@@ -139,6 +139,14 @@ def get_pilelist():
                         {"headerName": "Distance", "field": "Distance", "sortable": True, "filter": True, "editable": False},
                         {"headerName": "MoveTime", "field": "MoveTime", "sortable": True, "filter": True, "editable": False},
                         {"headerName": "Totaltime", "field": "Totaltime", "sortable": True, "filter": True, "editable": False},
+
+                        {"headerName": "RigID", "field": "RigID", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "Client", "field": "Client", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "DrillStartTime", "field": "DrillStartTime", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "DrillEndTime", "field": "DrillEndTime", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "PileLength", "field": "PileLength", "sortable": True, "filter": True,"hide": True},
+                        {"headerName": "PileDiameter", "field": "PileDiameter", "sortable": True, "filter": True, "hide": True},
+
                     ],
                     rowData=[],  # Initially empty
                     defaultColDef={"resizable": True, "sortable": True, "filter": True, "editable": True},
@@ -147,7 +155,16 @@ def get_pilelist():
                             "rowSelection": "single",
                             "animateRows": True,
                             'undoRedoCellEditing': True,
-                            'undoRedoCellEditingLimit': 20},
+                            'undoRedoCellEditingLimit': 20,
+                            # "suppressRowHoverHighlight": True,
+                            # "suppressColumnMoveAnimation": True,
+                            # "suppressDragLeaveHidesColumns": True,
+                            # "suppressLoadingOverlay": True,
+                            # "suppressMenuHide": True,
+                            # "rowBuffer": 20,  # Only render rows close to visible area
+                            # "cacheBlockSize": 20,
+                            # "maxBlocksInCache": 5
+                        },
                     columnSize = "sizeToFit",
                 ),
 
@@ -160,7 +177,6 @@ def get_pilelist():
             id="collapse-pilelist",
             is_open=False
         ),
-
 
     ], style={"backgroundColor": "#193153"})
 
@@ -177,6 +193,18 @@ def get_filtered_table():
                         defaultColDef = {"resizable": True, "sortable": True, "filter": True, "editable": True}, \
                         className = "ag-theme-alpine-dark",
                         columnSize="sizeToFit",
+                        dashGridOptions={
+                            "rowSelection": "single",
+                            "animateRows": False,  # Disable animations
+                            "suppressRowHoverHighlight": True,
+                            "suppressColumnMoveAnimation": True,
+                            "suppressDragLeaveHidesColumns": True,
+                            "suppressLoadingOverlay": True,
+                            "suppressMenuHide": True,
+                            "rowBuffer": 20,  # Only render rows close to visible area
+                            "cacheBlockSize": 20,
+                            "maxBlocksInCache": 5
+                        }
                         # columnSize="autoSize",
                         ),xs=12, sm=12, md=8, lg=6, xl=6)])],
     )
@@ -217,3 +245,36 @@ def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak):
     ], style={'padding': '20px'})
 
     return details
+
+def add_charts():
+    charts =  dbc.Collapse(
+            html.Div([
+                # Statistics Info Cards
+                html.Div(id="pile-summary-cards", style={
+                    'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center',
+                    'backgroundColor': '#193153', 'color': 'white', 'padding': '10px',
+                    'borderRadius': '5px', 'marginTop': '10px'
+                }),
+
+                html.Button("Download PDF", id='download-pdf-btn', disabled=True),
+                dbc.Row([
+                    dbc.Col(
+                            dcc.Graph(id="time_graph", config={'responsive': True},style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
+                    xs=12, sm=12, md=12, lg=12, xl=12),
+                # ], style={'height': '500px','width': '100% !important', 'padding': '0','margin': '0'}),'width': '100% !important', 'display': 'inline-block',
+                html.Br(),
+                    ]), # close Row
+                # html.Div([
+                dbc.Row([
+                    dbc.Col(
+                        dcc.Graph(id="depth_graph",config={'responsive': True},  style={"backgroundColor": "#193153",'width': '100%','marginTop':'5px'}),
+                        xs=12, sm=12, md=12, lg=12, xl=12),
+                ]),  # close Row
+                # ], style={'height': '500px','width': '100% !important', 'padding': '0','margin': '0'}),,'width': '100% !important', 'display': 'inline-block'
+                dcc.Download(id="download-pdf"),
+                ]),
+
+                id="collapse-plots",
+                is_open=False
+            )
+    return charts

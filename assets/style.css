@@ -23,31 +23,9 @@
 
 
 
-.dash-graph {
-    zoom: 0.45;
-  }
-
-  @media (min-width: 475px) {
-    .dash-graph {
-      zoom: 0.6;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .dash-graph {
-      zoom: 0.85;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .dash-graph {
-      zoom: 1;
-    }
-  }
-
   Select-menu-outer {
     position: absolute !important;
-    z-index: 1050 !important; /* Ensures it stays on top */
+    z-index: 1050 !important;
 }
 
 .dash-spreadsheet-container {
@@ -58,13 +36,13 @@
     overflow: visible !important;
 }
 
-/* Style the dropdown menu options */
+
 .Select-menu-outer, .VirtualizedSelectOption {
-    background-color: #193153 !important; /* Dark blue background for dropdown */
-    color: white !important;  /* White text for dropdown */
+    background-color: #193153 !important;
+    color: white !important;
 }
 
-/* Highlight dropdown option when hovering */
+
 .VirtualizedSelectFocusedOption {
     background-color: #1f4068 !important; /* Lighter blue for hover effect */
 }
@@ -96,8 +74,8 @@
 }
 
 .mb-3 {background-color: #193153  !important;
-    color: white !important;
-    border: 2px solid #193153 !important;
+     color: white !important;
+     border: 2px solid #193153 !important;
      white-space: nowrap;
      }
 
@@ -120,11 +98,31 @@
             .ag-theme-alpine .ag-row-hover {
                 background-color: #ebf5fb !important;
             }
-/* change the font style of a single UI component
-.ag-theme-alpine .ag-header-cell-label {
-    font-style: italic !important;
-}*/
+
 
 .header-red {
             background-color: grey !important;
         }
+
+/*.dash-graph {
+    zoom: 1;
+
+
+  @media (min-width: 475px) {
+    .dash-graph {
+      zoom: 0.6 ;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .dash-graph {
+      zoom: 0.85;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .dash-graph {
+      zoom: 1;
+    }
+  }
+*/

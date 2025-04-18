@@ -9,3 +9,8 @@ gunicorn
 dash_bootstrap_components
 dash_auth
 dash_ag_grid
+flask_caching
+diskcache
+reportlab
+kaleido
+math
