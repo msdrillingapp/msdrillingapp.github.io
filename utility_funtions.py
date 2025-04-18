@@ -425,13 +425,10 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         fig['layout']['font']['color'] = 'black'
         # Set axis title and tick font sizes
         fig['layout']['yaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
-        fig['layout']['yaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
+        # fig['layout']['yaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
         fig['layout']['xaxis']['titlefont'] = {'size': 14,'family': 'Helvetica, sans-serif','color': 'black'}
-        fig['layout']['xaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
-        # fig['layout']['xaxis']['titlefont'] = {'size': 14}
-        # fig['layout']['xaxis']['tickfont'] = {'size': 12}
-        # fig['layout']['yaxis']['titlefont'] = {'size': 14}
-        # fig['layout']['yaxis']['tickfont'] = {'size': 12}
+        # fig['layout']['xaxis']['tickfont'] = {'size': 12,'family': 'Helvetica-Bold, sans-serif','color': 'black'}
+
 
         # Make gridlines more prominent in PDF
         fig['layout']['xaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'  # Darker gray
@@ -456,16 +453,12 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
             depth_fig['layout'][axis]['gridwidth'] = 1.2
             depth_fig['layout'][axis]['showgrid'] = True
             depth_fig['layout'][axis]['titlefont'] = {'size': 16,'family': 'Helvetica, sans-serif','color': 'black'}
-            depth_fig['layout'][axis]['tickfont'] = {'size': 14,'family': 'Helvetica-Bold, sans-serif', 'color': 'black'}
+            # depth_fig['layout'][axis]['tickfont'] = {'size': 14,'family': 'Helvetica-Bold, sans-serif', 'color': 'black'}
 
     depth_img = BytesIO()
     # go.Figure(depth_fig).write_image(depth_img, format='png', scale=2)
     # 4x resolution
-    go.Figure(depth_fig).write_image(depth_img,scale=4,
-        # width=1200,
-        # height=1500,
-        # engine='kaleido'
-    )
+    go.Figure(depth_fig).write_image(depth_img,scale=4)
     depth_img.seek(0)
 
 
