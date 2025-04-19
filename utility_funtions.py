@@ -259,10 +259,10 @@ def create_time_chart(pile_info):
         )
 
     )
-    fig.update_layout(
-        autosize=True,
-        # margin=dict(l=20, r=20, b=20, t=30),
-    )
+    # fig.update_layout(
+    #     autosize=True,
+    #     margin=dict(l=20, r=20, b=20, t=30),
+    # )
 
     return fig
 
@@ -350,13 +350,103 @@ def create_depth_chart(pile_info,diameter=None):
             col=i+1
         )
 
+    # fig1.update_layout(
+    #     autosize=True,
+    #     margin=dict(l=20, r=20, b=20, t=30),
+    # )
+
+    return fig1
+# ===============================================================================
+def create_depth_chart_samll_screen(pile_info,diameter=None):
+
+    # Create figure with two y-axes
+    # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
+    minD = min(pile_info['Depth']) - 5
+    maxD = max(pile_info['Depth']) + 5
+    # ================================================================================
+    # Create subplots with shared y-axis
+    fig1 = make_subplots(rows=5, cols=1, shared_yaxes=True, subplot_titles=("Penetration<br>Rate",
+        "Rotary<br>Pressure", "Pulldown", "Rotation","Volume"))
+
+    # Add traces
+    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='UP'), row=1,col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='DOWN'), row=1, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
+    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=2, col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=2, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
+    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"], pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False),row=3, col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=3, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
+    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],pile_info["Depth"])
+    fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=4, col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=4, col=1)
+    # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
+    fig1.add_trace(go.Scatter(x=pile_info["Volume"], y=pile_info["Depth"], name='Actual' , mode='lines', line=dict(color='black', width=2), showlegend=True),row=5, col=1)
+    if not diameter is None:
+        minDepth = float(min(pile_info["Depth"]))
+        volume_cy = cylinder_volume_cy(diameter,-minDepth)
+        fig1.add_trace(go.Scatter(x=[volume_cy,0],y=[0,minDepth],mode='lines',name = 'Theoretical',line=dict(color='grey', width=2, dash='dashdot'), showlegend=True),row=5,col=1)
+    # Update layout for dual y-axes and dark background
+    fig1.update_layout(
+        yaxis_title="Depth (ft)",
+        # yaxis=dict(title="Depth", side="left", showgrid=False),
+        # yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font=dict(color="white"),
+        # yaxis_range=[minD, maxD]
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3,  # position below the plot
+            xanchor="center",
+            x=0.5,
+            # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
+            font=dict(size=11),  # adjust font size
+            itemwidth=30,  # control item width
+        )
+    )
+    fig1.update_annotations(font_size=11)
+    fig1.update_yaxes(range=[minD, maxD])
+    tils = ['(ft/min)', '(bar)', '(tons)', '(rpm)','(yd^3)']
+    for i in range(0, 5):
+        fig1.update_xaxes(title_text=tils[i], row=1, col=i + 1)
+
+    # Configure gridlines for each subplot
+    for i in range(0, 5):
+        fig1.update_xaxes(
+            zerolinecolor = 'black',
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+            row=1,
+            col=i+1
+        )
+        fig1.update_yaxes(
+            zerolinecolor='black',
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+            row=1,
+            col=i+1
+        )
+
     fig1.update_layout(
         autosize=True,
         # margin=dict(l=20, r=20, b=20, t=30),
     )
 
     return fig1
-
 # ===============================================================================
 
 

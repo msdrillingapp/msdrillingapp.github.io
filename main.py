@@ -101,6 +101,7 @@ charts = add_charts()
 filtered_table = get_filtered_table()
 app.layout = html.Div([
     # ============================================================
+    dcc.Store(id='window-size', data={'width': 1200}),
     header,
     html.Br(),
     # FILTERS ===================================================================
@@ -650,10 +651,11 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     Output("depth_graph", "figure"),
     Output('download-pdf-btn', 'disabled'),
     Input('pilelist-table', 'selectedRows'),
-    State("jobid-filter","value"),
+    Input('window-size', 'data'),
+    # State("jobid-filter","value"),
 
 )
-def update_combined_graph(selected_row, selected_jobid):
+def update_combined_graph(selected_row, window_size):
     if not selected_row:
         # No row selected - you might want to show all data or a default view
         return go.Figure(
@@ -670,6 +672,11 @@ def update_combined_graph(selected_row, selected_jobid):
     fig = create_time_chart(pile_info)
     fig1 = create_depth_chart(pile_info,diameter)
 
+    #     if not window_size is None:
+    #
+    #     width = window_size['width']
+    #     if width < 768:  # Mobile breakpoint
+    #         fig1.update_layout(grid=dict(rows=5, columns=1))
 
     return fig,fig1,False
 

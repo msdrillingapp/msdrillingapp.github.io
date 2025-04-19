@@ -259,16 +259,15 @@ def add_charts():
                 html.Button("Download PDF", id='download-pdf-btn', disabled=True),
                 dbc.Row([
                     dbc.Col(
-                            dcc.Graph(id="time_graph", config={'responsive': True},style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
+                            dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
                     xs=12, sm=12, md=12, lg=12, xl=12),
-                html.Br(),
-                    ]), # close Row
+                    ]), # close Row config={'responsive': True},
                 # html.Div([
                 dbc.Row([
                     dbc.Col(
-                        dcc.Graph(id="depth_graph",config={'responsive': True},  style={"backgroundColor": "#193153",'width': '100%','marginTop':'5px'}),
+                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'width': '100%','marginTop':'5px'}),
                         xs=12, sm=12, md=12, lg=12, xl=12),
-                ]),  # close Row
+                ]),  # close Row config={'responsive': True},
 
                 dcc.Download(id="download-pdf"),
                 ]),
