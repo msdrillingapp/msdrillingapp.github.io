@@ -27,7 +27,7 @@ import zipfile
 import base64
 from celery import shared_task
 # from app import celery_app
-from BackgroundWorker.celery_worker import celery
+from celery_worker import celery
 
 import time
 # REDIS_URL = "redis://red-d05pmaa4d50c73f9cnsg:6379"
