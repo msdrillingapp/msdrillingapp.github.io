@@ -3,7 +3,7 @@ services:
     name: dash-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app.server
+    startCommand: gunicorn app:create_app --factory
     envVars:
       - key: REDIS_URL
         fromService:
