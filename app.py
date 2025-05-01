@@ -47,8 +47,8 @@ if 'REDIS_URL' in os.environ:
     #     result_serializer='json',
     #     accept_content=['json']
     # )
-    from BackgroundWorker.celery_worker import celery_app
-    background_callback_manager = CeleryManager(celery_app)
+    from celery_worker import celery
+    background_callback_manager = CeleryManager(celery)
 else:
     # Diskcache for non-production apps when developing locally
     import diskcache
