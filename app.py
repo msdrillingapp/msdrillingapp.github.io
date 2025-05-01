@@ -1186,4 +1186,4 @@ def create_app():
     #             f"❌ Failed: {str(e)}"
     #         )
     # Run the app
-    return app
+    return app,server
