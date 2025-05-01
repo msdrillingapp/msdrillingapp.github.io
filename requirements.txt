@@ -13,3 +13,5 @@ flask_caching
 diskcache
 reportlab
 kaleido
+celery
+redis

@@ -3,6 +3,7 @@ from dash import html
 from datetime import datetime as dt
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
+
 ####################################################################################################
 # 000 - DEFINE REUSABLE COMPONENTS AS FUNCTIONS
 ####################################################################################################
@@ -170,9 +171,23 @@ def get_pilelist():
 
                 # Print Button
                 html.Button("Download Pile List", id="btn_download", n_clicks=0),
+                html.Button("Download PDF for ALL PileID", id='download-ALL-pdf-btn', disabled=False,style={'marginLeft': '5px'}),
                 # ,style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between','marginLeft': '5px'}
                 html.Button("Save changes", id="btn_save", n_clicks=0,style={'marginLeft': '5px'}),
-                dcc.Download(id="download-csv")
+                dcc.Download(id="download-csv"),
+
+                # dcc.Interval(id="check-task-interval", interval=2000, n_intervals=0, disabled=True),
+                html.Div(id="task-status"),
+                dcc.Download(id="download-ALL-pdf"),
+                dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
+                # html.Div(id="status"),
+                dcc.Store(id="task-id")
+
+                # dcc.Interval(id="progress-interval", interval=1000, disabled=True),
+                # html.Div(id="progress-text", children=""),
+                # dcc.Store(id="task-state", data={'status': 'idle', 'progress': 0, 'total': 0}),
+                # dcc.Store(id='app-root', data=get_app_root())
+
             ],
             id="collapse-pilelist",
             is_open=False
@@ -256,7 +271,7 @@ def add_charts():
                     'borderRadius': '5px', 'marginTop': '10px'
                 }),
 
-                html.Button("Download PDF", id='download-pdf-btn', disabled=True),
+                html.Button("Download PDF for PileID", id='download-pdf-btn', disabled=True),
                 dbc.Row([
                     dbc.Col(
                             dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
@@ -265,7 +280,7 @@ def add_charts():
                 # html.Div([
                 dbc.Row([
                     dbc.Col(
-                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'width': '100%','marginTop':'5px'}),
+                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'marginTop':'5px'}),
                         xs=12, sm=12, md=12, lg=12, xl=12),
                 ]),  # close Row config={'responsive': True},
 

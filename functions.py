@@ -21,15 +21,27 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
 import plotly.graph_objects as go
 
 import math
-# Create a dummy app just for the cache (fallback if not initialized in main.py)
-dummy_app = Dash(__name__)
-cache = Cache(dummy_app.server, config={'CACHE_TYPE': 'SimpleCache'})
-cache.clear()
+from celery import Celery
+import io
+import zipfile
+import base64
+from celery import shared_task
+# from app import celery_app
+from BackgroundWorker.celery_worker import celery_app
+
+import time
+# REDIS_URL = "redis://red-d05pmaa4d50c73f9cnsg:6379"
+# celery_app = Celery("tasks", broker=REDIS_URL, backend=REDIS_URL)
+
+# # Create a dummy app just for the cache (fallback if not initialized in main.py)
+# dummy_app = Dash(__name__)
+# cache = Cache(dummy_app.server, config={'CACHE_TYPE': 'SimpleCache'})
+# cache.clear()
 # Try to get the real cache if available (will be replaced when main.py runs)
-try:
-    from main import cache  # This will override the dummy cache when main.py runs first
-except ImportError:
-    pass  # Use the dummy cache
+# try:
+#     from main import cache  # This will override the dummy cache when main.py runs first
+# except ImportError:
+#     pass  # Use the dummy cache
 
 
 file_path = os.path.join(os.getcwd(), "assets",)
@@ -39,7 +51,7 @@ def filter_none(lst):
 
 # Function to load all GeoJSON files dynamically
 # Cache expensive operations
-@cache.memoize(timeout=3600)
+# @cache.memoize(timeout=3600)
 def load_geojson_data():
     # Check if cached data exists
     cache_file = os.path.join(geojson_folder, 'cached_data.pkl')
@@ -47,10 +59,11 @@ def load_geojson_data():
         return pd.read_pickle(cache_file)
 
     all_data = []
+    jobid_pile_data ={}
     pile_data = {}
     markers = []
     latitudes = []
-    longitudes =[]
+    longitudes = []
     for filename in os.listdir(geojson_folder):
         if filename.endswith(".json"):
             # file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
@@ -76,7 +89,7 @@ def load_geojson_data():
                     latitudes.append(lat)
                     longitudes.append(lon)
                     try:
-                        date= pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
+                        date = pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
                     except:
                         date = 'NA'
                     properties["date"] = date # Store the date from the filename
@@ -128,6 +141,7 @@ def load_geojson_data():
                         continue
                     # Store time-series data separately for graph plotting
                     pile_id = properties.get("PileID")
+                    job_id = properties.get("JobID")
                     calibration = float(properties.get("PumpCalibration"))
                     strokes = properties["Data"].get("Strokes", [])
                     volume = [calibration*float(x) for x in strokes]
@@ -136,8 +150,8 @@ def load_geojson_data():
                             "Time": properties["Data"].get("Time", []),
                             "Strokes": properties["Data"].get("Strokes", []),
                             "Depth": properties["Data"].get("Depth", []),
-                            'RotaryHeadPressure':properties['Data'].get('RotaryHeadPressure',[]),
-                            'Rotation':properties['Data'].get('Rotation',[]),
+                            'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure',[]),
+                            'Rotation': properties['Data'].get('Rotation',[]),
                             'PenetrationRate': properties['Data'].get('PenetrationRate', []),
                             'Pulldown': properties['Data'].get('Pulldown', []),
                             'Torque': properties['Data'].get('Torque', []),
@@ -145,12 +159,14 @@ def load_geojson_data():
 
                         }
                     all_data.append(properties)
+                jobid_pile_data[job_id] = pile_data
     # Cache the result for next time
-    result = (pd.DataFrame(all_data), pile_data, latitudes, longitudes, markers)
+    # df = create_jobid_timechart(jobid_pile_data[job_id])
+    result = (pd.DataFrame(all_data), pile_data, latitudes, longitudes, markers,jobid_pile_data)
     pd.to_pickle(result, cache_file)
+
     return result
-    # dict_keys(['Time', 'Depth', 'PConcrete', 'RotaryHeadPressure', 'Rotation', 'PenetrationRate', 'Pulldown', 'Strokes', 'Torque', 'DrillDirection'])
-    # return pd.DataFrame(all_data), pile_data,latitudes,longitudes,markers
+
 
 
 def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes=None, latitudes=None):
@@ -357,7 +373,7 @@ def create_depth_chart(pile_info,diameter=None):
 
     return fig1
 # ===============================================================================
-def create_depth_chart_samll_screen(pile_info,diameter=None):
+def create_depth_chart_small_screen(pile_info,diameter=None):
 
     # Create figure with two y-axes
     # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
@@ -408,13 +424,15 @@ def create_depth_chart_samll_screen(pile_info,diameter=None):
             # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
             font=dict(size=11),  # adjust font size
             itemwidth=30,  # control item width
-        )
+        ),
+        height = 1000,
+        # vertical_spacing=0.05
     )
     fig1.update_annotations(font_size=11)
     fig1.update_yaxes(range=[minD, maxD])
     tils = ['(ft/min)', '(bar)', '(tons)', '(rpm)','(yd^3)']
     for i in range(0, 5):
-        fig1.update_xaxes(title_text=tils[i], row=1, col=i + 1)
+        fig1.update_xaxes(title_text=tils[i], row=i+1, col=1)
 
     # Configure gridlines for each subplot
     for i in range(0, 5):
@@ -426,8 +444,8 @@ def create_depth_chart_samll_screen(pile_info,diameter=None):
             linecolor='black',
             mirror=True,
             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
-            row=1,
-            col=i+1
+            row=i+1,
+            col=1
         )
         fig1.update_yaxes(
             zerolinecolor='black',
@@ -437,14 +455,14 @@ def create_depth_chart_samll_screen(pile_info,diameter=None):
             linecolor='black',
             mirror=True,
             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
-            row=1,
-            col=i+1
+            row=i+1,
+            col=1
         )
 
-    fig1.update_layout(
-        autosize=True,
-        # margin=dict(l=20, r=20, b=20, t=30),
-    )
+    # fig1.update_layout(
+    #     autosize=True,
+    #     # margin=dict(l=20, r=20, b=20, t=30),
+    # )
 
     return fig1
 # ===============================================================================
@@ -474,17 +492,49 @@ def cylinder_volume_cy(diameter_inches, height_feet):
 
     return volume
 
-def adjust_for_single_page(story, max_height=10.5*inch):
-    total_height = sum([item.wrap(0,0)[1] if hasattr(item, 'wrap') else item for item in story])
-    if total_height > max_height:
-        scale_factor = max_height / total_height * 0.95  # 5% margin
-        for item in story:
-            if isinstance(item, Image):
-                item.drawWidth *= scale_factor
-                item.drawHeight *= scale_factor
+# def adjust_for_single_page(story, max_height=10.5*inch):
+#     total_height = sum([item.wrap(0,0)[1] if hasattr(item, 'wrap') else item for item in story])
+#     if total_height > max_height:
+#         scale_factor = max_height / total_height * 0.95  # 5% margin
+#         for item in story:
+#             if isinstance(item, Image):
+#                 item.drawWidth *= scale_factor
+#                 item.drawHeight *= scale_factor
 
+# 1. Define a function to get absolute paths safely
+def get_app_root():
+    """Safely get the application root path in any context"""
+    try:
+        return os.path.dirname(os.path.abspath(__file__))
+    except:
+        return os.getcwd()
+# @celery_app.task(bind=True)
+# Add this to your imports
+# from pathlib import Path
+
+
+
+def create_jobid_timechart(pile_data4jobid, selected_date=None):
+    tmp_time = []
+    tmp_stk = []
+    tmp_depth = []
+    for v1 in pile_data4jobid.values():
+        for v2 in v1.values():
+            tmp_time.extend(v2['Time']) # this is a list
+            tmp_stk.extend(v2['Strokes'])
+            tmp_depth.extend(v2['Depth'])
+
+    # dictionary of lists
+    dict = {'Time': tmp_time, 'Strokes': tmp_stk, 'Depth': tmp_depth}
+    df = pd.DataFrame(dict)
+    df['Time'] = pd.to_datetime(df['Time'])
+    df.sort_values(by=['Time'],inplace=True)
+    return df
 
 def generate_mwd_pdf(selected_row, time_fig, depth_fig):
+    # Get absolute path to templates/assets
+    # app_root = Path(get_app_root())
+    # template_path = app_root / 'templates' / 'report_template.html'
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                             leftMargin=0.5 * inch,
@@ -688,6 +738,37 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         'content': pdf_data,
         'filename': file_name,
         'type': 'application/pdf',
+        'base64': True
+    }
+# @celery_app.task
+@celery_app.task
+def generate_all_pdfs_task(all_rows,pile_data):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+        for row in all_rows:
+            pileid = row['PileID']
+            time = row['Time']
+            try:
+                date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
+            except Exception:
+                continue
+            pile_info = pile_data[pileid][date]
+            time_fig = create_time_chart(pile_info)
+            depth_fig = create_depth_chart(pile_info)
+            try:
+                pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
+                pdf_bytes = base64.b64decode(pdf_dict['content'])
+                zip_file.writestr(pdf_dict['filename'], pdf_bytes)
+            except Exception as e:
+                print(f"PDF generation failed: {str(e)}")
+                continue
+
+    zip_buffer.seek(0)
+    zip_data = base64.b64encode(zip_buffer.read()).decode('utf-8')
+    return {
+        'content': zip_data,
+        'filename': 'all_pile_reports.zip',
+        'type': 'application/zip',
         'base64': True
     }
 
