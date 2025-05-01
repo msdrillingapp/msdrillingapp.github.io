@@ -26,7 +26,7 @@ VALID_USERNAME_PASSWORD_PAIRS = {
     'Dennis': 'Meara'
 }
 # REDIS_URL = "redis://red-d05pmaa4d50c73f9cnsg:6379"
-use_redis = True
+
 if '__file__' in globals():
     root_path = os.path.dirname(os.path.abspath(__file__))
 else:
@@ -61,14 +61,14 @@ file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
 #############################################################################
 
-def create_app():
+def create_app(server):
 
-    server = Flask(
-        __name__,
-        instance_path=os.path.join(root_path, 'instance'),
-        root_path=root_path,
-        static_folder=os.path.join(root_path, 'assets')
-    )
+    # server = Flask(
+    #     __name__,
+    #     instance_path=os.path.join(root_path, 'instance'),
+    #     root_path=root_path,
+    #     static_folder=os.path.join(root_path, 'assets')
+    # )
     # # Create Dash app background_callback_manager=background_callback_manager,server=server,
     app = dash.Dash(__name__, server=server,
                     assets_folder=os.path.join(root_path, 'assets'),
@@ -1055,135 +1055,5 @@ def create_app():
                 return "❌ Task failed."
         return "⏳ Processing..."
 
-    # @app.callback(
-    #     output=[
-    #         Output("download-ALL-pdf", "data"),
-    #         Output("task-status", "children"),
-    #         Output("progress-interval", "disabled"),
-    #         Output("task-state", "data"),
-    #     ],
-    #     inputs=Input("download-ALL-pdf-btn", "n_clicks"),
-    #     state=[State('pilelist-table', 'rowData'), State("task-state", "data")],
-    #     background=True,
-    #     manager=background_callback_manager,
-    #     prevent_initial_call=True,
-    # )
-    # def trigger_background_task(n_clicks, all_rows, task_state):
-    #     if not n_clicks or not all_rows:
-    #         raise PreventUpdate
-    #
-    #     if task_state['status'] == 'running':
-    #         return no_update, "⚠️ Task already in progress", no_update, no_update
-    #
-    #     # Initialize task state
-    #     new_state = {
-    #         'status': 'running',
-    #         'progress': 0,
-    #         'total': len(all_rows),
-    #         'current_pile': None
-    #     }
-    #
-    #     return None, "⏳ Starting PDF generation...", False, new_state
-
-
-    #
-    # @app.callback(
-    #     output=[
-    #         Output("download-ALL-pdf", "data", allow_duplicate=True),
-    #         Output("task-status", "children", allow_duplicate=True),
-    #         Output("progress-interval", "disabled", allow_duplicate=True),
-    #         Output("task-state", "data", allow_duplicate=True),
-    #         Output("progress-text", "children"),
-    #     ],
-    #     inputs=Input("progress-interval", "n_intervals"),
-    #     state=[State('pilelist-table', 'rowData'), State("task-state", "data")],
-    #     background=True,
-    #     manager=background_callback_manager,
-    #     prevent_initial_call=True,
-    # )
-    # def generate_pdfs_in_background(n_intervals, all_rows, task_state):
-    #     if task_state['status'] != 'running':
-    #         return no_update, no_update, no_update, no_update, ""
-    #
-    #     try:
-    #         # # Get absolute paths relative to known root
-    #         # app_root = get_app_root()
-    #         # assets_path = os.path.join(app_root, 'assets')
-    #
-    #         zip_buffer = io.BytesIO()
-    #         processed_count = 0
-    #         current_pile = None
-    #
-    #         with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
-    #             for i, row in enumerate(all_rows):
-    #                 current_pile = row['PileID']
-    #                 time = row['Time']
-    #
-    #                 try:
-    #                     date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
-    #                 except Exception as e:
-    #                     print(f"Skipping pile {current_pile}: invalid date format")
-    #                     continue
-    #
-    #                 try:
-    #                     pile_info = pile_data[current_pile][date]
-    #                     time_fig = create_time_chart(pile_info)
-    #                     depth_fig = create_depth_chart(pile_info)
-    #
-    #                     pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
-    #                     pdf_bytes = base64.b64decode(pdf_dict['content'])
-    #                     zip_file.writestr(pdf_dict['filename'], pdf_bytes)
-    #
-    #                     processed_count += 1
-    #
-    #                     # Update progress every pile (or adjust as needed)
-    #                     new_state = {
-    #                         'status': 'running',
-    #                         'progress': i + 1,
-    #                         'total': len(all_rows),
-    #                         'current_pile': current_pile
-    #                     }
-    #
-    #                     progress_text = f"⏳ Processing {current_pile} ({i + 1}/{len(all_rows)})"
-    #
-    #                     # Return intermediate progress
-    #                     return (
-    #                         no_update,
-    #                         no_update,
-    #                         no_update,
-    #                         new_state,
-    #                         progress_text
-    #                     )
-    #
-    #                 except Exception as e:
-    #                     print(f"PDF generation failed for {current_pile}: {str(e)}")
-    #                     continue
-    #
-    #         zip_buffer.seek(0)
-    #         zip_data = base64.b64encode(zip_buffer.read()).decode('utf-8')
-    #
-    #         result = {
-    #             'content': zip_data,
-    #             'filename': 'all_pile_reports.zip',
-    #             'type': 'application/zip',
-    #             'base64': True
-    #         }
-    #
-    #         return (
-    #             result,
-    #             "✅ PDF generation complete!",
-    #             True,
-    #             {'status': 'complete', 'progress': len(all_rows), 'total': len(all_rows)},
-    #             "✅ All PDFs generated successfully!"
-    #         )
-    #
-    #     except Exception as e:
-    #         return (
-    #             None,
-    #             f"❌ Error: {str(e)}",
-    #             True,
-    #             {'status': 'error', 'error': str(e)},
-    #             f"❌ Failed: {str(e)}"
-    #         )
     # Run the app
-    return app,server
+    return app
