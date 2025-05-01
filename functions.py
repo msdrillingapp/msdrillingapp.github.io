@@ -27,7 +27,7 @@ import zipfile
 import base64
 from celery import shared_task
 # from app import celery_app
-from BackgroundWorker.celery_worker import celery_app
+from BackgroundWorker.celery_worker import celery
 
 import time
 # REDIS_URL = "redis://red-d05pmaa4d50c73f9cnsg:6379"
@@ -741,7 +741,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         'base64': True
     }
 # @celery_app.task
-@celery_app.task
+@celery.task
 def generate_all_pdfs_task(all_rows,pile_data):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
