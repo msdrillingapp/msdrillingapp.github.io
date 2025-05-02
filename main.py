@@ -20,6 +20,8 @@ import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
 
+from celery_config import celery_app  # Import only the Celery instance
+
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
@@ -38,8 +40,7 @@ os.makedirs(os.path.join(root_path, "cache"), exist_ok=True)
 os.makedirs(os.path.join(root_path, "instance"), exist_ok=True)
 if 'REDIS_URL' in os.environ:
     # Use Redis & Celery if REDIS_URL set as an env variable
-    from celery_worker import celery
-    background_callback_manager = CeleryManager(celery)
+    background_callback_manager = CeleryManager(celery_app)
 else:
     # Diskcache for non-production apps when developing locally
     import diskcache

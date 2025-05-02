@@ -26,7 +26,7 @@ import io
 import zipfile
 import base64
 
-from celery_worker import celery
+from celery_config import celery_app
 
 
 file_path = os.path.join(os.getcwd(), "assets",)
@@ -756,7 +756,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'type': 'application/zip',
 #         'base64': True
 #     }
-@celery.task(bind=True)
+@celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
