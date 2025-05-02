@@ -25,23 +25,8 @@ from celery import Celery
 import io
 import zipfile
 import base64
-from celery import shared_task
-# from app import celery_app
+
 from celery_worker import celery
-
-import time
-# REDIS_URL = "redis://red-d05pmaa4d50c73f9cnsg:6379"
-# celery_app = Celery("tasks", broker=REDIS_URL, backend=REDIS_URL)
-
-# # Create a dummy app just for the cache (fallback if not initialized in main.py)
-# dummy_app = Dash(__name__)
-# cache = Cache(dummy_app.server, config={'CACHE_TYPE': 'SimpleCache'})
-# cache.clear()
-# Try to get the real cache if available (will be replaced when main.py runs)
-# try:
-#     from main import cache  # This will override the dummy cache when main.py runs first
-# except ImportError:
-#     pass  # Use the dummy cache
 
 
 file_path = os.path.join(os.getcwd(), "assets",)
@@ -741,7 +726,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         'base64': True
     }
 # @celery_app.task
-@celery.task
+@celery.task(bind=True)
 def generate_all_pdfs_task(all_rows,pile_data):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:

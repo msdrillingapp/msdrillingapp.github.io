@@ -2,6 +2,7 @@
 # from app import create_app
 import os
 from flask import Flask
+from flask import send_file
 import dash
 import pandas as pd
 from datetime import datetime
@@ -1021,6 +1022,15 @@ def poll_status(n, task_id):
         else:
             return "❌ Task failed."
     return "⏳ Processing..."
+
+@server.route("/download/<task_id>")
+def download(task_id):
+    result = AsyncResult(task_id)
+    if result.state == "SUCCESS":
+        file_path = result.result
+        return send_file(file_path, as_attachment=True)
+    else:
+        return "File not ready", 404
 
 if __name__ == "__main__":
     # freeze_support()
