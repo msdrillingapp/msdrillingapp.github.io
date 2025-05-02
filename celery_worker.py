@@ -13,6 +13,7 @@
 
 from celery import Celery
 import os
+from main import app
 
 # Example Redis URL: redis://localhost:6379/0 or from env
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

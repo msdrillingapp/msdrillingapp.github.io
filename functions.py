@@ -785,6 +785,7 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
     filepath = os.path.join("instance", "tmp", filename)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "wb") as f:
+        print("ZIP file saved:", os.path.exists(filepath))
         f.write(zip_buffer.read())
 
     return filename
