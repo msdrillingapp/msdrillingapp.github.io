@@ -2,7 +2,7 @@
 # from app import create_app
 import os
 from flask import Flask
-from flask import send_file
+from flask import send_from_directory
 import dash
 import pandas as pd
 from datetime import datetime
@@ -971,27 +971,44 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
 #     except Exception as e:
 #         return None, f"❌ Error: {str(e)}"
 
+# @app.callback(
+#     Output("task-id", "data"),
+#     inputs=Input("download-ALL-pdf-btn", "n_clicks"),
+#     state = [State('pilelist-table', 'rowData')],
+#     background=True,
+#     manager=background_callback_manager,
+#     prevent_initial_call=True,
+#
+# )
+# def start_task(n_clicks, all_rows):
+#     if not n_clicks or not all_rows:
+#         raise PreventUpdate
+#     try:
+#         task = ts.generate_all_pdfs_task.delay(args=[all_rows, pile_data])
+#         return task.id
+#                 # , "✅ PDF generation complete!")
+#     except Exception as e:
+#         return None
+#                 # , f"❌ Error: {str(e)}")
+
 @app.callback(
     Output("task-id", "data"),
-    inputs=Input("download-ALL-pdf-btn", "n_clicks"),
-    state = [State('pilelist-table', 'rowData')],
+    Output("poll-interval", "disabled"),
+    Input("download-ALL-pdf-btn", "n_clicks"),
+    State("pilelist-table", "rowData"),
     background=True,
     manager=background_callback_manager,
-    prevent_initial_call=True,
-
+    prevent_initial_call=True
 )
 def start_task(n_clicks, all_rows):
     if not n_clicks or not all_rows:
-        raise PreventUpdate
+        raise dash.exceptions.PreventUpdate
+
     try:
-        task = ts.generate_all_pdfs_task.delay(args=[all_rows, pile_data])
-        return task.id
-                # , "✅ PDF generation complete!")
-    except Exception as e:
-        return None
-                # , f"❌ Error: {str(e)}")
-
-
+        task = ts.generate_all_pdfs_task.delay(all_rows, pile_data)
+        return task.id, False  # Enable polling
+    except Exception:
+        return None, True
 # @app.callback(
 #     Output("task-status", "children"),
 #     Output("poll-interval", "disabled"),
@@ -1005,11 +1022,11 @@ def start_task(n_clicks, all_rows):
 #     if task.ready():
 #         return f"Done: {task.result}", True
 #     return "Processing...", False
-
+    #
 @app.callback(
     Output("task-status", "children"),
     Input("poll-interval", "n_intervals"),
-    State("task-id-store", "data")
+    State("task-id", "data")
 )
 def poll_status(n, task_id):
     if not task_id:
@@ -1018,19 +1035,15 @@ def poll_status(n, task_id):
     task = AsyncResult(task_id)
     if task.ready():
         if task.successful():
-            return "✅ Task complete!"
+            return html.A("✅ Download PDF", href=f"/download/{task_id}", target="_blank")
         else:
             return "❌ Task failed."
     return "⏳ Processing..."
-
 @server.route("/download/<task_id>")
-def download(task_id):
-    result = AsyncResult(task_id)
-    if result.state == "SUCCESS":
-        file_path = result.result
-        return send_file(file_path, as_attachment=True)
-    else:
-        return "File not ready", 404
+def download_file(task_id):
+    directory = os.path.join(root_path, "instance", "tmp")
+    filename = f"{task_id}.zip"
+    return send_from_directory(directory, filename, as_attachment=True)
 
 if __name__ == "__main__":
     # freeze_support()

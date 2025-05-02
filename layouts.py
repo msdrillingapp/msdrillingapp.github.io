@@ -183,6 +183,7 @@ def get_pilelist():
                 # html.Div(id="status"),
                 dcc.Store(id="task-id")
 
+
                 # dcc.Interval(id="progress-interval", interval=1000, disabled=True),
                 # html.Div(id="progress-text", children=""),
                 # dcc.Store(id="task-state", data={'status': 'idle', 'progress': 0, 'total': 0}),

@@ -726,8 +726,38 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         'base64': True
     }
 # @celery_app.task
+# @celery.task(bind=True)
+# def generate_all_pdfs_task(all_rows,pile_data):
+#     zip_buffer = io.BytesIO()
+#     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+#         for row in all_rows:
+#             pileid = row['PileID']
+#             time = row['Time']
+#             try:
+#                 date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
+#             except Exception:
+#                 continue
+#             pile_info = pile_data[pileid][date]
+#             time_fig = create_time_chart(pile_info)
+#             depth_fig = create_depth_chart(pile_info)
+#             try:
+#                 pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
+#                 pdf_bytes = base64.b64decode(pdf_dict['content'])
+#                 zip_file.writestr(pdf_dict['filename'], pdf_bytes)
+#             except Exception as e:
+#                 print(f"PDF generation failed: {str(e)}")
+#                 continue
+#
+#     zip_buffer.seek(0)
+#     zip_data = base64.b64encode(zip_buffer.read()).decode('utf-8')
+#     return {
+#         'content': zip_data,
+#         'filename': 'all_pile_reports.zip',
+#         'type': 'application/zip',
+#         'base64': True
+#     }
 @celery.task(bind=True)
-def generate_all_pdfs_task(all_rows,pile_data):
+def generate_all_pdfs_task(self, all_rows, pile_data):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
         for row in all_rows:
@@ -749,12 +779,14 @@ def generate_all_pdfs_task(all_rows,pile_data):
                 continue
 
     zip_buffer.seek(0)
-    zip_data = base64.b64encode(zip_buffer.read()).decode('utf-8')
-    return {
-        'content': zip_data,
-        'filename': 'all_pile_reports.zip',
-        'type': 'application/zip',
-        'base64': True
-    }
+
+    # Save to file
+    filename = f"{self.request.id}.zip"
+    filepath = os.path.join("instance", "tmp", filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(zip_buffer.read())
+
+    return filename
 
 
