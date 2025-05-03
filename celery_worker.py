@@ -1,4 +1,4 @@
 from celery_config import celery_app
 
 # ⚠️ This import registers Dash background callbacks with Celery
-from main import app
+import main

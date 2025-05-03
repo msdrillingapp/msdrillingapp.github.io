@@ -1050,6 +1050,23 @@ def poll_status(n, task_id):
         else:
             return "❌ Task failed."
     return "⏳ Processing..."
+@app.callback(
+    Output("download-link", "href"),
+    Input("task-id", "data"),
+    prevent_initial_call=True
+)
+def show_download_link(task_id):
+    if not task_id:
+        raise PreventUpdate
+
+    result = ts.generate_all_pdfs_task.AsyncResult(task_id)
+    if result.ready() and result.successful():
+        filename = result.get()
+        if filename:
+            file_path = f"/download/{filename}"  # your route
+            return file_path
+    raise PreventUpdate
+
 @server.route("/download/<task_id>")
 def download_file(task_id):
     directory = os.path.join(root_path, "instance", "tmp")
@@ -1058,8 +1075,7 @@ def download_file(task_id):
 
 if __name__ == "__main__":
     # freeze_support()
-    # app = create_app(server)
-    # server = app.server
+
     app.run(debug=False)
     # app.run(debug=False)
 
