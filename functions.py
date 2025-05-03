@@ -21,7 +21,6 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
 import plotly.graph_objects as go
 
 import math
-from celery import Celery
 import io
 import zipfile
 import base64
@@ -790,4 +789,10 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
 
     return filename
 
+# def generate_all_pdfs_task(all_rows):
+#     pdf_buffer = BytesIO()
+#     generate_pdf(all_rows, output=pdf_buffer)  # save to buffer
+#     pdf_buffer.seek(0)
+#     encoded_pdf = base64.b64encode(pdf_buffer.read()).decode('utf-8')
+#     return encoded_pdf
 

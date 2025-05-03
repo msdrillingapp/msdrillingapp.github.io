@@ -1010,19 +1010,29 @@ def start_task(n_clicks, all_rows):
         return task.id, False  # Enable polling
     except Exception:
         return None, True
-# @app.callback(
-#     Output("task-status", "children"),
-#     Output("poll-interval", "disabled"),
-#     Input("poll-interval", "n_intervals"),
-#     Input("task-id", "data"),
-#     prevent_initial_call=True
-# )
-# def poll_status(n, task_id):
-#     from celery.result import AsyncResult
-#     task = AsyncResult(task_id)
-#     if task.ready():
-#         return f"Done: {task.result}", True
-#     return "Processing...", False
+
+@app.callback(
+    Output("download-ALL-pdf", "data"),
+    Input("task-status", "n_intervals"),  # Assume you're polling
+    State("task-id", "data"),
+    prevent_initial_call=True
+)
+def download_zip(n, task_id):
+    if not task_id:
+        raise PreventUpdate
+
+    async_result = ts.generate_all_pdfs_task.AsyncResult(task_id)
+    if async_result.ready():
+        if async_result.successful():
+            filename = async_result.result
+            filepath = os.path.join("instance", "tmp", filename)
+            if os.path.exists(filepath):
+                return dcc.send_file(filepath)
+        else:
+            print("Task failed:", async_result.traceback)
+            raise PreventUpdate
+    raise PreventUpdate
+
     #
 @app.callback(
     Output("task-status", "children"),
