@@ -787,6 +787,7 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
         print("ZIP file saved:", os.path.exists(filepath))
         f.write(zip_buffer.read())
 
+    print("Returning filename:", filename)
     return filename
 
 # def generate_all_pdfs_task(all_rows):
