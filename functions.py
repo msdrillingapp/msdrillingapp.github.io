@@ -26,7 +26,8 @@ import zipfile
 import base64
 
 from celery_config import celery_app
-
+from celery.utils.log import get_task_logger
+logger = get_task_logger(__name__)
 
 file_path = os.path.join(os.getcwd(), "assets",)
 geojson_folder = os.path.join(file_path,'data')
@@ -757,8 +758,9 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #     }
 @celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
+    logger.info(f"Task {self.request.id} started with {len(all_rows)} rows.")
     zip_buffer = io.BytesIO()
-    raise Exception("Test error to see if this hits the logs.")
+    # raise Exception("Test error to see if this hits the logs.")
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
         for row in all_rows:
             pileid = row['PileID']
@@ -774,8 +776,10 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
                 pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
                 pdf_bytes = base64.b64decode(pdf_dict['content'])
                 zip_file.writestr(pdf_dict['filename'], pdf_bytes)
+                logger.info(f"Added PDF for pile {pileid} to zip.")
             except Exception as e:
                 print(f"PDF generation failed: {str(e)}")
+                logger.error(f"Failed to generate PDF for pile {pileid}: {e}")
                 continue
 
     zip_buffer.seek(0)
@@ -784,9 +788,14 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
     filename = f"{self.request.id}.zip"
     filepath = os.path.join("instance", "tmp", filename)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "wb") as f:
-        print("ZIP file saved:", os.path.exists(filepath))
-        f.write(zip_buffer.read())
+
+    try:
+        with open(filepath, "wb") as f:
+            f.write(zip_buffer.read())
+        logger.info(f"ZIP file saved to {filepath}")
+    except Exception as e:
+        logger.error(f"Error saving zip file: {e}")
+        return None
 
     print("Returning filename:", filename)
     return filename

@@ -1,6 +1,9 @@
 from celery import Celery
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 # Example Redis URL: redis://localhost:6379/0 or from env
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
