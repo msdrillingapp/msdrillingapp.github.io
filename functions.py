@@ -758,6 +758,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 @celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
     zip_buffer = io.BytesIO()
+    raise Exception("Test error to see if this hits the logs.")
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
         for row in all_rows:
             pileid = row['PileID']
