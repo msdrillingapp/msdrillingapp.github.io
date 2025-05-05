@@ -1,6 +1,7 @@
 from celery import Celery
 import os
 import logging
+from celery.signals import after_setup_logger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,3 +24,9 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=30 * 60,
 )
+
+
+
+@after_setup_logger.connect
+def setup_loggers(logger, *args, **kwargs):
+    logger.setLevel(logging.INFO)  # Ensure logging level is set

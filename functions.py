@@ -756,8 +756,19 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'type': 'application/zip',
 #         'base64': True
 #     }
+import logging
 @celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
+    # Manually configure logging (Render-specific workaround)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("=== TASK STARTED ===")  # <-- You should see this!
+    logger.info(f"Processing {len(all_rows)} rows")
+
     logger.info(f"Task {self.request.id} started with {len(all_rows)} rows.")
     zip_buffer = io.BytesIO()
     # raise Exception("Test error to see if this hits the logs.")
@@ -785,8 +796,9 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
     zip_buffer.seek(0)
 
     # Save to file
+    root_path = get_app_root()
     filename = f"{self.request.id}.zip"
-    filepath = os.path.join("instance", "tmp", filename)
+    filepath = os.path.join(root_path, "instance", "tmp", filename)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     try:
@@ -801,10 +813,5 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
 
     return filename
 
-# def generate_all_pdfs_task(all_rows):
-#     pdf_buffer = BytesIO()
-#     generate_pdf(all_rows, output=pdf_buffer)  # save to buffer
-#     pdf_buffer.seek(0)
-#     encoded_pdf = base64.b64encode(pdf_buffer.read()).decode('utf-8')
-#     return encoded_pdf
+
 

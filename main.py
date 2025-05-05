@@ -1013,7 +1013,7 @@ def start_task(n_clicks, all_rows):
 
 @app.callback(
     Output("download-ALL-pdf", "data"),
-    Input("task-status", "n_intervals"),  # Assume you're polling
+    Input("poll-interval", "n_intervals"),
     State("task-id", "data"),
     prevent_initial_call=True
 )
@@ -1025,12 +1025,11 @@ def download_zip(n, task_id):
     if async_result.ready():
         if async_result.successful():
             filename = async_result.result
-            filepath = os.path.join("instance", "tmp", filename)
+            filepath = os.path.join(root_path, "instance", "tmp", filename)
             if os.path.exists(filepath):
                 return dcc.send_file(filepath)
-        else:
-            print("Task failed:", async_result.traceback)
-            raise PreventUpdate
+        # else:
+        #     logger.error(f"Task failed: {async_result.traceback}")
     raise PreventUpdate
 
     #
