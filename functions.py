@@ -758,6 +758,8 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #     }
 @celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
+    logger = get_task_logger(__name__)
+    logger.info("PDF generation started!")  # Check logs
     logger.info(f"Task {self.request.id} started with {len(all_rows)} rows.")
     zip_buffer = io.BytesIO()
     # raise Exception("Test error to see if this hits the logs.")
@@ -798,6 +800,8 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
         return "Error filepath:" + filepath
 
     print("Returning filename:", filename)
+    if filename is None:
+        filename='ERROR'
     return filename
 
 # def generate_all_pdfs_task(all_rows):
