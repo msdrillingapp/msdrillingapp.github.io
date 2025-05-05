@@ -23,5 +23,3 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=30 * 60,
 )
-
-from functions import generate_all_pdfs_task
