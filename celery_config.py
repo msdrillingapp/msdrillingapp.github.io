@@ -17,6 +17,15 @@ celery_app = Celery(
     backend=redis_url,
 )
 
+celery_app.conf.broker_pool_limit = 10  # Reduce connection pool size
+celery_app.conf.broker_transport_options = {
+    'max_connections': 20,  # Match your Redis plan
+    'visibility_timeout': 3600  # 1 hour
+}
+celery_app.conf.broker_heartbeat = 30  # 30 seconds
+celery_app.conf.broker_connection_retry = True
+celery_app.conf.broker_connection_max_retries = 3
+celery_app.conf.worker_prefetch_multiplier = 1  # Reduce prefetching
 
 def setup_celery_logging(**kwargs):
     # Create a consistent formatter

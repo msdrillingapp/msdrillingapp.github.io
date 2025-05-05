@@ -25,7 +25,7 @@ services:
   - type: worker
     name: flower-worker
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A celery_worker.celery flower --port=$PORT
+    startCommand: celery -A celery_worker.celery_app flower --port=5555 --broker=REDIS_URL
     runtime:
     envVars:
       - key: REDIS_URL
