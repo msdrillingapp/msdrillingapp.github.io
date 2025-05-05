@@ -795,7 +795,7 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
         logger.info(f"ZIP file saved to {filepath}")
     except Exception as e:
         logger.error(f"Error saving zip file: {e}")
-        return None
+        return "Error filepath:" + filepath
 
     print("Returning filename:", filename)
     return filename
