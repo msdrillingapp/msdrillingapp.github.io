@@ -32,15 +32,6 @@ def setup_celery_logging(**kwargs):
 # Connect to both signals
 after_setup_logger.connect(setup_celery_logging)
 after_setup_task_logger.connect(setup_celery_logging)
-# Configure logger for both worker and tasks
-# @after_setup_logger.connect
-# @after_setup_task_logger.connect
-# def setup_loggers(logger, *args, **kwargs):
-#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-#     handler = logging.StreamHandler()
-#     handler.setFormatter(formatter)
-#     logger.addHandler(handler)
-#     logger.setLevel(logging.INFO)
 
 celery_app.conf.update(
     worker_hijack_root_logger=False,  # Important!

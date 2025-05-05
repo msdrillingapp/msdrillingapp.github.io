@@ -769,7 +769,7 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
     logger.warning("This is a warning")  # Should appear
     logger.error("This is an error")  # Should appear
 
-    logger.info("=== TASK STARTED ===")  # <-- You should see this!
+    print("=== TASK STARTED ===")
     logger.info(f"Processing {len(all_rows)} rows")
 
     logger.info(f"Task {self.request.id} started with {len(all_rows)} rows.")

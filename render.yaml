@@ -13,9 +13,20 @@ services:
 
   - type: worker
     name: celery-worker
-    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A celery_worker.celery_app worker --loglevel=info
+    runtime:
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: dash-redis
+          type: redis
+          property: connectionString
+  - type: worker
+    name: flower-worker
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A celery_worker.celery flower --port=$PORT
+    runtime:
     envVars:
       - key: REDIS_URL
         fromService:
