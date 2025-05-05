@@ -759,12 +759,12 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 import logging
 @celery_app.task(bind=True)
 def generate_all_pdfs_task(self, all_rows, pile_data):
-    # Manually configure logging (Render-specific workaround)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
     logger = logging.getLogger(__name__)
+    # Test logging at different levels
+    logger.debug("Debug message - might not appear")
+    logger.info("Starting PDF generation task")  # Should appear
+    logger.warning("This is a warning")  # Should appear
+    logger.error("This is an error")  # Should appear
 
     logger.info("=== TASK STARTED ===")  # <-- You should see this!
     logger.info(f"Processing {len(all_rows)} rows")

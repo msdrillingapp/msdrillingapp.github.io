@@ -177,12 +177,12 @@ def get_pilelist():
                 dcc.Download(id="download-csv"),
 
                 # dcc.Interval(id="check-task-interval", interval=2000, n_intervals=0, disabled=True),
-                html.Div(id="task-status"),
+
                 dcc.Download(id="download-ALL-pdf"),
                 dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
-                # html.Div(id="status"),
+                html.Div(id="task-status"),
                 dcc.Store(id="task-id"),
-                html.A("Download ZIP", id="download-link", download="report.zip", href="", target="_blank")
+                # html.A("Download ZIP", id="download-link", download="report.zip", href="", target="_blank")
 
 
                 # dcc.Interval(id="progress-interval", interval=1000, disabled=True),
