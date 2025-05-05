@@ -17,15 +17,30 @@ celery_app = Celery(
     backend=redis_url,
 )
 
-# Configure logger for both worker and tasks
-@after_setup_logger.connect
-@after_setup_task_logger.connect
-def setup_loggers(logger, *args, **kwargs):
+
+def setup_celery_logging(**kwargs):
+    # Create a consistent formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # Ensure all loggers use this format
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+# Connect to both signals
+after_setup_logger.connect(setup_celery_logging)
+after_setup_task_logger.connect(setup_celery_logging)
+# Configure logger for both worker and tasks
+# @after_setup_logger.connect
+# @after_setup_task_logger.connect
+# def setup_loggers(logger, *args, **kwargs):
+#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     handler = logging.StreamHandler()
+#     handler.setFormatter(formatter)
+#     logger.addHandler(handler)
+#     logger.setLevel(logging.INFO)
 
 celery_app.conf.update(
     worker_hijack_root_logger=False,  # Important!
