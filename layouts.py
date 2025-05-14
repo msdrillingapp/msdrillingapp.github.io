@@ -180,15 +180,15 @@ def get_pilelist():
 
                 dcc.Download(id="download-ALL-pdf"),
                 dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
-                html.Div(id="task-status"),
                 dcc.Store(id="task-id"),
-                # html.A("Download ZIP", id="download-link", download="report.zip", href="", target="_blank")
+                # dcc.Download(id="auto-download"),
+                html.Div(id="task-status"),
 
+                # html.A("Download ZIP", id="download-link", href="", style={'display': 'none'})
+                # html.Div(id="download-link-container", children=[]),
+                # html.Div(id="task-status"),
+                # html.Div(id="task-output", className="mt-3"),
 
-                # dcc.Interval(id="progress-interval", interval=1000, disabled=True),
-                # html.Div(id="progress-text", children=""),
-                # dcc.Store(id="task-state", data={'status': 'idle', 'progress': 0, 'total': 0}),
-                # dcc.Store(id='app-root', data=get_app_root())
 
             ],
             id="collapse-pilelist",

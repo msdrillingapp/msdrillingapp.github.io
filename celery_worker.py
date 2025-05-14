@@ -1,4 +1,7 @@
 from celery_config import celery_app
-
-# ⚠️ This import registers Dash background callbacks with Celery
 import main
+
+# if __name__ == '__main__':
+#     celery_app.worker_main(
+#         argv=['worker', '--pool=solo', '--loglevel=info']
+#     )

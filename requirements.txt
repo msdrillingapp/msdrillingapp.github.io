@@ -16,4 +16,3 @@ kaleido
 celery
 redis
 dash[diskcache]
-flower

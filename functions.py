@@ -757,22 +757,14 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'base64': True
 #     }
 import logging
-@celery_app.task(bind=True)
-def generate_all_pdfs_task(self, all_rows, pile_data):
+@celery_app.task(name='generate_all_pdfs_task')
+def generate_all_pdfs_task(all_rows, pile_data):
     # Get logger specifically for this task
-    logger = logging.getLogger('celery.task')
-    logger.propagate = True  # Ensure logs propagate to root
-
-    # Test logging at different levels
-    logger.debug("Debug message - might not appear")
-    logger.info("Starting PDF generation task")  # Should appear
-    logger.warning("This is a warning")  # Should appear
-    logger.error("This is an error")  # Should appear
+    # logger = logging.getLogger('celery.task')
+    # logger.propagate = True  # Ensure logs propagate to root
 
     print("=== TASK STARTED ===")
-    logger.info(f"Processing {len(all_rows)} rows")
 
-    logger.info(f"Task {self.request.id} started with {len(all_rows)} rows.")
     zip_buffer = io.BytesIO()
     # raise Exception("Test error to see if this hits the logs.")
     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -800,7 +792,7 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
 
     # Save to file
     root_path = get_app_root()
-    filename = f"{self.request.id}.zip"
+    filename = "report.zip"
     filepath = os.path.join(root_path, "instance", "tmp", filename)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
@@ -815,6 +807,9 @@ def generate_all_pdfs_task(self, all_rows, pile_data):
     print("Returning filename:", filename)
 
     return filename
+
+
+
 
 
 

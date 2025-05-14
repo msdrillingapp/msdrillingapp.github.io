@@ -10,8 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import dash_leaflet as dl
-from dash import no_update
-
+from dash import no_update,callback_context
 from dash import dcc, html, Output, Input, State,ClientsideFunction,DiskcacheManager, CeleryManager
 from flask_caching import Cache
 import dash_auth
@@ -19,8 +18,8 @@ import dash_bootstrap_components as dbc
 import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
-
-from celery_config import celery_app  # Import only the Celery instance
+# from app import create_app
+from celery_config import celery_app,generate_numbers
 
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
@@ -38,15 +37,16 @@ else:
 # Create required directories if they don't exist
 os.makedirs(os.path.join(root_path, "cache"), exist_ok=True)
 os.makedirs(os.path.join(root_path, "instance"), exist_ok=True)
-if 'REDIS_URL' in os.environ:
+# if 'REDIS_URL' in os.environ:
+if True:
     # Use Redis & Celery if REDIS_URL set as an env variable
     background_callback_manager = CeleryManager(celery_app)
-else:
-    # Diskcache for non-production apps when developing locally
-    import diskcache
-    # Configure diskcache for background callbacks
-    cache = diskcache.Cache(os.path.join(root_path, "cache"))
-    background_callback_manager = DiskcacheManager(cache)
+# else:
+#     # Diskcache for non-production apps when developing locally
+#     import diskcache
+#     # Configure diskcache for background callbacks
+#     cache = diskcache.Cache(os.path.join(root_path, "cache"))
+#     background_callback_manager = DiskcacheManager(cache)
 # ======================================================
 # Folder containing GeoJSON files
 file_path = os.path.join(os.getcwd(), "assets",)
@@ -886,196 +886,95 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
         return no_update
 
 
-
+# ==================================================================
+# ============TEST FUNCTION=========================================
 # @app.callback(
 #     Output("task-id", "data"),
-#     Output("check-task-interval", "disabled"),
+#     Output("poll-interval", "disabled"),
+#     Output("task-output", "children"),
 #     Input("download-ALL-pdf-btn", "n_clicks"),
-#     State('pilelist-table', 'rowData'),
-#     prevent_initial_call=True
-# )
-# def start_background_pdf_task(n_clicks, all_rows):
-#     if not n_clicks or not all_rows:
-#         return no_update, True
-#
-#     task = generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
-#     return task.id, False  # Enable interval to start polling
-#
-# @app.callback(
-#     Output("download-ALL-pdf", "data"),
-#     Output("check-task-interval", "disabled"),
-#     Output("task-status", "children"),
-#     Input("check-task-interval", "n_intervals"),
+#     Input("poll-interval", "n_intervals"),
 #     State("task-id", "data"),
 #     prevent_initial_call=True
 # )
-# def check_task_status(n, task_id):
-#     if not task_id:
-#         return no_update, True, ""
+# def manage_task(start_clicks, n_intervals, task_id):
+#     ctx = callback_context
 #
-#     from tasks import celery_app
-#     task_result = celery_app.AsyncResult(task_id)
+#     if not ctx.triggered:
+#         raise dash.exceptions.PreventUpdate
 #
-#     if task_result.state == 'PENDING':
-#         return no_update, False, "Generating PDFs..."
-#     elif task_result.state == 'SUCCESS':
-#         result = task_result.result
-#         return result, True, "✅ Download ready!"
-#     elif task_result.state == 'FAILURE':
-#         return no_update, True, "❌ Task failed!"
-#     else:
-#         return no_update, False, f"⏳ Status: {task_result.state}"
+#     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+#
+#     # Start the task
+#     if triggered_id == "download-ALL-pdf-btn":
+#         task = generate_numbers.apply_async(args=[2, 3])
+#         return task.id, False, "Task started..."
+#
+#     # Poll the result
+#     elif triggered_id == "poll-interval" and task_id:
+#         result = AsyncResult(task_id, app=celery_app)
+#         if result.ready():
+#             return task_id, True, f"Task finished! Result: {result.result}"
+#         else:
+#             return task_id, False, "Processing..."
+#
+#     # Fallback
+#     raise dash.exceptions.PreventUpdate
 
-# @app.callback(
-#     output=[
-#         Output("download-ALL-pdf", "data"),
-#         Output("task-status", "children")
-#     ],
-#     inputs=Input("download-ALL-pdf-btn", "n_clicks"),
-#     state=[State('pilelist-table', 'rowData')],
-#     background=True,  # Run in background via Celery
-#     manager=background_callback_manager,
-#     prevent_initial_call=True,
-# )
-# def generate_pdfs_in_background(n_clicks, all_rows):
-#     if not n_clicks or not all_rows:
-#         return None, "⚠️ No rows selected."
-#     result = generate_all_pdfs_task(all_rows,pile_data)
-#     # task = generate_all_pdfs_task.apply_async(args=[all_rows,pile_data])
-#     # result = task.get(timeout=600)  # Wait for the Celery task to complete
-#
-#     if not result:
-#         return None, "❌ PDF generation failed."
-#
-#     return result, "✅ Download ready!"
-
-
-# @app.callback(
-#     output=[
-#         Output("download-ALL-pdf", "data"),
-#         Output("task-status", "children"),
-#     ],
-#     inputs=Input("download-ALL-pdf-btn", "n_clicks"),
-#     state=[State('pilelist-table', 'rowData')],
-#     background=True,
-#     manager=background_callback_manager,
-#     prevent_initial_call=True,
-# )
-# def generate_pdfs_in_background(n_clicks, all_rows):
-#     if not n_clicks or not all_rows:
-#         raise PreventUpdate
-#
-#     try:
-#         # Your existing function
-#         result = ts.generate_all_pdfs_task(all_rows, pile_data)
-#         return result, "✅ PDF generation complete!"
-#     except Exception as e:
-#         return None, f"❌ Error: {str(e)}"
-
-# @app.callback(
-#     Output("task-id", "data"),
-#     inputs=Input("download-ALL-pdf-btn", "n_clicks"),
-#     state = [State('pilelist-table', 'rowData')],
-#     background=True,
-#     manager=background_callback_manager,
-#     prevent_initial_call=True,
-#
-# )
-# def start_task(n_clicks, all_rows):
-#     if not n_clicks or not all_rows:
-#         raise PreventUpdate
-#     try:
-#         task = ts.generate_all_pdfs_task.delay(args=[all_rows, pile_data])
-#         return task.id
-#                 # , "✅ PDF generation complete!")
-#     except Exception as e:
-#         return None
-#                 # , f"❌ Error: {str(e)}")
-
+# ==================================================================
+# ==================================================================
 @app.callback(
-    Output("task-id", "data"),
-    Output("poll-interval", "disabled"),
-    Input("download-ALL-pdf-btn", "n_clicks"),
-    State("pilelist-table", "rowData"),
-    background=True,
-    manager=background_callback_manager,
-    prevent_initial_call=True
-)
+        Output("task-id", "data"),
+        Output("poll-interval", "disabled",allow_duplicate=True),
+        Input("download-ALL-pdf-btn", "n_clicks"),
+        State('pilelist-table', 'rowData'),
+        prevent_initial_call=True,
+
+    )
 def start_task(n_clicks, all_rows):
     if not n_clicks or not all_rows:
-        raise dash.exceptions.PreventUpdate
-
+        raise PreventUpdate
     try:
-        task = ts.generate_all_pdfs_task.delay(all_rows, pile_data)
-        return task.id, False  # Enable polling
-    except Exception:
-        return None, True
+        task = ts.generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
+        return task.id, False
+    except Exception as e:
+        return None,False
+
 
 @app.callback(
-    Output("download-ALL-pdf", "data"),
+    Output('task-status', 'children'),
+    Output('download-ALL-pdf', 'data'),
+    Output("poll-interval", "disabled"),  # Make sure this matches your Interval component id
     Input("poll-interval", "n_intervals"),
     State("task-id", "data"),
     prevent_initial_call=True
 )
-def download_zip(n, task_id):
-    if not task_id:
-        raise PreventUpdate
-
-    async_result = ts.generate_all_pdfs_task.AsyncResult(task_id)
-    if async_result.ready():
-        if async_result.successful():
-            filename = async_result.result
-            filepath = os.path.join(root_path, "instance", "tmp", filename)
-            if os.path.exists(filepath):
-                return dcc.send_file(filepath)
-        # else:
-        #     logger.error(f"Task failed: {async_result.traceback}")
-    raise PreventUpdate
-
-    #
-@app.callback(
-    Output("task-status", "children"),
-    Input("poll-interval", "n_intervals"),
-    State("task-id", "data")
-)
 def poll_status(n, task_id):
     if not task_id:
-        raise dash.exceptions.PreventUpdate
-
-    task = AsyncResult(task_id)
-    if task.ready():
-        if task.successful():
-            return html.A("✅ Download PDF", href=f"/download/{task_id}", target="_blank")
-        else:
-            return "❌ Task failed."
-    return "⏳ Processing..."
-@app.callback(
-    Output("download-link", "href"),
-    Input("task-id", "data"),
-    prevent_initial_call=True
-)
-def show_download_link(task_id):
-    if not task_id:
         raise PreventUpdate
 
-    result = ts.generate_all_pdfs_task.AsyncResult(task_id)
-    if result.ready() and result.successful():
-        filename = result.get()
-        if filename:
-            file_path = f"/download/{filename}"  # your route
-            return file_path
-    raise PreventUpdate
+    res = AsyncResult(task_id, app=celery_app)
 
-@server.route("/download/<task_id>")
-def download_file(task_id):
-    directory = os.path.join(root_path, "instance", "tmp")
-    filename = f"{task_id}.zip"
-    return send_from_directory(directory, filename, as_attachment=True)
+    if res.ready():
+        if res.successful():
+            filename = res.result
+            filepath = os.path.join(root_path, "instance", "tmp", filename)
+            print(filepath)  # This should only print once now
+            if not os.path.exists(filepath):
+                print(f"❌ File not found at: {filepath}")
+                return "❌ File not found", None, True
+            return "✅ Done", dcc.send_file(filepath), True
+        else:
+            return "❌ Failed", None, True
+    else:
+        return "⏳ In progress", None, False
+
+
 
 if __name__ == "__main__":
     # freeze_support()
-
+    # app = create_app(server,background_callback_manager)
+    # app.run(debug=True)
     app.run(debug=False)
-    # app.run(debug=False)
 
 #
