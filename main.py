@@ -19,7 +19,7 @@ import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
 # from app import create_app
-from celery_config import celery_app,generate_numbers
+from celery_config import celery_app
 
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
