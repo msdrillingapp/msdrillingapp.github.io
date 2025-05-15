@@ -9,7 +9,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-redis_url = os.getenv("REDIS_URL", "")
+redis_url = os.getenv("REDIS_URL")
 
 # celery_app = Celery(
 #     'tasks',
@@ -40,7 +40,9 @@ celery_app.conf.broker_heartbeat = 30  # 30 seconds
 celery_app.conf.broker_connection_retry = True
 celery_app.conf.broker_connection_max_retries = 3
 celery_app.conf.worker_prefetch_multiplier = 1  # Reduce prefetching
-
+celery_app.conf.update(
+    result_backend=redis_url
+)
 # def setup_celery_logging(**kwargs):
 #     # Create a consistent formatter
 #     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -78,8 +80,8 @@ celery_app.conf.update(
 
 print("CELERY CONFIG LOADED")  # Verify the config file loads
 
-# @celery_app.task(name='generate_numbers')
-# def generate_numbers(a, b):
-#     return a + b
+@celery_app.task(name='generate_numbers')
+def generate_numbers(a, b):
+    return a + b
 
 

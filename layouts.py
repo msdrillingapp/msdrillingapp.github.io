@@ -181,13 +181,12 @@ def get_pilelist():
                 dcc.Download(id="download-ALL-pdf"),
                 dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
                 dcc.Store(id="task-id"),
-                # dcc.Download(id="auto-download"),
                 html.Div(id="task-status"),
 
                 # html.A("Download ZIP", id="download-link", href="", style={'display': 'none'})
                 # html.Div(id="download-link-container", children=[]),
                 # html.Div(id="task-status"),
-                # html.Div(id="task-output", className="mt-3"),
+                html.Div(id="task-output", className="mt-3"),
 
 
             ],
