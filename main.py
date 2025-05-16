@@ -21,7 +21,6 @@ from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,g
 from functions import generate_all_pdfs_task,generate_mwd_pdf,load_geojson_data,filter_none, create_time_chart,create_depth_chart
 from celery_config import celery_app
 
-
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
 VALID_USERNAME_PASSWORD_PAIRS = {
@@ -116,8 +115,10 @@ changed_values ={}
 # Calculate map center and zoom
 if latitudes and longitudes:
     # lat = [float(item) for var in latitudes for item in latitudes if item != 'None']
-    center_lat = np.nanmean([float(item) for var in latitudes for item in latitudes if not item is None])
-    center_lon = np.nanmean([float(item) for var in longitudes for item in longitudes if not item is None])
+    # center_lat = np.nanmean([float(item) for var in latitudes for item in latitudes if not item is None])
+    # center_lon = np.nanmean([float(item) for var in longitudes for item in longitudes if not item is None])
+    center_lat = np.nanmean([float(item) for item in latitudes if item is not None])
+    center_lon = np.nanmean([float(item) for item in longitudes if item is not None])
     map_center = [center_lat, center_lon]
     zoom_level = 8  # Adjust zoom for a closer view
 else:
@@ -244,7 +245,8 @@ app.clientside_callback(
 )
 def update_table(selected_row, selected_group):
     if not selected_row:
-        return []  # Return an empty table before selection
+        raise PreventUpdate
+        # return []  # Return an empty table before selection
     filtered_df = merged_df.copy()
 
     selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
@@ -291,7 +293,8 @@ def update_table(selected_row, selected_group):
 )
 def update_table(selected_jobid, selected_date,selected_rigid):
     if not selected_jobid and not selected_date:
-        return []  # Return an empty table before selection
+        raise PreventUpdate
+        # return []  # Return an empty table before selection
     filtered_df = properties_df.copy()
     # Filter DataFrame based on selected PileID and Date
     if not selected_jobid is None:
@@ -975,8 +978,7 @@ def poll_status(n, task_id):
 # ==================================================================
 
 if __name__ == "__main__":
-    # freeze_support()
-    # app = create_app(server,background_callback_manager)
+
     # app.run(debug=True)
     app.run(debug=False)
 

@@ -758,11 +758,13 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'base64': True
 #     }
 import logging
-@shared_task(name='generate_all_pdfs_task')
+@celery_app.task(name="generate_all_pdfs_task")
 def generate_all_pdfs_task(all_rows, pile_data):
     # Get logger specifically for this task
     logger = logging.getLogger('celery.task')
     logger.propagate = True  # Ensure logs propagate to root
+    logger.setLevel(logging.DEBUG)
+    logger.info("🚀 Task started with %d rows", len(all_rows))
 
     print("=== TASK STARTED ===")
 
