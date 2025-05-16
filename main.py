@@ -15,12 +15,12 @@ from dash import dcc, html, Output, Input, State,ClientsideFunction,DiskcacheMan
 from flask_caching import Cache
 import dash_auth
 import dash_bootstrap_components as dbc
-import functions as ts
+# import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
-
+from functions import generate_all_pdfs_task,generate_mwd_pdf,load_geojson_data,filter_none, create_time_chart,create_depth_chart
 from celery_config import celery_app
-# ,generate_numbers,generate_all_pdfs_task)
+
 
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
@@ -92,7 +92,7 @@ groups_df = pd.read_csv(os.path.join(file_path,'Groups.csv'))
 groups_df = groups_df.explode("Group").reset_index(drop=True)
 
 # Load all datasets
-(properties_df, pile_data,latitudes,longitudes,markers,jobid_pile_data) = ts.load_geojson_data()
+(properties_df, pile_data,latitudes,longitudes,markers,jobid_pile_data) = load_geojson_data()
 
 properties_df.drop(columns=['Data','UID','FileName'],inplace=True)
 
@@ -519,7 +519,7 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     filtered_df = properties_df.copy()
 
-    center = [np.nanmean(list(ts.filter_none(properties_df["latitude"]))), np.nanmean(list(ts.filter_none(properties_df["longitude"])))]
+    center = [np.nanmean(list(filter_none(properties_df["latitude"]))), np.nanmean(list(filter_none(properties_df["longitude"])))]
     zoom_level = 8
     # Apply filters
     if not selected_date is None:
@@ -545,7 +545,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     markers = []
     if len(filtered_df)>0:
 
-        center = [np.nanmean(list(ts.filter_none(filtered_df["latitude"]))), np.nanmean(list(ts.filter_none(filtered_df["longitude"])))]  # Default center
+        center = [np.nanmean(list(filter_none(filtered_df["latitude"]))), np.nanmean(list(filter_none(filtered_df["longitude"])))]  # Default center
 
         for _, row in filtered_df.iterrows():
             if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
@@ -633,8 +633,8 @@ def update_combined_graph(selected_row, window_size):
         diameter = float(selected_row['PileDiameter'])
     except:
         diameter = None
-    fig = ts.create_time_chart(pile_info)
-    fig1 = ts.create_depth_chart(pile_info,diameter)
+    fig = create_time_chart(pile_info)
+    fig1 = create_depth_chart(pile_info,diameter)
 
     # if not window_size is None:
     #     width = window_size['width']
@@ -881,7 +881,7 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
 
     selected_row = selected_rows[0]
     try:
-        return ts.generate_mwd_pdf(selected_row, time_fig, depth_fig)
+        return generate_mwd_pdf(selected_row, time_fig, depth_fig)
     except Exception as e:
         print(f"PDF generation failed: {str(e)}")
         return no_update
@@ -937,7 +937,7 @@ def start_task(n_clicks, all_rows):
         raise PreventUpdate
     try:
         print('Entering the task')
-        task = ts.generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
+        task = generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
         return task.id, False
     except Exception as e:
         return None,False
