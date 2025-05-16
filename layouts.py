@@ -186,7 +186,7 @@ def get_pilelist():
                 # html.A("Download ZIP", id="download-link", href="", style={'display': 'none'})
                 # html.Div(id="download-link-container", children=[]),
                 # html.Div(id="task-status"),
-                html.Div(id="task-output", className="mt-3"),
+                # html.Div(id="task-output", className="mt-3"),
 
 
             ],

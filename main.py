@@ -19,7 +19,7 @@ import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
 # from app import create_app
-from celery_config import celery_app,generate_numbers
+from celery_config import celery_app,generate_numbers,generate_all_pdfs_task
 
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
@@ -888,86 +888,86 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
 
 # ==================================================================
 # ============TEST FUNCTION=========================================
-@app.callback(
-    Output("task-id", "data"),
-    Output("poll-interval", "disabled"),
-    Output("task-output", "children"),
-    Input("download-ALL-pdf-btn", "n_clicks"),
-    Input("poll-interval", "n_intervals"),
-    State("task-id", "data"),
-    prevent_initial_call=True
-)
-def manage_task(start_clicks, n_intervals, task_id):
-    ctx = callback_context
-
-    if not ctx.triggered:
-        raise dash.exceptions.PreventUpdate
-
-    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
-
-    # Start the task
-    if triggered_id == "download-ALL-pdf-btn":
-        task = generate_numbers.apply_async(args=[2, 3])
-        return task.id, False, "Task started..."
-
-    # Poll the result
-    elif triggered_id == "poll-interval" and task_id:
-        result = AsyncResult(task_id, app=celery_app)
-        if result.ready():
-            return task_id, True, f"Task finished! Result: {result.result}"
-        else:
-            return task_id, False, "Processing..."
-
-    # Fallback
-    raise dash.exceptions.PreventUpdate
-
-# ==================================================================
-# ==================================================================
 # @app.callback(
-#         Output("task-id", "data"),
-#         Output("poll-interval", "disabled",allow_duplicate=True),
-#         Input("download-ALL-pdf-btn", "n_clicks"),
-#         State('pilelist-table', 'rowData'),
-#         prevent_initial_call=True,
-#
-#     )
-# def start_task(n_clicks, all_rows):
-#     if not n_clicks or not all_rows:
-#         raise PreventUpdate
-#     try:
-#         task = ts.generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
-#         return task.id, False
-#     except Exception as e:
-#         return None,False
-#
-#
-# @app.callback(
-#     Output('task-status', 'children'),
-#     Output('download-ALL-pdf', 'data'),
-#     Output("poll-interval", "disabled"),  # Make sure this matches your Interval component id
+#     Output("task-id", "data"),
+#     Output("poll-interval", "disabled"),
+#     Output("task-output", "children"),
+#     Input("download-ALL-pdf-btn", "n_clicks"),
 #     Input("poll-interval", "n_intervals"),
 #     State("task-id", "data"),
 #     prevent_initial_call=True
 # )
-# def poll_status(n, task_id):
-#     if not task_id:
-#         raise PreventUpdate
+# def manage_task(start_clicks, n_intervals, task_id):
+#     ctx = callback_context
 #
-#     res = AsyncResult(task_id, app=celery_app)
+#     if not ctx.triggered:
+#         raise dash.exceptions.PreventUpdate
 #
-#     if res.ready():
-#         if res.successful():
-#             filename = res.result
-#             filepath = os.path.join(root_path, "instance", "tmp", filename)
-#             print(filepath)  # This should only print once now
-#             if not os.path.exists(filepath):
-#                 print(f"❌ File not found at: {filepath}")
-#                 return "❌ File not found", None, True
-#             return "✅ Done", dcc.send_file(filepath), True
+#     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+#
+#     # Start the task
+#     if triggered_id == "download-ALL-pdf-btn":
+#         task = generate_numbers.apply_async(args=[2, 3])
+#         return task.id, False, "Task started..."
+#
+#     # Poll the result
+#     elif triggered_id == "poll-interval" and task_id:
+#         result = AsyncResult(task_id, app=celery_app)
+#         if result.ready():
+#             return task_id, True, f"Task finished! Result: {result.result}"
 #         else:
-#             return "❌ Failed", None, True
-#     else:
-#         return "⏳ In progress", None, False
+#             return task_id, False, "Processing..."
+#
+#     # Fallback
+#     raise dash.exceptions.PreventUpdate
+
+# ==================================================================
+# ==================================================================
+@app.callback(
+        Output("task-id", "data"),
+        Output("poll-interval", "disabled",allow_duplicate=True),
+        Input("download-ALL-pdf-btn", "n_clicks"),
+        State('pilelist-table', 'rowData'),
+        prevent_initial_call=True,
+
+    )
+def start_task(n_clicks, all_rows):
+    if not n_clicks or not all_rows:
+        raise PreventUpdate
+    try:
+        task = generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
+        return task.id, False
+    except Exception as e:
+        return None,False
+
+
+@app.callback(
+    Output('task-status', 'children'),
+    Output('download-ALL-pdf', 'data'),
+    Output("poll-interval", "disabled"),  # Make sure this matches your Interval component id
+    Input("poll-interval", "n_intervals"),
+    State("task-id", "data"),
+    prevent_initial_call=True
+)
+def poll_status(n, task_id):
+    if not task_id:
+        raise PreventUpdate
+
+    res = AsyncResult(task_id, app=celery_app)
+
+    if res.ready():
+        if res.successful():
+            filename = res.result
+            filepath = os.path.join(root_path, "instance", "tmp", filename)
+            print(filepath)  # This should only print once now
+            if not os.path.exists(filepath):
+                print(f"❌ File not found at: {filepath}")
+                return "❌ File not found", None, True
+            return "✅ Done", dcc.send_file(filepath), True
+        else:
+            return "❌ Failed", None, True
+    else:
+        return "⏳ In progress", None, False
 
 # ==================================================================
 # ==================================================================

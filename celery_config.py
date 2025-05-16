@@ -85,3 +85,59 @@ def generate_numbers(a, b):
     return a + b
 
 
+import io
+import zipfile
+import base64
+import pandas as pd
+import logging
+from functions import create_time_chart,create_depth_chart,generate_mwd_pdf,get_app_root
+@celery_app.task(name='generate_all_pdfs_task')
+def generate_all_pdfs_task(all_rows, pile_data):
+    # Get logger specifically for this task
+    logger = logging.getLogger('celery.task')
+    logger.propagate = True  # Ensure logs propagate to root
+
+    print("=== TASK STARTED ===")
+
+    zip_buffer = io.BytesIO()
+    # raise Exception("Test error to see if this hits the logs.")
+    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+        for row in all_rows:
+            pileid = row['PileID']
+            time = row['Time']
+            try:
+                date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
+            except Exception:
+                continue
+            pile_info = pile_data[pileid][date]
+            time_fig = create_time_chart(pile_info)
+            depth_fig = create_depth_chart(pile_info)
+            try:
+                pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
+                pdf_bytes = base64.b64decode(pdf_dict['content'])
+                zip_file.writestr(pdf_dict['filename'], pdf_bytes)
+                logger.info(f"Added PDF for pile {pileid} to zip.")
+            except Exception as e:
+                print(f"PDF generation failed: {str(e)}")
+                logger.error(f"Failed to generate PDF for pile {pileid}: {e}")
+                continue
+
+    zip_buffer.seek(0)
+
+    # Save to file
+    root_path = get_app_root()
+    filename = "report.zip"
+    filepath = os.path.join(root_path, "instance", "tmp", filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    try:
+        with open(filepath, "wb") as f:
+            f.write(zip_buffer.read())
+        logger.info(f"ZIP file saved to {filepath}")
+    except Exception as e:
+        logger.error(f"Error saving zip file: {e}")
+        return "Error filepath:" + filepath
+
+    print("Returning filename:", filename)
+
+    return filename
