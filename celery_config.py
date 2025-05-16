@@ -1,7 +1,11 @@
 from celery import Celery
 import os
+import io
+import zipfile
+import base64
+import pandas as pd
 import logging
-
+from functions import create_depth_chart,create_time_chart,get_app_root,generate_mwd_pdf
 
 # Set up basic logging first
 logging.basicConfig(
@@ -31,6 +35,7 @@ celery_app.conf.worker_send_task_events = True
 celery_app.conf.task_send_sent_event = True
 
 
+
 celery_app.conf.broker_pool_limit = 10  # Reduce connection pool size
 celery_app.conf.broker_transport_options = {
     'max_connections': 20,  # Match your Redis plan
@@ -40,34 +45,8 @@ celery_app.conf.broker_heartbeat = 30  # 30 seconds
 celery_app.conf.broker_connection_retry = True
 celery_app.conf.broker_connection_max_retries = 3
 celery_app.conf.worker_prefetch_multiplier = 1  # Reduce prefetching
-celery_app.conf.update(
-    result_backend=redis_url
-)
-# def setup_celery_logging(**kwargs):
-#     # Create a consistent formatter
-#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+celery_app.conf.update(result_backend=redis_url)
 #
-#     # Ensure all loggers use this format
-#     handler = logging.StreamHandler()
-#     handler.setFormatter(formatter)
-#
-#     logger = logging.getLogger()
-#     logger.addHandler(handler)
-#     logger.setLevel(logging.INFO)
-# # Connect to both signals
-# after_setup_logger.connect(setup_celery_logging)
-# after_setup_task_logger.connect(setup_celery_logging)
-
-# celery_app.conf.update(
-#     worker_hijack_root_logger=False,  # Important!
-#     task_serializer="json",
-#     result_serializer="json",
-#     accept_content=["json"],
-#     timezone="UTC",
-#     enable_utc=True,
-#     task_track_started=True,
-#     task_time_limit=30*60,
-# )
 celery_app.conf.update(
     task_serializer='json',
     result_serializer='json',
@@ -85,12 +64,7 @@ def generate_numbers(a, b):
     return a + b
 
 
-import io
-import zipfile
-import base64
-import pandas as pd
-import logging
-from functions import create_time_chart,create_depth_chart,generate_mwd_pdf,get_app_root
+
 @celery_app.task(name='generate_all_pdfs_task')
 def generate_all_pdfs_task(all_rows, pile_data):
     # Get logger specifically for this task

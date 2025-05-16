@@ -25,7 +25,7 @@ import io
 import zipfile
 import base64
 
-from celery_config import celery_app
+# from celery_config import celery_app
 from celery.utils.log import get_task_logger
 logger = get_task_logger(__name__)
 
