@@ -758,7 +758,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'base64': True
 #     }
 import logging
-@shared_task.task(name='generate_all_pdfs_task')
+@shared_task(name='generate_all_pdfs_task')
 def generate_all_pdfs_task(all_rows, pile_data):
     # Get logger specifically for this task
     logger = logging.getLogger('celery.task')
