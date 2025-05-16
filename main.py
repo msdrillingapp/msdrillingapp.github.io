@@ -18,8 +18,9 @@ import dash_bootstrap_components as dbc
 import functions as ts
 from celery.result import AsyncResult
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
-# from app import create_app
-from celery_config import celery_app,generate_numbers,generate_all_pdfs_task
+
+from celery_config import celery_app
+# ,generate_numbers,generate_all_pdfs_task)
 
 #############################################################################
 # Keep this out of source code repository - save in a file or a database
@@ -935,7 +936,8 @@ def start_task(n_clicks, all_rows):
     if not n_clicks or not all_rows:
         raise PreventUpdate
     try:
-        task = generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
+        print('Entering the task')
+        task = ts.generate_all_pdfs_task.apply_async(args=[all_rows, pile_data])
         return task.id, False
     except Exception as e:
         return None,False
