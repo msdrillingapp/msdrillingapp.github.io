@@ -6,6 +6,7 @@ from flask import Flask
 import dash_bootstrap_components as dbc
 from dash import Output, Input
 
+
 if '__file__' in globals():
     root_path = os.path.dirname(os.path.abspath(__file__))
 else:
@@ -15,6 +16,10 @@ else:
 # if True:
 #     # Use Redis & Celery if REDIS_URL set as an env variable
 #     background_callback_manager = CeleryManager(celery_app)
+
+# Configure Kaleido for headless environments (add this)
+import kaleido
+kaleido.scope.chromium_args += ('--no-sandbox', '--disable-dev-shm-usage')
 
 server = Flask(
         __name__,
