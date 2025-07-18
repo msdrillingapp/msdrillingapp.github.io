@@ -131,7 +131,7 @@ layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', "minHeight": "500px", "maxHeight": "700px", 'padding': '20px', 'position': 'relative', "overflow": "auto"})
+], style={'backgroundColor': '#193153', 'height': '650vh', 'padding': '20px', 'position': 'relative'})
 # 'height': '650vh'
 # ================================================================================================
 # ================================================================================================

@@ -449,7 +449,7 @@ layout = html.Div([
     controls,
     dbc.Button("Show Plots", id="toggle-plots-cpt", color="primary", className="mb-2", style={"marginTop": "20px"}),
     charts
-], style={'backgroundColor': '#193153', "minHeight": "500px", "maxHeight": "700px", 'padding': '20px', 'position': 'relative',"overflow": "auto"})
+], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 # 'height': '550vh',
 # Custom CSS for the slider
 app = dash.get_app()

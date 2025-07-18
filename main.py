@@ -56,7 +56,7 @@ def serve_layout():
         ],
         style={
             'backgroundColor': '#193153',
-            'height': '750vh',
+            # 'height': '750vh',
             'padding': '0px',
             'position': 'relative'
         }
