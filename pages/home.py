@@ -14,6 +14,7 @@ from functions import generate_mwd_pdf, filter_none, create_time_chart,create_de
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
+from functools import lru_cache
 
 # from celery.result import AsyncResult
 # from celery_config import celery_app
@@ -46,6 +47,7 @@ filtered_table = get_filtered_table()
 layout = html.Div([
     # ============================================================
     dcc.Store(id='window-size', data={'width': 1200}),
+    # dcc.Store(id='cleanup-dummy'),
     # header,
     html.Br(),
     # FILTERS ===================================================================
@@ -543,8 +545,8 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     Output('download-pdf-btn', 'disabled'),
     Input('pilelist-table', 'selectedRows'),
     Input('window-size', 'data'),
-    State("jobid-filter", "value")
-    # State("jobid-filter","value"),
+    State("jobid-filter", "value"),
+    prevent_initial_call=True
 
 )
 def update_combined_graph(selected_row, window_size,selected_jobid):
@@ -553,6 +555,7 @@ def update_combined_graph(selected_row, window_size,selected_jobid):
         return go.Figure(
             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
+    selected_row = selected_row[0].copy()
     selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
     selected_pileid = selected_row['PileID']
     selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
@@ -578,9 +581,10 @@ def update_combined_graph(selected_row, window_size,selected_jobid):
 
 @callback(
     Output("pile-summary-cards", "children"),
-    [Input('pilelist-table', 'selectedRows'), Input("jobid-filter", "value")]
+    [Input('pilelist-table', 'selectedRows'), Input("jobid-filter", "value")],
     # [Input("pileid-filter", "value"), Input("jobid-filter", "value")],
     # State('date-filter','value')
+    prevent_initial_call=True
 )
 # def update_summary_cards(selected_pileid, selected_jobid,selected_date):
 #     if not selected_pileid or not selected_jobid:
@@ -624,7 +628,7 @@ def update_summary_cards(selected_row,selected_jobid):
      Input('pilestatus-filter', "value"),
      Input('piletype-filter', "value"),
      Input('productcode-filter', "value")
-     ]
+     ],prevent_initial_call=True
 )
 def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selected_pilecode, selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:
@@ -736,7 +740,7 @@ def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled
 @callback(
     Output("collapse-map", "is_open"),
     [Input("toggle-map", "n_clicks")],
-    [State("collapse-map", "is_open")]
+    [State("collapse-map", "is_open")],prevent_initial_call=True
 )
 def toggle_map(n_clicks, is_open):
     if n_clicks:
@@ -746,7 +750,7 @@ def toggle_map(n_clicks, is_open):
 @callback(
     Output("collapse-plots", "is_open"),
     [Input("toggle-plots", "n_clicks")],
-    [State("collapse-plots", "is_open")]
+    [State("collapse-plots", "is_open")],prevent_initial_call=True
 )
 def toggle_plots(n_clicks, is_open):
     if n_clicks:
@@ -756,7 +760,7 @@ def toggle_plots(n_clicks, is_open):
 @callback(
     Output("collapse_depth_plots", "is_open"),
     [Input("toggle_depth_plots", "n_clicks")],
-    [State("collapse_depth_plots", "is_open")]
+    [State("collapse_depth_plots", "is_open")],prevent_initial_call=True
 )
 def toggle_plots(n_clicks, is_open):
     if n_clicks:
@@ -766,7 +770,7 @@ def toggle_plots(n_clicks, is_open):
 @callback(
     Output("collapse-views", "is_open"),
     [Input("toggle-views", "n_clicks")],
-    [State("collapse-views", "is_open")]
+    [State("collapse-views", "is_open")],prevent_initial_call=True
 )
 def toggle_views(n_clicks, is_open):
     if n_clicks:
@@ -777,7 +781,7 @@ def toggle_views(n_clicks, is_open):
 @callback(
     Output("collapse-pilelist", "is_open"),
     [Input("toggle-pilelist", "n_clicks")],
-    [State("collapse-pilelist", "is_open")]
+    [State("collapse-pilelist", "is_open")],prevent_initial_call=True
 )
 def toggle_views(n_clicks, is_open):
     if n_clicks:
@@ -817,6 +821,7 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
     except Exception as e:
         print(f"PDF generation failed: {str(e)}")
         return no_update
+
 
 
 # ==================================================================

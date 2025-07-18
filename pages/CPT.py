@@ -9,8 +9,6 @@ import pandas as pd
 import os
 import base64
 from io import BytesIO
-from reportlab.platypus import Image
-from reportlab.lib.units import inch
 #---------------------------------------------------------------
 from report_template import PileReportHeader
 # Add this right after your imports
@@ -516,92 +514,55 @@ app.clientside_callback(
 )
 def update_cpt_graph(n_clicks,selected_pileid, selected_date, slider_value, selected_data, window_size, selected_jobid,
                      current_y_value, y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max):
-    trigger_id = enforce_single_callback()
-    ctx = dash.callback_context
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-    if not selected_pileid or not selected_date:
-        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True, 0, 100, 50, None
+        ctx = dash.callback_context
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-    use_depth = (y_mode == "depth")
+        if not selected_pileid or not selected_date:
+            return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True, 0, 100, 50, None
 
-    # Build a dict of x-axis limits
-    x_limits = {
-        1: (x1_min, x1_max),
-        2: (x2_min, x2_max),
-        3: (x3_min, x3_max),
-        4: (x4_min, x4_max),
-    }
+        use_depth = (y_mode == "depth")
 
-    # Get pile data
-    pile_data = jobid_pile_data[selected_jobid]
-    pile_info = pile_data[selected_pileid][selected_date]
+        # Build a dict of x-axis limits
+        x_limits = {
+            1: (x1_min, x1_max),
+            2: (x2_min, x2_max),
+            3: (x3_min, x3_max),
+            4: (x4_min, x4_max),
+        }
 
-    # Determine y-axis range
-    y_ax_name = 'Elevation (feet)'  # or 'Depth (feet)' based on your logic
-    minD = min(pile_info[y_ax_name]) - 5
-    maxD = max(pile_info[y_ax_name]) + 5
+        # Get pile data
+        pile_data = jobid_pile_data[selected_jobid]
+        pile_info = pile_data[selected_pileid][selected_date]
 
-    # Handle y-value updates
-    y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
+        # Determine y-axis range
+        y_ax_name = 'Elevation (feet)'  # or 'Depth (feet)' based on your logic
+        minD = min(pile_info[y_ax_name]) - 5
+        maxD = max(pile_info[y_ax_name]) + 5
 
-    if trigger_id == 'y-value-slider':
-        y_value = slider_value
-    elif trigger_id == 'cpt_graph' and selected_data is not None:
-        y_values = [point['y'] for point in selected_data['points']]
-        if y_values:
-            y_value = np.mean(y_values)
+        # Handle y-value updates
+        y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
 
-    # Create figure with current y-value and annotations
-    fig = create_cpt_charts(pile_info,use_depth=use_depth, y_value=y_value)
+        if trigger_id == 'y-value-slider':
+            y_value = slider_value
+        elif trigger_id == 'cpt_graph' and selected_data is not None:
+            y_values = [point['y'] for point in selected_data['points']]
+            if y_values:
+                y_value = np.mean(y_values)
 
-    # Apply x-axis ranges to each subplot
-    for i in range(1, 5):
-        min_val, max_val = x_limits[i]
-        if min_val is not None and max_val is not None:
-            fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
+        # Create figure with current y-value and annotations
+        fig = create_cpt_charts(pile_info,use_depth=use_depth, y_value=y_value)
 
-    return fig, False, minD, maxD, y_value, y_value
+        # Apply x-axis ranges to each subplot
+        for i in range(1, 5):
+            min_val, max_val = x_limits[i]
+            if min_val is not None and max_val is not None:
+                fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
 
 
 
-#
-#
-# @app.callback(
-#     Output("cpt-graph", "figure"),
-#     Input("update-btn", "n_clicks"),
-#     State("y-axis-mode", "value"),
-#     State("x1-min", "value"), State("x1-max", "value"),
-#     State("x2-min", "value"), State("x2-max", "value"),
-#     State("x3-min", "value"), State("x3-max", "value"),
-#     State("x4-min", "value"), State("x4-max", "value"),
-#     State("jobid-filter-cpt", "value"),
-#     State('pileid-filter-cpt', 'value'),
-#     State('date-filter-cpt', 'value'),
-# )
-# def update_cpt_chart(n_clicks, y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max,selected_jobid,selected_pileid,selected_date):
-#     use_depth = (y_mode == "depth")
-#
-#     # Build a dict of x-axis limits
-#     x_limits = {
-#         1: (x1_min, x1_max),
-#         2: (x2_min, x2_max),
-#         3: (x3_min, x3_max),
-#         4: (x4_min, x4_max),
-#     }
-#     # Get pile data
-#     pile_data = jobid_pile_data[selected_jobid]
-#     pile_info = pile_data[selected_pileid][selected_date]
-#     # Assume pile_info and y_value come from elsewhere or global context
-#     fig = create_cpt_charts(pile_info, use_depth=use_depth)
-#
-#     # Apply x-axis ranges to each subplot
-#     for i in range(1, 5):
-#         min_val, max_val = x_limits[i]
-#         if min_val is not None and max_val is not None:
-#             fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
-#
-#     return fig
+        return fig, False, minD, maxD, y_value, y_value
+
 
 
 @callback(
@@ -659,10 +620,6 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date,cpt_fig)
                 fig['data'][0]['line']['width'] = 3
 
 
-    # from plotly.io import to_image
-    # fig = go.Figure(cpt_fig)
-    # cpt_png = BytesIO(to_image(fig, format="png", scale=3))
-    # cpt_png.seek(0)
     import plotly.io as pio
 
     cpt_png = BytesIO()
@@ -683,9 +640,6 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date,cpt_fig)
     pileDiameter = prop['PileDiameter'].values[0]
     pile_model = data['Notes'].values[0]
 
-    # output_dir = "C:\\Temp"
-    # os.makedirs(output_dir, exist_ok=True)
-    # output_path = f"C:\\Temp\\pile_report_{selected_pile_id}.pdf"
     pdf_buffer = BytesIO()
     header = PileReportHeader(
         logo_path=logo_path,
@@ -713,7 +667,6 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date,cpt_fig)
         ]
     )
 
-    # header.build_pdf(images=[Image(cpt_png, width=3 * inch, height=5 * inch)])
     header.build_pdf(images=[cpt_png])
     pdf_buffer.seek(0)
 
@@ -726,21 +679,3 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date,cpt_fig)
         'type': 'application/pdf',
         'base64': True
     }
-    # return dcc.send_bytes(pdf_buffer.read(), filename=f"pile_report_{selected_pile_id}.pdf")
-
-
-
-
-    # # Build PDF
-    # file_name = 'JobID_' + str(selected_row.get('JobID', '')) + '_PileID_' + str(
-    #     selected_row.get('PileID', '')) + '_Time_' + str(selected_row.get('Time', '')) + '.pdf'
-    # doc.build(story)
-    # buffer.seek(0)
-    # pdf_data = base64.b64encode(buffer.read()).decode('utf-8')
-    # return {
-    #     'content': pdf_data,
-    #     'filename': file_name,
-    #     'type': 'application/pdf',
-    #     'base64': True
-    # }
-    return

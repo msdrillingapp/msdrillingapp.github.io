@@ -20,7 +20,7 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                 Table, TableStyle, Frame, PageTemplate,Image)
 # from reportlab.pdfgen.canvas import Canvas
 import plotly.graph_objects as go
-
+from functools import lru_cache
 import math
 import io
 import zipfile
@@ -399,7 +399,7 @@ def indrease_decrease_split(x,y):
 
     return increasing_x,increasing_y,decreasing_x,decreasing_y
 
-
+@lru_cache(maxsize=32)
 def create_time_chart(pile_info):
 
     # Create figure with two y-axes
@@ -468,6 +468,7 @@ def create_time_chart(pile_info):
 
     return fig
 
+@lru_cache(maxsize=32)
 def create_depth_chart(pile_info,diameter=None):
 
     # Create figure with two y-axes

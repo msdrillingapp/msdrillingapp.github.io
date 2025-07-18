@@ -18,3 +18,4 @@ celery
 redis
 flask
 dash[diskcache]
+lru_cache

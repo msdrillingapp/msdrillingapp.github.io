@@ -4,6 +4,7 @@ from dash import dcc, html #, CeleryManager
 # from celery_config import celery_app
 from flask import Flask
 import dash_bootstrap_components as dbc
+from dash import Output, Input
 
 if '__file__' in globals():
     root_path = os.path.dirname(os.path.abspath(__file__))
@@ -71,6 +72,7 @@ layout = dbc.Container(
     [
         # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=False),
+        dcc.Store(id='cleanup-dummy'),
         navbar,
         dash.page_container
     ],
@@ -83,6 +85,14 @@ layout = dbc.Container(
 
 app.layout = layout
 
+@app.callback(
+    Output('cleanup-dummy', 'children'),
+    Input('url', 'pathname')
+)
+def cleanup_callbacks(_):
+    # Reset callback registry on page navigation
+    app._callback_list = []
+    return ""
 
 if __name__ == '__main__':
     app.run(debug=False)
