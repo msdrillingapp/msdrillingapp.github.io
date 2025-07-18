@@ -315,7 +315,7 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None)
         fig.update_xaxes(title_text="ft-head", row=1, col=3)
         fig.update_xaxes(title_text="SBT (Robertson, 2010)", row=1, col=4)
 
-
+    fig.update_layout(autosize=False, height=600)
 
     return fig
 

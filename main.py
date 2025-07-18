@@ -65,4 +65,4 @@ def serve_layout():
 app.layout = serve_layout  # <- function, not a static object
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)

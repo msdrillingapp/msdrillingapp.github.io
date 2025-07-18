@@ -10,7 +10,8 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 from functions import properties_df, latitudes,longitudes,markers,jobid_pile_data,merged_df,groups_list
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
-from functions import generate_all_pdfs_task,generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart
+from functions import generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart
+#generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 
@@ -855,25 +856,25 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
 
 # ==================================================================
 # ==================================================================
-@callback(
-        Output("task-id", "data"),
-        Output("poll-interval", "disabled",allow_duplicate=True),
-        Input("download-ALL-pdf-btn", "n_clicks"),
-        State('pilelist-table', 'rowData'),
-        State("jobid-filter", "value"),
-        prevent_initial_call=True,
-
-    )
-def start_task(n_clicks, all_rows,selected_jobid):
-    if not n_clicks or not all_rows:
-        raise PreventUpdate
-    try:
-        print('Entering the task')
-        pile_data = jobid_pile_data[selected_jobid]
-        task = generate_all_pdfs_task.delay(all_rows, pile_data)
-        return task.id, False
-    except Exception as e:
-        return None,False
+# @callback(
+#         Output("task-id", "data"),
+#         Output("poll-interval", "disabled",allow_duplicate=True),
+#         Input("download-ALL-pdf-btn", "n_clicks"),
+#         State('pilelist-table', 'rowData'),
+#         State("jobid-filter", "value"),
+#         prevent_initial_call=True,
+#
+#     )
+# def start_task(n_clicks, all_rows,selected_jobid):
+#     if not n_clicks or not all_rows:
+#         raise PreventUpdate
+#     try:
+#         print('Entering the task')
+#         pile_data = jobid_pile_data[selected_jobid]
+#         task = generate_all_pdfs_task.delay(all_rows, pile_data)
+#         return task.id, False
+#     except Exception as e:
+#         return None,False
 
 # print(">>> Calling task")
 #     task = generate_all_pdfs_task.delay([{"PileID": 1, "Time": "2024-01-01"}], {"1": {"2024-01-01": {}}})

@@ -464,6 +464,7 @@ def create_time_chart(pile_info):
     #     autosize=True,
     #     margin=dict(l=20, r=20, b=20, t=30),
     # )
+    fig.update_layout(autosize=False, height=400)
 
     return fig
 
@@ -557,6 +558,7 @@ def create_depth_chart(pile_info,diameter=None):
     #     autosize=True,
     #     margin=dict(l=20, r=20, b=20, t=30),
     # )
+    fig1.update_layout(autosize=False, height=600)
 
     return fig1
 # ===============================================================================
@@ -831,117 +833,119 @@ def create_jobid_timechart(pile_data4jobid, selected_date=None):
 #
 #     return fig
 
-def create_cpt_charts(pile_info, use_depth: bool = False, initial_y_value: float = None):
-    if use_depth:
-        y_ax_name = 'Depth (feet)'
-    else:
-        y_ax_name = 'Elevation (feet)'
-
-    minD = min(pile_info[y_ax_name]) - 5
-    maxD = max(pile_info[y_ax_name]) + 5
-
-    # Create subplots with shared y-axis
-    fig = make_subplots(
-        rows=1,
-        cols=4,  # Changed to 4 since you have 4 subplot titles
-        shared_yaxes=True,
-        subplot_titles=(
-            "Cone resistance",
-            "Friction Ratio",
-            "Pore Pressure",
-            "Soil Behaviour Type"
-        )
-    )
-
-    y_ax = pile_info[y_ax_name]
-
-    # Add traces
-    fig.add_trace(
-        go.Scatter(x=pile_info['q_c (tsf)'], y=y_ax, mode='lines', line=dict(color='red', width=2), name='q_c', showlegend=True),
-        row=1, col=1
-    )
-    fig.add_trace(
-        go.Scatter(x=pile_info['q_t (tsf)'], y=y_ax, mode='lines', line=dict(color='blue', width=2), name='q_t', showlegend=True),
-        row=1, col=1
-    )
-    fig.add_trace(
-        go.Scatter(x=pile_info['R_f (%)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
-                   name='R_f (%)'),
-        row=1, col=2
-    )
-    fig.add_trace(
-        go.Scatter(x=pile_info['U_2 (ft-head)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
-                   name='U_2'),
-        row=1, col=3
-    )
-    fig.add_trace(
-        go.Scatter(x=pile_info['U_0 (ft-head)'], y=y_ax, mode='lines', line=dict(color='blue', width=2),
-                   showlegend=True, name='U_0'),
-        row=1, col=3
-    )
-
-    # Add initial horizontal line if y-value provided
-    if initial_y_value is not None:
-        for col in range(1, 5):
-            fig.add_hline(
-                y=initial_y_value,
-                line_dash="dot",
-                line_color="cyan",
-                line_width=2,
-                row=1, col=col
-            )
-
-    # Update layout
-    fig.update_layout(
-        yaxis_title=y_ax_name,
-        plot_bgcolor="#193153",
-        paper_bgcolor="#193153",
-        font=dict(color="white"),
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.3,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11),
-            itemwidth=30,
-        ),
-        # Add dragmode to enable rectangle selection (we'll use this for our cursor)
-        dragmode="select",
-        # Make the plot fill the container
-        autosize=True,
-        margin=dict(l=50, r=50, b=50, t=50, pad=4)
-    )
-
-    fig.update_annotations(font_size=11)
-    fig.update_yaxes(range=[minD, maxD])
-
-    # Configure gridlines for each subplot
-    for i in range(1, 5):
-        fig.update_xaxes(
-            zerolinecolor='black',
-            gridcolor='rgba(100,100,100,0.5)',
-            gridwidth=1,
-            showgrid=True,
-            linecolor='black',
-            mirror=True,
-            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
-            row=1,
-            col=i
-        )
-        fig.update_yaxes(
-            zerolinecolor='black',
-            gridcolor='rgba(100,100,100,0.5)',
-            gridwidth=1,
-            showgrid=True,
-            linecolor='black',
-            mirror=True,
-            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
-            row=1,
-            col=i
-        )
-
-    return fig
+# def create_cpt_charts(pile_info, use_depth: bool = False, initial_y_value: float = None):
+#     if use_depth:
+#         y_ax_name = 'Depth (feet)'
+#     else:
+#         y_ax_name = 'Elevation (feet)'
+#
+#     minD = min(pile_info[y_ax_name]) - 5
+#     maxD = max(pile_info[y_ax_name]) + 5
+#
+#     # Create subplots with shared y-axis
+#     fig = make_subplots(
+#         rows=1,
+#         cols=4,  # Changed to 4 since you have 4 subplot titles
+#         shared_yaxes=True,
+#         subplot_titles=(
+#             "Cone resistance",
+#             "Friction Ratio",
+#             "Pore Pressure",
+#             "Soil Behaviour Type"
+#         )
+#     )
+#
+#     y_ax = pile_info[y_ax_name]
+#
+#     # Add traces
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['q_c (tsf)'], y=y_ax, mode='lines', line=dict(color='red', width=2), name='q_c', showlegend=True),
+#         row=1, col=1
+#     )
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['q_t (tsf)'], y=y_ax, mode='lines', line=dict(color='blue', width=2), name='q_t', showlegend=True),
+#         row=1, col=1
+#     )
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['R_f (%)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
+#                    name='R_f (%)'),
+#         row=1, col=2
+#     )
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['U_2 (ft-head)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
+#                    name='U_2'),
+#         row=1, col=3
+#     )
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['U_0 (ft-head)'], y=y_ax, mode='lines', line=dict(color='blue', width=2),
+#                    showlegend=True, name='U_0'),
+#         row=1, col=3
+#     )
+#
+#     # Add initial horizontal line if y-value provided
+#     if initial_y_value is not None:
+#         for col in range(1, 5):
+#             fig.add_hline(
+#                 y=initial_y_value,
+#                 line_dash="dot",
+#                 line_color="cyan",
+#                 line_width=2,
+#                 row=1, col=col
+#             )
+#
+#     # Update layout
+#     fig.update_layout(
+#         yaxis_title=y_ax_name,
+#         plot_bgcolor="#193153",
+#         paper_bgcolor="#193153",
+#         font=dict(color="white"),
+#         legend=dict(
+#             orientation="h",
+#             yanchor="top",
+#             y=-0.3,
+#             xanchor="center",
+#             x=0.5,
+#             font=dict(size=11),
+#             itemwidth=30,
+#         ),
+#         # Add dragmode to enable rectangle selection (we'll use this for our cursor)
+#         dragmode="select",
+#         # Make the plot fill the container
+#         autosize=True,
+#         margin=dict(l=50, r=50, b=50, t=50, pad=4)
+#     )
+#
+#     fig.update_annotations(font_size=11)
+#     fig.update_yaxes(range=[minD, maxD])
+#
+#     # Configure gridlines for each subplot
+#     for i in range(1, 5):
+#         fig.update_xaxes(
+#             zerolinecolor='black',
+#             gridcolor='rgba(100,100,100,0.5)',
+#             gridwidth=1,
+#             showgrid=True,
+#             linecolor='black',
+#             mirror=True,
+#             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+#             row=1,
+#             col=i
+#         )
+#         fig.update_yaxes(
+#             zerolinecolor='black',
+#             gridcolor='rgba(100,100,100,0.5)',
+#             gridwidth=1,
+#             showgrid=True,
+#             linecolor='black',
+#             mirror=True,
+#             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+#             row=1,
+#             col=i
+#         )
+#
+#     fig.update_layout(autosize=False, height=400)
+#
+#     return fig
 def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     # Get absolute path to templates/assets
     # app_root = Path(get_app_root())
@@ -1182,59 +1186,59 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'type': 'application/zip',
 #         'base64': True
 #     }
-
-@celery_app.task(name="generate_all_pdfs_task")
-def generate_all_pdfs_task(all_rows, pile_data):
-    # Get logger specifically for this task
-    logger = logging.getLogger('celery.task')
-    logger.propagate = True  # Ensure logs propagate to root
-    logger.setLevel(logging.DEBUG)
-    logger.info("🚀 Task started with %d rows", len(all_rows))
-
-    print("=== TASK STARTED ===")
-
-    zip_buffer = io.BytesIO()
-    # raise Exception("Test error to see if this hits the logs.")
-    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
-        for row in all_rows:
-            pileid = row['PileID']
-            time = row['Time']
-            try:
-                date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
-            except Exception:
-                continue
-            pile_info = pile_data[pileid][date]
-            time_fig = create_time_chart(pile_info)
-            depth_fig = create_depth_chart(pile_info)
-            try:
-                pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
-                pdf_bytes = base64.b64decode(pdf_dict['content'])
-                zip_file.writestr(pdf_dict['filename'], pdf_bytes)
-                logger.info(f"Added PDF for pile {pileid} to zip.")
-            except Exception as e:
-                print(f"PDF generation failed: {str(e)}")
-                logger.error(f"Failed to generate PDF for pile {pileid}: {e}")
-                continue
-
-    zip_buffer.seek(0)
-
-    # Save to file
-    root_path = get_app_root()
-    filename = "report.zip"
-    filepath = os.path.join(root_path, "instance", "tmp", filename)
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-
-    try:
-        with open(filepath, "wb") as f:
-            f.write(zip_buffer.read())
-        logger.info(f"ZIP file saved to {filepath}")
-    except Exception as e:
-        logger.error(f"Error saving zip file: {e}")
-        return "Error filepath:" + filepath
-
-    print("Returning filename:", filename)
-
-    return filename
+#
+# @celery_app.task(name="generate_all_pdfs_task")
+# def generate_all_pdfs_task(all_rows, pile_data):
+#     # Get logger specifically for this task
+#     logger = logging.getLogger('celery.task')
+#     logger.propagate = True  # Ensure logs propagate to root
+#     logger.setLevel(logging.DEBUG)
+#     logger.info("🚀 Task started with %d rows", len(all_rows))
+#
+#     print("=== TASK STARTED ===")
+#
+#     zip_buffer = io.BytesIO()
+#     # raise Exception("Test error to see if this hits the logs.")
+#     with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+#         for row in all_rows:
+#             pileid = row['PileID']
+#             time = row['Time']
+#             try:
+#                 date = pd.to_datetime(time).date().strftime('%Y-%m-%d')
+#             except Exception:
+#                 continue
+#             pile_info = pile_data[pileid][date]
+#             time_fig = create_time_chart(pile_info)
+#             depth_fig = create_depth_chart(pile_info)
+#             try:
+#                 pdf_dict = generate_mwd_pdf(row, time_fig, depth_fig)
+#                 pdf_bytes = base64.b64decode(pdf_dict['content'])
+#                 zip_file.writestr(pdf_dict['filename'], pdf_bytes)
+#                 logger.info(f"Added PDF for pile {pileid} to zip.")
+#             except Exception as e:
+#                 print(f"PDF generation failed: {str(e)}")
+#                 logger.error(f"Failed to generate PDF for pile {pileid}: {e}")
+#                 continue
+#
+#     zip_buffer.seek(0)
+#
+#     # Save to file
+#     root_path = get_app_root()
+#     filename = "report.zip"
+#     filepath = os.path.join(root_path, "instance", "tmp", filename)
+#     os.makedirs(os.path.dirname(filepath), exist_ok=True)
+#
+#     try:
+#         with open(filepath, "wb") as f:
+#             f.write(zip_buffer.read())
+#         logger.info(f"ZIP file saved to {filepath}")
+#     except Exception as e:
+#         logger.error(f"Error saving zip file: {e}")
+#         return "Error filepath:" + filepath
+#
+#     print("Returning filename:", filename)
+#
+#     return filename
 # ================================================================================
 # ================================================================================
 # ================================================================================
