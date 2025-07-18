@@ -17,15 +17,6 @@ else:
 #     # Use Redis & Celery if REDIS_URL set as an env variable
 #     background_callback_manager = CeleryManager(celery_app)
 
-# Configure Kaleido for headless environments (add this)
-import plotly.io as pio
-
-try:
-    pio.kaleido.scope.chromium_executable = "/usr/bin/chromium"
-except:
-    pio.kaleido.scope.chromium_executable = "/usr/bin/chromium-browser"
-
-
 server = Flask(
         __name__,
         instance_path=os.path.join(root_path, 'instance'),
