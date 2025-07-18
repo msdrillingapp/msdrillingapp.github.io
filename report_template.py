@@ -7,47 +7,6 @@ from reportlab.lib import colors
 from reportlab.platypus.doctemplate import SimpleDocTemplate
 from io import BytesIO
 
-import matplotlib.pyplot as plt
-#
-# styles = getSampleStyleSheet()
-# # Step 1: Generate dummy charts
-def create_dummy_charts():
-    x = range(10)
-    y = [i ** 1.5 for i in x]
-
-    plt.figure()
-    plt.plot(x, y)
-    plt.title("Cone Resistance")
-    plt.xlabel("Tip Resistance (MPa)")
-    plt.ylabel("Depth (m)")
-    plt.gca().invert_yaxis()
-    plt.tight_layout()
-    plt.savefig("cone_resistance.png")
-    plt.close()
-
-    plt.figure()
-    plt.barh(x, y)
-    plt.title("Soil Behavior")
-    plt.xlabel("Type")
-    plt.ylabel("Depth (m)")
-    plt.gca().invert_yaxis()
-    plt.tight_layout()
-    plt.savefig("soil_behavior.png")
-    plt.close()
-
-    plt.figure()
-    plt.plot(x, y, label="Total")
-    plt.plot(x, [i / 2 for i in y], label="Shaft")
-    plt.legend()
-    plt.title("Ultimate Pile Capacity")
-    plt.xlabel("Capacity (ton)")
-    plt.ylabel("Depth (m)")
-    plt.gca().invert_yaxis()
-    plt.tight_layout()
-    plt.savefig("pile_capacity.png")
-    plt.close()
-
-
 class PileReportHeader:
     def __init__(self, *, logo_path=None, filename, project, location, pile_props,  meta_info, notes=None):
         self.logo_path = logo_path
