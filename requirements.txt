@@ -13,10 +13,10 @@ flask_caching
 diskcache
 reportlab
 Pillow
-kaleido
 celery
 redis
 flask
 dash[diskcache]
 lru_cache
-plotly_get_chrome
+kaleido>=0.2.1
+plotly>=5.0.0

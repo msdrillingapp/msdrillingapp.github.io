@@ -3,9 +3,13 @@ services:
     name: dash-app
     env: python
     buildCommand: |
-      apt-get update && apt-get install -y wget
+      apt-get update
+      apt-get install -y wget
+      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
+      apt-get update
+      apt-get install -y google-chrome-stable
       pip install -r requirements.txt
-      python -m plotly_get_chrome
     startCommand: gunicorn main:server  --workers 1 --threads 4
 #    envVars:
 #      - key: REDIS_URL

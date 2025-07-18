@@ -19,7 +19,12 @@ else:
 
 # Configure Kaleido for headless environments (add this)
 import kaleido
-kaleido.scope.chromium_args += ('--no-sandbox', '--disable-dev-shm-usage')
+kaleido.scope.chromium_args = [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process'
+]
 
 server = Flask(
         __name__,
