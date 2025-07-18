@@ -25,6 +25,7 @@ app = dash.Dash(__name__, server=server,use_pages=True,
                 assets_folder=os.path.join(root_path, 'assets'),
                 external_stylesheets=["/assets/style.css", dbc.themes.BOOTSTRAP],
                 suppress_callback_exceptions=True,
+                prevent_initial_callbacks = True,
                 # background_callback_manager=background_callback_manager,
                 meta_tags=[{'name': 'viewport',
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}]
@@ -47,22 +48,37 @@ navbar = dbc.NavbarSimple(
     dark=True,         # ensures text is light-colored for dark backgrounds
     className="mb-2",
 )
-def serve_layout():
-    return dbc.Container(
-        [
-            dcc.Location(id="url", refresh="callback-nav"),
-            navbar,
-            dash.page_container
-        ],
-        style={
-            'backgroundColor': '#193153',
-            # 'height': '750vh',
-            'padding': '0px',
-            'position': 'relative'
-        }
-    )
+# def serve_layout():
+#     return dbc.Container(
+#         [
+#             dcc.Location(id="url", refresh="callback-nav"),
+#             navbar,
+#             dash.page_container
+#         ],
+#         style={
+#             'backgroundColor': '#193153',
+#             # 'height': '750vh',
+#             'padding': '0px',
+#             'position': 'relative'
+#         }
+#     )
+#
+# app.layout = serve_layout  # <- function, not a static object
+layout = dbc.Container(
+    [
+        dcc.Location(id="url", refresh="callback-nav"),
+        navbar,
+        dash.page_container
+    ],
+    style={
+        'backgroundColor': '#193153',
+        'padding': '0px',
+        'position': 'relative'
+    }
+)
 
-app.layout = serve_layout  # <- function, not a static object
+app.layout = layout
+
 
 if __name__ == '__main__':
     app.run(debug=True)
