@@ -12,10 +12,10 @@ from functions import properties_df, latitudes,longitudes,markers,jobid_pile_dat
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
 from functions import generate_all_pdfs_task,generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart
 import dash_bootstrap_components as dbc
-# import functions as ts
-from celery.result import AsyncResult
 import dash_leaflet as dl
-from celery_config import celery_app
+
+# from celery.result import AsyncResult
+# from celery_config import celery_app
 
 dash.register_page(__name__,'/')
 
@@ -131,8 +131,8 @@ layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '650vh', 'padding': '20px', 'position': 'relative'})
-
+], style={'backgroundColor': '#193153', "minHeight": "500px", "maxHeight": "700px", 'padding': '20px', 'position': 'relative', "overflow": "auto"})
+# 'height': '650vh'
 # ================================================================================================
 # ================================================================================================
 # ================================================================================================
@@ -880,30 +880,30 @@ def start_task(n_clicks, all_rows,selected_jobid):
 #     print(">>> Task ID:", task.id)
 
 
-@callback(
-    Output('task-status', 'children'),
-    Output('download-ALL-pdf', 'data'),
-    Output("poll-interval", "disabled"),  # Make sure this matches your Interval component id
-    Input("poll-interval", "n_intervals"),
-    State("task-id", "data"),
-    prevent_initial_call=True
-)
-def poll_status(n, task_id):
-    if not task_id:
-        raise PreventUpdate
-
-    res = AsyncResult(task_id, app=celery_app)
-
-    if res.ready():
-        if res.successful():
-            filename = res.result
-            filepath = os.path.join(root_path, "instance", "tmp", filename)
-            print(filepath)  # This should only print once now
-            if not os.path.exists(filepath):
-                print(f"❌ File not found at: {filepath}")
-                return "❌ File not found", None, True
-            return "✅ Done", dcc.send_file(filepath), True
-        else:
-            return "❌ Failed", None, True
-    else:
-        return "⏳ In progress", None, False
+# @callback(
+#     Output('task-status', 'children'),
+#     Output('download-ALL-pdf', 'data'),
+#     Output("poll-interval", "disabled"),  # Make sure this matches your Interval component id
+#     Input("poll-interval", "n_intervals"),
+#     State("task-id", "data"),
+#     prevent_initial_call=True
+# )
+# def poll_status(n, task_id):
+#     if not task_id:
+#         raise PreventUpdate
+#
+#     res = AsyncResult(task_id, app=celery_app)
+#
+#     if res.ready():
+#         if res.successful():
+#             filename = res.result
+#             filepath = os.path.join(root_path, "instance", "tmp", filename)
+#             print(filepath)  # This should only print once now
+#             if not os.path.exists(filepath):
+#                 print(f"❌ File not found at: {filepath}")
+#                 return "❌ File not found", None, True
+#             return "✅ Done", dcc.send_file(filepath), True
+#         else:
+#             return "❌ Failed", None, True
+#     else:
+#         return "⏳ In progress", None, False
