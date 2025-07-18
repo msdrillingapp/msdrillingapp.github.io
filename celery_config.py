@@ -1,11 +1,7 @@
 from celery import Celery
 import os
-# import io
-# import zipfile
-# import base64
-# import pandas as pd
 import logging
-# from functions import create_depth_chart,create_time_chart,get_app_root,generate_mwd_pdf
+
 
 # Set up basic logging first
 logging.basicConfig(
@@ -14,7 +10,8 @@ logging.basicConfig(
 )
 
 redis_url = os.getenv("REDIS_URL")
-
+redis_url = 'redis://default:0ZA4d6uHoRJTPXeXFpgrrn9jcaF9QWnt@redis-10787.c328.europe-west3-1.gce.redns.redis-cloud.com:10787'
+# redis_url = 'redis://localhost:6379/1'
 # celery_app = Celery(
 #     'tasks',
 #     broker='redis://localhost:6379/0',

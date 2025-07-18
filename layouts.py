@@ -38,8 +38,8 @@ def get_filters(properties_df):
         dbc.Row([
             dbc.Col(dcc.Dropdown(
                 id="jobid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["JobID"].dropna().unique()],
-                placeholder="Filter by JobID",
+                options=[{"label": str(r), "value": str(r)} for r in properties_df["JobNumber"].dropna().unique()],
+                placeholder="Filter by JobNumber",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
             ),xs=10, sm=5, md=8, lg=6, xl=5),
@@ -120,7 +120,7 @@ def get_pilelist():
                     columnDefs=[
                         {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True, "pinned": "left"},
                         {"headerName": "Time", "field": "Time", "sortable": True, "filter": True},
-                        {"headerName": "JobID", "field": "JobID", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "JobNumber", "field": "JobNumber", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
                         {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
                         {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
@@ -171,23 +171,17 @@ def get_pilelist():
 
                 # Print Button
                 html.Button("Download Pile List", id="btn_download", n_clicks=0),
-                html.Button("Download PDF for ALL PileID", id='download-ALL-pdf-btn', disabled=False,style={'marginLeft': '5px'}),
                 # ,style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between','marginLeft': '5px'}
                 html.Button("Save changes", id="btn_save", n_clicks=0,style={'marginLeft': '5px'}),
                 dcc.Download(id="download-csv"),
+                # html.Button("Go to CPT charts", id='go-button'),
+                # dcc.Store(id='shared-data', storage_type='session')
 
-                # dcc.Interval(id="check-task-interval", interval=2000, n_intervals=0, disabled=True),
-
-                dcc.Download(id="download-ALL-pdf"),
-                dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
-                dcc.Store(id="task-id"),
-                html.Div(id="task-status"),
-
-                # html.A("Download ZIP", id="download-link", href="", style={'display': 'none'})
-                # html.Div(id="download-link-container", children=[]),
+                # html.Button("Download PDF for ALL PileID", id='download-ALL-pdf-btn', disabled=False,style={'marginLeft': '5px'}),
+                # dcc.Download(id="download-ALL-pdf"),
+                # dcc.Interval(id="poll-interval", interval=1000, n_intervals=0, disabled=True),
+                # dcc.Store(id="task-id"),
                 # html.Div(id="task-status"),
-                # html.Div(id="task-output", className="mt-3"),
-
 
             ],
             id="collapse-pilelist",
@@ -263,7 +257,7 @@ def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak):
     return details
 
 def add_charts():
-    charts =  dbc.Collapse(
+    charts = dbc.Collapse(
             html.Div([
                 # Statistics Info Cards
                 html.Div(id="pile-summary-cards", style={
@@ -292,3 +286,5 @@ def add_charts():
                 is_open=False
             )
     return charts
+
+

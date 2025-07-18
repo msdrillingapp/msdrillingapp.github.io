@@ -1,14 +1,15 @@
 import numpy as np
 import pandas as pd
 import dash_leaflet as dl
+# import dash_extensions.javascript as dj
 import json
 import os
-from flask_caching import Cache
-from dash import Dash
+import logging
+# from flask_caching import Cache
+# from dash import Dash
 import plotly.express as px
-import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from datetime import datetime,timedelta
+from datetime import timedelta,datetime
 import base64
 from io import BytesIO
 from reportlab.lib import colors
@@ -27,18 +28,35 @@ import base64
 
 from celery_config import celery_app
 from celery.utils.log import get_task_logger
+import re
 from celery import shared_task
 logger = get_task_logger(__name__)
 
-file_path = os.path.join(os.getcwd(), "assets",)
-geojson_folder = os.path.join(file_path,'data')
+assets_path = os.path.join(os.getcwd(), "assets", )
+geojson_folder = os.path.join(assets_path, 'data')
+
+
+columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
+
 def filter_none(lst):
     return filter(lambda x: not x is None, lst)
+
+
+
+def extract_trailing_numbers(s):
+    match = re.search(r'(\d+)$', s)
+    mnum = match.group(1) if match else None
+    if not mnum is None:
+        try:
+            mnum = int(mnum)
+        except:
+            mnum = None
+    return mnum
 
 # Function to load all GeoJSON files dynamically
 # Cache expensive operations
 # @cache.memoize(timeout=3600)
-def load_geojson_data():
+def load_geojson_data_OLD():
     # Check if cached data exists
     cache_file = os.path.join(geojson_folder, 'cached_data.pkl')
     if os.path.exists(cache_file):
@@ -77,7 +95,7 @@ def load_geojson_data():
                     try:
                         date = pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
                     except:
-                        date = 'NA'
+                        date = datetime.today().date()
                     properties["date"] = date # Store the date from the filename
                     # PileCode - PP = circle , TestPile = square , Reaction = Octagon
                     pile_code = properties['PileCode']
@@ -153,6 +171,182 @@ def load_geojson_data():
 
     return result
 
+def load_geojson_data():
+    # Check if cached data exists
+    cache_file = os.path.join(geojson_folder, 'cached_data.pkl')
+    if os.path.exists(cache_file):
+        return pd.read_pickle(cache_file)
+    pileid_list_wrong=[]
+    all_data = []
+    jobid_pile_data ={}
+    markers = []
+    latitudes = []
+    longitudes = []
+    cpt_files_folder = 'CPT-files'
+    count = 0
+    cpt_header = {}
+    for folder_name in os.listdir(geojson_folder):
+        if folder_name != '1640':
+            continue
+        data_folder = os.path.join(geojson_folder,folder_name)
+        dir_cpt_data = os.path.join(data_folder, cpt_files_folder)
+        cpt_header[folder_name] = pd.read_csv(os.path.join(dir_cpt_data, 'CPT-online-header.csv'))
+        pile_data = {}
+        for filename in os.listdir(data_folder):
+
+            if filename.endswith(".json"):
+                # file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
+                file_path = os.path.join(data_folder, filename)
+
+                with open(file_path, "r", encoding="utf-8") as f:
+                    geojson_data = json.load(f)
+
+                features = geojson_data.get("features", [])
+                count +=1
+                for feature in features:
+                    properties = feature.get("properties", {})
+                    geometry = feature.get("geometry", {})
+                    coords = geometry.get("coordinates", [])
+                    # PileCode": "PP",  "PileCode": "PRODUCTION PILE",
+                    # "PileCode": "TP",  "PileCode": "TEST PILE",
+                    # "PileCode": "RP", "PileCode": "REACTION PILE",
+                    # "PileCode": "PB", "PileCode": "PROBE",
+                    if coords and len(coords) >= 2:
+                        lon, lat = coords[:2]  # Ensure correct coordinate order
+                        properties["latitude"] = lat
+                        properties["longitude"] = lon
+                        latitudes.append(lat)
+                        longitudes.append(lon)
+                        try:
+                            times = properties["Data"].get("Time", [])
+                            time_interval = pd.to_datetime(times).to_pydatetime()
+                            date2use = pd.to_datetime(time_interval[0]).date().strftime(format='%Y-%m-%d')
+                        except:
+                            date2use = datetime.today().date().strftime(format='%Y-%m-%d')
+                            pass
+
+                        try:
+                            date = pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
+                        except:
+                            date = date2use
+                            properties['Time'] = date
+
+                        properties["date"] = date # Store the date from the filename
+
+                        # PileCode - PP = circle , TestPile = square , Reaction = Octagon
+                        pile_code = properties['PileCode']
+                        # print(pile_code)
+                        pile_status = properties['PileStatus']
+                        pile_id = properties['PileID']
+                        if properties['PileType'] is None:
+                            properties['PileType']=0
+                        else:
+                            pileType = properties['PileType']
+                        if not lat is None and not lon is None:
+                            # Assign different marker styles
+                            if pile_code.lower() == "PRODUCTION PILE".lower():  # Circle
+
+                                if pileType==1:
+                                    donut = "/assets/blue-donut.png"
+                                else:
+                                    donut = "/assets/yellow-donut.png"
+                                marker = dl.Marker(
+                                    position=(lat, lon),
+                                    icon=dict(
+                                        iconUrl=donut,  # Path to your image in assets folder
+                                        iconSize=[30, 30]  # Size of the icon in pixels
+                                    ),
+                                    children=[
+                                        dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
+                                )
+
+                            elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
+                                marker = dl.Marker(
+                                    position=(lat, lon),
+                                    icon=dict(
+                                        iconUrl='assets/yellow-square.png',  # Path to your image in assets folder
+                                        iconSize=[30, 30]  # Size of the icon in pixels
+                                    ),
+                                    children=[
+                                        dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
+                                )
+
+                            elif pile_code.lower() == "REACTION PILE".lower():  # Octagon (Using a custom SVG marker)
+
+                                marker = dl.Marker(
+                                    position=(lat, lon),
+                                    icon=dict(
+                                        iconUrl='assets/blue-target.png',  # Path to your image in assets folder
+                                        iconSize=[30, 30]  # Size of the icon in pixels
+                                    ),
+                                    children=[
+                                        dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
+                                )
+
+                            else:  # Default marker for other PileCodes PB "PROBE"
+                                marker = dl.Marker(
+                                    position=(lat, lon),
+                                    icon=dict(
+                                        iconUrl="/assets/red-triangle.png",  # Path to your image in assets folder
+                                        iconSize=[30, 30]  # Size of the icon in pixels
+                                    ),
+                                    children=[
+                                        dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
+                                )
+
+                            markers.append(marker)
+
+                        else:
+                            continue
+                        # Store time-series data separately for graph plotting
+                        pile_id = properties.get("PileID")
+                        cpt_data = None
+
+                        if pile_id.startswith('PB-CPT'):
+                            cpt_pile_num = extract_trailing_numbers(pile_id)
+                            if not cpt_pile_num is None:
+
+                                for file in os.listdir(dir_cpt_data):
+                                    pileuse = 'CPT-'+str(cpt_pile_num)
+                                    if int(cpt_pile_num)<10:
+                                        pileuse = 'CPT-0'+str(cpt_pile_num)
+                                    if file.split('.')[0] == pileuse:
+                                        cpt_data = pd.read_csv(os.path.join(dir_cpt_data,file))
+                                        break
+
+                        job_id = properties.get("JobNumber")
+                        if str(job_id)!=folder_name:
+                            print('Error '+str(job_id))
+                            pileid_list_wrong.append(pile_id)
+                            properties['JobNumber'] = folder_name
+
+                        calibration = float(properties.get("PumpCalibration"))
+                        strokes = properties["Data"].get("Strokes", [])
+                        volume = [calibration*float(x) for x in strokes]
+                        if pile_id and "Data" in properties:
+                            pile_data[pile_id] = {properties['date']: {
+                                "Time": properties["Data"].get("Time", []),
+                                "Strokes": properties["Data"].get("Strokes", []),
+                                "Depth": properties["Data"].get("Depth", []),
+                                'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', []),
+                                'Rotation': properties['Data'].get('Rotation', []),
+                                'PenetrationRate': properties['Data'].get('PenetrationRate', []),
+                                'Pulldown': properties['Data'].get('Pulldown', []),
+                                'Torque': properties['Data'].get('Torque', []),
+                                'Volume': volume }}
+                            if not cpt_data is None:
+                                for c in columns_cpt:
+                                    pile_data[pile_id][properties['date']].update({c:list(cpt_data[c].values)})
+
+                        all_data.append(properties)
+        jobid_pile_data[str(job_id)] = pile_data
+    # Cache the result for next time
+    result = (pd.DataFrame(all_data),  latitudes, longitudes, markers,jobid_pile_data,cpt_header)
+    pd.to_pickle(result, cache_file)
+    # print('Total files loaded ' + str(count))
+    #
+    return result
+
 
 
 def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes=None, latitudes=None):
@@ -217,15 +411,20 @@ def create_time_chart(pile_info):
     minT = minT.strftime(format='%Y-%m-%d %H:%M:%S')
     maxT = maxT.strftime(format='%Y-%m-%d %H:%M:%S')
     # Add Depth vs Time (Secondary Y-Axis)
+    depths =[-x for x in  pile_info["Depth"]]
     fig.add_scatter(
-        x=pile_info["Time"],
-        y=pile_info["Depth"],
+        # x=pile_info["Time"],
+        x=time_interval,
+        y=depths,
         mode="lines",
         name="Depth",
         yaxis="y1",
         line_color="#f7b500"
     )
-
+    # Format x-axis to show only time (HH:MM:SS)
+    fig.update_xaxes(
+        tickformat="%H:%M:%S",  # Format: Hours:Minutes:Seconds
+    )
     # Add Strokes vs Time (Primary Y-Axis)
     fig.add_scatter(
         x=pile_info["Time"],
@@ -281,6 +480,8 @@ def create_depth_chart(pile_info,diameter=None):
 
     # Add traces
     increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+    # increasing_PR = [-x for x in increasing_PR]
+    decreasing_PR = [-x for x in decreasing_PR]
     fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='UP'), row=1,col=1)
     fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='DOWN'), row=1, col=1)
     # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
@@ -517,6 +718,230 @@ def create_jobid_timechart(pile_data4jobid, selected_date=None):
     df.sort_values(by=['Time'],inplace=True)
     return df
 
+# def create_cpt_charts(pile_info,use_depth:bool=False):
+#
+#     if use_depth:
+#         y_ax_name = 'Depth (feet)'
+#     else:
+#         y_ax_name = 'Elevation (feet)'
+#
+#     minD = min(pile_info[y_ax_name]) - 5 # add percentage rather than integer
+#     maxD = max(pile_info[y_ax_name]) + 5
+#     # ================================================================================
+#     # Create subplots with shared y-axis
+#     fig = make_subplots(rows=1, cols=5, shared_yaxes=True, subplot_titles=("Cone resistence<br>tsf",
+#                                                                             "Friction Ratio", "Pore Pressure",
+#                                                                             "Soil Behaviour Type", ))
+#
+#     # columns_cpt = ['Elevation (feet)', 'q_c (tsf)', 'q_t (tsf)', 'f_s (tsf)', 'U_2 (ft-head)', 'U_0 (ft-head)',
+#     #                'R_f (%)']
+#
+#     # Add traces
+#
+#     y_ax = pile_info[y_ax_name]
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['q_c (tsf)'], y=y_ax, mode='lines', line=dict(color='red', width=2), name='q_c'), row=1,
+#         col=1)
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['q_t (tsf)'], y=y_ax, mode='lines', line=dict(color='blue', width=2), name='q_t'), row=1,
+#         col=1)
+#
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['R_f (%)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,name='R_f (%)'),
+#         row=1, col=2)
+#
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['U_2 (ft-head)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,name='U_2'),
+#         row=1, col=3)
+#     fig.add_trace(
+#         go.Scatter(x=pile_info['U_0 (ft-head)'], y=y_ax, mode='lines', line=dict(color='blue', width=2), showlegend=True,name='U_0'),
+#         row=1, col=3)
+#     # # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
+#     # increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],
+#     #                                                                                      pile_info["Depth"])
+#     # fig1.add_trace(
+#     #     go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False),
+#     #     row=1, col=4)
+#     # fig1.add_trace(
+#     #     go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),
+#     #     row=1, col=4)
+#     # # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
+#     # fig1.add_trace(go.Scatter(x=pile_info["Volume"], y=pile_info["Depth"], name='Actual', mode='lines',
+#     #                           line=dict(color='black', width=2), showlegend=True), row=1, col=5)
+#     # if not diameter is None:
+#     #     minDepth = float(min(pile_info["Depth"]))
+#     #     volume_cy = cylinder_volume_cy(diameter, -minDepth)
+#     #     fig1.add_trace(go.Scatter(x=[volume_cy, 0], y=[0, minDepth], mode='lines', name='Theoretical',
+#     #                               line=dict(color='grey', width=2, dash='dashdot'), showlegend=True), row=1, col=5)
+#     # Update layout for dual y-axes and dark background
+#     fig.update_layout(
+#         yaxis_title=y_ax_name,
+#         # yaxis=dict(title="Depth", side="left", showgrid=False),
+#         # yaxis2=dict(title="Strokes", overlaying="y", side="right", showgrid=False),
+#         plot_bgcolor="#193153",
+#         paper_bgcolor="#193153",
+#         font=dict(color="white"),
+#         # yaxis_range=[minD, maxD]
+#         legend=dict(
+#             orientation="h",
+#             yanchor="top",
+#             y=-0.3,  # position below the plot
+#             xanchor="center",
+#             x=0.5,
+#             # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
+#             font=dict(size=11),  # adjust font size
+#             itemwidth=30,  # control item width
+#         )
+#     )
+#     fig.update_annotations(font_size=11)
+#     fig.update_yaxes(range=[minD, maxD])
+#     # tils = ['(ft/min)', '(bar)', '(tons)', '(rpm)', '(yd^3)']
+#     # for i in range(0, 5):
+#     #     fig1.update_xaxes(title_text=tils[i], row=1, col=i + 1)
+#
+#     # Configure gridlines for each subplot
+#     for i in range(0, 5):
+#         fig.update_xaxes(
+#             zerolinecolor='black',
+#             gridcolor='rgba(100,100,100,0.5)',
+#             gridwidth=1,
+#             showgrid=True,
+#             linecolor='black',
+#             mirror=True,
+#             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+#             row=1,
+#             col=i + 1
+#         )
+#         fig.update_yaxes(
+#             zerolinecolor='black',
+#             gridcolor='rgba(100,100,100,0.5)',
+#             gridwidth=1,
+#             showgrid=True,
+#             linecolor='black',
+#             mirror=True,
+#             minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+#             row=1,
+#             col=i + 1
+#         )
+#
+#     # fig1.update_layout(
+#     #     autosize=True,
+#     #     margin=dict(l=20, r=20, b=20, t=30),
+#     # )
+#
+#     return fig
+
+def create_cpt_charts(pile_info, use_depth: bool = False, initial_y_value: float = None):
+    if use_depth:
+        y_ax_name = 'Depth (feet)'
+    else:
+        y_ax_name = 'Elevation (feet)'
+
+    minD = min(pile_info[y_ax_name]) - 5
+    maxD = max(pile_info[y_ax_name]) + 5
+
+    # Create subplots with shared y-axis
+    fig = make_subplots(
+        rows=1,
+        cols=4,  # Changed to 4 since you have 4 subplot titles
+        shared_yaxes=True,
+        subplot_titles=(
+            "Cone resistance",
+            "Friction Ratio",
+            "Pore Pressure",
+            "Soil Behaviour Type"
+        )
+    )
+
+    y_ax = pile_info[y_ax_name]
+
+    # Add traces
+    fig.add_trace(
+        go.Scatter(x=pile_info['q_c (tsf)'], y=y_ax, mode='lines', line=dict(color='red', width=2), name='q_c', showlegend=True),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=pile_info['q_t (tsf)'], y=y_ax, mode='lines', line=dict(color='blue', width=2), name='q_t', showlegend=True),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=pile_info['R_f (%)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
+                   name='R_f (%)'),
+        row=1, col=2
+    )
+    fig.add_trace(
+        go.Scatter(x=pile_info['U_2 (ft-head)'], y=y_ax, mode='lines', line=dict(color='red', width=2), showlegend=True,
+                   name='U_2'),
+        row=1, col=3
+    )
+    fig.add_trace(
+        go.Scatter(x=pile_info['U_0 (ft-head)'], y=y_ax, mode='lines', line=dict(color='blue', width=2),
+                   showlegend=True, name='U_0'),
+        row=1, col=3
+    )
+
+    # Add initial horizontal line if y-value provided
+    if initial_y_value is not None:
+        for col in range(1, 5):
+            fig.add_hline(
+                y=initial_y_value,
+                line_dash="dot",
+                line_color="cyan",
+                line_width=2,
+                row=1, col=col
+            )
+
+    # Update layout
+    fig.update_layout(
+        yaxis_title=y_ax_name,
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font=dict(color="white"),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.3,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=11),
+            itemwidth=30,
+        ),
+        # Add dragmode to enable rectangle selection (we'll use this for our cursor)
+        dragmode="select",
+        # Make the plot fill the container
+        autosize=True,
+        margin=dict(l=50, r=50, b=50, t=50, pad=4)
+    )
+
+    fig.update_annotations(font_size=11)
+    fig.update_yaxes(range=[minD, maxD])
+
+    # Configure gridlines for each subplot
+    for i in range(1, 5):
+        fig.update_xaxes(
+            zerolinecolor='black',
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+            row=1,
+            col=i
+        )
+        fig.update_yaxes(
+            zerolinecolor='black',
+            gridcolor='rgba(100,100,100,0.5)',
+            gridwidth=1,
+            showgrid=True,
+            linecolor='black',
+            mirror=True,
+            minor=dict(showgrid=True, gridcolor='rgba(100,100,100,0.5)', griddash='dot'),
+            row=1,
+            col=i
+        )
+
+    return fig
 def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     # Get absolute path to templates/assets
     # app_root = Path(get_app_root())
@@ -596,7 +1021,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 
     # Create content
     story = []
-    LOGO_PATH = file_path + '/MSB.logo.JPG'
+    LOGO_PATH = assets_path + '/MSB.logo.JPG'
 
     header_table = Table(
         [
@@ -757,7 +1182,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 #         'type': 'application/zip',
 #         'base64': True
 #     }
-import logging
+
 @celery_app.task(name="generate_all_pdfs_task")
 def generate_all_pdfs_task(all_rows, pile_data):
     # Get logger specifically for this task
@@ -810,6 +1235,34 @@ def generate_all_pdfs_task(all_rows, pile_data):
     print("Returning filename:", filename)
 
     return filename
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# ================================================================================
+# # Create a dictionary to map Field to Group
+groups_df = pd.read_csv(os.path.join(assets_path,'Groups.csv'))
+groups_df = groups_df.explode("Group").reset_index(drop=True)
+(properties_df, latitudes,longitudes,markers,jobid_pile_data,cpt_header) = load_geojson_data()
+if 'FileName' in properties_df.columns:
+    properties_df.drop(columns=['Data','UID','FileName'],inplace=True)
+else:
+    properties_df.drop(columns=['Data', 'UID'], inplace=True)
+properties_df['Time'].fillna(datetime.today())
+properties_df['JobNumber'] = properties_df['JobNumber'].astype(str)
+# Melt the dataframe so each property is mapped to a Field and PileID
+melted_df = properties_df.melt(id_vars=["PileID","latitude", "longitude", "date"], var_name="Field", value_name="Value")
+# Convert non-string values to strings to avoid DataTable errors
+melted_df["Value"] = melted_df["Value"].astype(str)
+# Merge with Groups.csv
+merged_df = melted_df.merge(groups_df, on="Field", how="left")
+merged_df["Group"].fillna("Undefined", inplace=True)  # Ensure Group is always a string
+# Keep only relevant columns
+filtered_columns = ["PileID", "Group", "Field", "Value", "latitude", "longitude", "date"]
+merged_df = merged_df[filtered_columns]
+groups_list = list(merged_df["Group"].dropna().unique())
+groups_list.remove('Edit')
 
 
 

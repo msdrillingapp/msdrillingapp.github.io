@@ -79,6 +79,12 @@
      white-space: nowrap;
      }
 
+.mb-4 {background-color: #193153  !important;
+     color: white !important;
+     border: 2px solid #193153 !important;
+
+     }
+
 
 .ag-theme-alpine-dark {
     --ag-background-color: #193153 !important;
