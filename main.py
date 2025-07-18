@@ -18,13 +18,16 @@ else:
 #     background_callback_manager = CeleryManager(celery_app)
 
 # Configure Kaleido for headless environments (add this)
-import kaleido
-kaleido.scope.chromium_args = [
+import plotly.io as pio
+
+# Configure Kaleido for Render/headless environments
+pio.kaleido.scope.chromium_args = [
     '--no-sandbox',
     '--disable-dev-shm-usage',
     '--disable-gpu',
     '--single-process'
 ]
+
 
 server = Flask(
         __name__,
