@@ -6,12 +6,22 @@ from plotly.subplots import make_subplots
 import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
+import os
 import base64
 from io import BytesIO
 from reportlab.platypus import Image
 from reportlab.lib.units import inch
 #---------------------------------------------------------------
 from report_template import PileReportHeader
+# Add this right after your imports
+from dash import callback_context
+import dash._callback_context as cb_context
+
+def enforce_single_callback():
+    ctx = cb_context.callback_context
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
+    return ctx.triggered[0]['prop_id']
 #---------------------------------------------------------------
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
 zone_colors = {
@@ -32,7 +42,7 @@ dash.register_page(
     path_template="/CPT",
     path="/CPT",
 )
-import os
+
 logo_path = os.path.join(os.getcwd(), "assets","MSB.logo.JPG" )
 
 # =================================================================
@@ -76,6 +86,7 @@ def get_filters_cpt(properties_df):
 
 
 def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None):
+    pile_info = pile_info.copy()  # Prevent dataframe mutation
     if use_depth:
         y_ax_name = 'Depth (feet)'
     else:
@@ -316,7 +327,7 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None)
         fig.update_xaxes(title_text="SBT (Robertson, 2010)", row=1, col=4)
 
     fig.update_layout(autosize=False, height=600)
-
+    fig = go.Figure(fig)  # Create fresh figure object
     return fig
 
 
@@ -352,7 +363,7 @@ def add_cpt_charts():
                 )
             ], style={'marginTop': '20px', 'padding': '0 20px'}),
             # Store the current y-value
-            dcc.Store(id='current-y-value')
+            dcc.Store(id='current-y-value', storage_type='memory', data=None)
         ]),
         id="collapse-plots-cpt",
         is_open=False
@@ -501,9 +512,11 @@ app.clientside_callback(
     State("x2-min", "value"), State("x2-max", "value"),
     State("x3-min", "value"), State("x3-max", "value"),
     State("x4-min", "value"), State("x4-max", "value"),
+    prevent_initial_call=True
 )
 def update_cpt_graph(n_clicks,selected_pileid, selected_date, slider_value, selected_data, window_size, selected_jobid,
                      current_y_value, y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max):
+    trigger_id = enforce_single_callback()
     ctx = dash.callback_context
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 

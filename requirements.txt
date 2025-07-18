@@ -16,4 +16,5 @@ Pillow
 kaleido
 celery
 redis
+flask
 dash[diskcache]

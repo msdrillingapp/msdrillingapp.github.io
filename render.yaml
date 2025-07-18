@@ -3,7 +3,7 @@ services:
     name: dash-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:server
+    startCommand: gunicorn main:server  --workers 1 --threads 4
     envVars:
       - key: REDIS_URL
         fromService:
@@ -11,15 +11,15 @@ services:
           type: redis
           property: connectionString
 
-  - type: worker
-    name: celery-worker
-    buildCommand: pip install -r requirements.txt
-    startCommand: celery -A celery_worker.celery_app worker --loglevel=info
-    runtime:
-    envVars:
-      - key: REDIS_URL
-        fromService:
-          name: dash-redis
-          type: redis
-          property: connectionString
+#  - type: worker
+#    name: celery-worker
+#    buildCommand: pip install -r requirements.txt
+#    startCommand: celery -A celery_worker.celery_app worker --loglevel=info
+#    runtime:
+#    envVars:
+#      - key: REDIS_URL
+#        fromService:
+#          name: dash-redis
+#          type: redis
+#          property: connectionString
 

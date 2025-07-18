@@ -1,7 +1,7 @@
 import dash
 import os
-from dash import dcc, html, CeleryManager
-from celery_config import celery_app
+from dash import dcc, html #, CeleryManager
+# from celery_config import celery_app
 from flask import Flask
 import dash_bootstrap_components as dbc
 
@@ -24,12 +24,15 @@ server = Flask(
 app = dash.Dash(__name__, server=server,use_pages=True,
                 assets_folder=os.path.join(root_path, 'assets'),
                 external_stylesheets=["/assets/style.css", dbc.themes.BOOTSTRAP],
-                suppress_callback_exceptions=True,
                 prevent_initial_callbacks = True,
                 # background_callback_manager=background_callback_manager,
                 meta_tags=[{'name': 'viewport',
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}]
                 )
+
+# Add these right after app creation
+app.config.suppress_callback_exceptions = True
+app._callback_list = []  # Clear any existing callbacks
 
 app.title = 'MS Drill Tracker'
 
@@ -38,9 +41,9 @@ navbar = dbc.NavbarSimple(
         dbc.NavItem(dbc.NavLink("Home", href="/", active="exact")),
         dbc.NavItem(dbc.NavLink("CPT", href="/CPT", active="exact")),
     ],
-    # # html.Img(src="/assets/logo.png", height="30px", className="me-2"),
+
     brand=html.Span([
-        html.Img(src="/assets/MSB.logo.JPG", style={'height': '70px', 'maxWidth': '100%', 'width': 'auto'}),
+        html.Img(src=app.get_asset_url("MSB.logo.JPG"), style={'height': '70px', 'maxWidth': '100%', 'width': 'auto'}),
         html.Span("  Morris-Shea Drilling App", style={"fontSize": "1.5rem", "verticalAlign": "middle"})
     ]),
     brand_href="/",
@@ -66,7 +69,8 @@ navbar = dbc.NavbarSimple(
 # app.layout = serve_layout  # <- function, not a static object
 layout = dbc.Container(
     [
-        dcc.Location(id="url", refresh="callback-nav"),
+        # dcc.Location(id="url", refresh="callback-nav"),
+        dcc.Location(id="url", refresh=False),
         navbar,
         dash.page_container
     ],
@@ -74,7 +78,7 @@ layout = dbc.Container(
         'backgroundColor': '#193153',
         'padding': '0px',
         'position': 'relative'
-    }
+    },fluid=True
 )
 
 app.layout = layout
