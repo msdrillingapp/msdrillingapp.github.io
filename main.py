@@ -16,7 +16,7 @@ else:
 # if True:
 #     # Use Redis & Celery if REDIS_URL set as an env variable
 #     background_callback_manager = CeleryManager(celery_app)
-
+# /opt/render/project/src/.venv/lib/python3.12/site-packages/choreographer/cli/browser/chrome-linux64/chrome
 server = Flask(
         __name__,
         instance_path=os.path.join(root_path, 'instance'),
