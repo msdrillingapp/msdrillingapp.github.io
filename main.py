@@ -20,13 +20,10 @@ else:
 # Configure Kaleido for headless environments (add this)
 import plotly.io as pio
 
-# Configure Kaleido for Render/headless environments
-pio.kaleido.scope.chromium_args = [
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--single-process'
-]
+try:
+    pio.kaleido.scope.chromium_executable = "/usr/bin/chromium"
+except:
+    pio.kaleido.scope.chromium_executable = "/usr/bin/chromium-browser"
 
 
 server = Flask(
