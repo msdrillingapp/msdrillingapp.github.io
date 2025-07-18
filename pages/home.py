@@ -556,7 +556,6 @@ def update_combined_graph(selected_row, window_size,selected_jobid):
             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
             layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
     selected_row = selected_row[0].copy()
-    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
     selected_pileid = selected_row['PileID']
     selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
     pile_data = jobid_pile_data[selected_jobid]
