@@ -23,17 +23,18 @@ server = Flask(
         root_path=root_path,
         static_folder=os.path.join(root_path, 'assets')
     )
-app = dash.Dash(__name__, server=server,use_pages=True,
+app = dash.Dash(__name__, server=server, use_pages=True,
                 assets_folder=os.path.join(root_path, 'assets'),
-                external_stylesheets=["/assets/style.css", dbc.themes.BOOTSTRAP],
-                prevent_initial_callbacks = True,
+                external_stylesheets=[dbc.themes.BOOTSTRAP], #"/assets/style.css",
+                suppress_callback_exceptions=True,
+                # prevent_initial_callbacks=True,
                 # background_callback_manager=background_callback_manager,
                 meta_tags=[{'name': 'viewport',
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}]
                 )
 
 # Add these right after app creation
-app.config.suppress_callback_exceptions = True
+# app.config.suppress_callback_exceptions = True
 app._callback_list = []  # Clear any existing callbacks
 
 app.title = 'MS Drill Tracker'
@@ -53,27 +54,12 @@ navbar = dbc.NavbarSimple(
     dark=True,         # ensures text is light-colored for dark backgrounds
     className="mb-2",
 )
-# def serve_layout():
-#     return dbc.Container(
-#         [
-#             dcc.Location(id="url", refresh="callback-nav"),
-#             navbar,
-#             dash.page_container
-#         ],
-#         style={
-#             'backgroundColor': '#193153',
-#             # 'height': '750vh',
-#             'padding': '0px',
-#             'position': 'relative'
-#         }
-#     )
-#
-# app.layout = serve_layout  # <- function, not a static object
+
 layout = dbc.Container(
     [
         # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=False),
-        dcc.Store(id='cleanup-dummy'),
+        # dcc.Store(id='cleanup-dummy'),
         navbar,
         dash.page_container
     ],
@@ -81,19 +67,20 @@ layout = dbc.Container(
         'backgroundColor': '#193153',
         'padding': '0px',
         'position': 'relative'
-    },fluid=True
+    },
+    fluid=True
 )
 
 app.layout = layout
 
-@app.callback(
-    Output('cleanup-dummy', 'children'),
-    Input('url', 'pathname')
-)
-def cleanup_callbacks(_):
-    # Reset callback registry on page navigation
-    app._callback_list = []
-    return ""
+# @app.callback(
+#     Output('cleanup-dummy', 'children'),
+#     Input('url', 'pathname')
+# )
+# def cleanup_callbacks(_):
+#     # Reset callback registry on page navigation
+#     app._callback_list = []
+#     return ""
 
 if __name__ == '__main__':
     app.run(debug=False)

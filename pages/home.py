@@ -2,7 +2,7 @@ import dash
 import os
 
 from dash import dcc, html, Output, Input, State,no_update,callback,ClientsideFunction,DiskcacheManager, CeleryManager
-# from dash import no_update,callback, register_page
+
 from datetime import datetime
 import numpy as np
 import plotly.graph_objects as go
@@ -14,8 +14,8 @@ from functions import generate_mwd_pdf, filter_none, create_time_chart,create_de
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
-from functools import lru_cache
 
+# from functools import lru_cache
 # from celery.result import AsyncResult
 # from celery_config import celery_app
 
@@ -47,8 +47,6 @@ filtered_table = get_filtered_table()
 layout = html.Div([
     # ============================================================
     dcc.Store(id='window-size', data={'width': 1200}),
-    # dcc.Store(id='cleanup-dummy'),
-    # header,
     html.Br(),
     # FILTERS ===================================================================
     flts,
@@ -155,11 +153,7 @@ def check_is_none(mdict,name_var):
     return mdict
 
 
-@callback(
-    # Output("filtered-table", "data"),
-    Output("filtered-table", "rowData"),
-    # [Input("pileid-filter", "value"),
-    #  Input("date-filter", "value"),
+@callback(    Output("filtered-table", "rowData"),
     [ Input('pilelist-table', 'selectedRows'),
      Input("group-filter", "value")],prevent_initial_call=True,
 )
@@ -209,7 +203,7 @@ def update_table(selected_row, selected_group):
     [Input("jobid-filter", "value"),
      Input("date-filter", "value"),
      Input("rigid-filter", "value")],
-    prevent_initial_call=True,
+    # prevent_initial_call=True,
 )
 def update_table(selected_jobid, selected_date,selected_rigid):
     if not selected_jobid:# and not selected_date:
@@ -280,10 +274,6 @@ def update_table(selected_jobid, selected_date,selected_rigid):
                 min_depth = None
                 max_strokes = None
 
-        # try:
-        #     pile_id = int(pile_id)
-        # except:
-        #     pass
 
         dict_data = {
             "PileID": pile_id,
@@ -310,8 +300,6 @@ def update_table(selected_jobid, selected_date,selected_rigid):
             "DrillEndTime": row['DrillEndTime'],
             "PileLength": row['PileLength'],
             "PileDiameter": row['PileDiameter'],
-
-
         }
         summary_data.append(dict_data)
 
@@ -448,7 +436,7 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
      dash.dependencies.Input('pilestatus-filter', "value"),
      dash.dependencies.Input('piletype-filter', "value"),
      dash.dependencies.Input('productcode-filter', "value")
-     ],prevent_initial_call=True
+     ]#,prevent_initial_call=True
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     filtered_df = properties_df.copy()
@@ -581,8 +569,6 @@ def update_combined_graph(selected_row, window_size,selected_jobid):
 @callback(
     Output("pile-summary-cards", "children"),
     [Input('pilelist-table', 'selectedRows'), Input("jobid-filter", "value")],
-    # [Input("pileid-filter", "value"), Input("jobid-filter", "value")],
-    # State('date-filter','value')
     prevent_initial_call=True
 )
 # def update_summary_cards(selected_pileid, selected_jobid,selected_date):

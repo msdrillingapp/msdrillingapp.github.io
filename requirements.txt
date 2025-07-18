@@ -9,7 +9,6 @@ gunicorn
 dash_bootstrap_components
 dash_auth
 dash_ag_grid
-flask_caching
 diskcache
 reportlab
 Pillow
@@ -17,6 +16,5 @@ celery
 redis
 flask
 dash[diskcache]
-lru_cache
 kaleido>=0.2.1
 plotly>=5.0.0

@@ -9,17 +9,18 @@ import pandas as pd
 import os
 import base64
 from io import BytesIO
+import plotly.io as pio
 #---------------------------------------------------------------
 from report_template import PileReportHeader
 # Add this right after your imports
 from dash import callback_context
 import dash._callback_context as cb_context
 
-def enforce_single_callback():
-    ctx = cb_context.callback_context
-    if not ctx.triggered:
-        raise dash.exceptions.PreventUpdate
-    return ctx.triggered[0]['prop_id']
+# def enforce_single_callback():
+#     ctx = cb_context.callback_context
+#     if not ctx.triggered:
+#         raise dash.exceptions.PreventUpdate
+#     return ctx.triggered[0]['prop_id']
 #---------------------------------------------------------------
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
 zone_colors = {
@@ -459,7 +460,8 @@ layout = html.Div([
     dbc.Button("Show Plots", id="toggle-plots-cpt", color="primary", className="mb-2", style={"marginTop": "20px"}),
     charts
 ], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
-# 'height': '550vh',
+
+
 # Custom CSS for the slider
 app = dash.get_app()
 app.clientside_callback(
@@ -583,9 +585,8 @@ def toggle_plots(n_clicks, is_open):
     Input("download-pdf-btn-cpt", "n_clicks"),
     [State('jobid-filter-cpt', 'value'),
      State('pileid-filter-cpt', 'value'),
-State('date-filter-cpt', 'value'),
-     State('cpt_graph', 'figure'),
- ],
+     State('date-filter-cpt', 'value'),
+     State('cpt_graph', 'figure') ],
     prevent_initial_call=True
 )
 def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id, selected_date,cpt_fig):
@@ -593,7 +594,6 @@ def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id, selected_d
         return no_update
     try:
         return generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date, cpt_fig)
-        # return dcc.send_file(filepath)
     except Exception as e:
         print(f"PDF generation failed: {str(e)}")
         return no_update
@@ -620,7 +620,7 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,selected_date,cpt_fig)
                 fig['data'][0]['line']['width'] = 3
 
 
-    import plotly.io as pio
+
 
     cpt_png = BytesIO()
     pio.write_image(cpt_fig, cpt_png, format='png', scale=3)
