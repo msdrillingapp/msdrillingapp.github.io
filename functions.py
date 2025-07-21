@@ -1047,7 +1047,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     date_drill = pd.to_datetime(selected_row.get('Time', '')).date().strftime(format='%Y-%m-%d')
     job_data = [
         ["JOB ID:", selected_row.get('JobID', '')],
-        ["CLIENT:", selected_row.get('Client', '')],
+        ["CLIENT:", "Morris Shea Bridge"],#selected_row.get('Client', '')
         ["CONTRACTOR:", "Morris Shea Bridge"],
         ["DATE:", date_drill],
         ['','']
@@ -1063,8 +1063,12 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         # ["OPERATOR:", selected_row.get('OPERATOR', '')],
 
     ]
+    try:
+        diameter = str(round(float(selected_row.get('PileDiameter', '')),2))
+    except:
+        diameter = str(selected_row.get('PileDiameter', ''))
     pile_data_2 = [["PILE LENGTH:", str(selected_row.get('PileLength', ''))+' [ft]'],
-        ["PILE DIAMETER:", str(selected_row.get('PileDiameter', ''))+' [in]'],
+        ["PILE DIAMETER:", diameter +' [in]'],
         ["STROKES:", selected_row.get('MaxStrokes', '')],
         ["PUMP CALIB.:", str(selected_row.get('Calibration', ''))+' [cy/str]'],
         ["OVER BREAK:", selected_row.get('OverBreak', '')]]
@@ -1127,7 +1131,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         [Paragraph("Time Scale", header_style)],
         [Image(time_img, width=6 * inch, height=2.5 * inch)],
         [Paragraph("Depth ("+ maxdepth+" ft)", header_style)],
-        [Image(depth_img, width=7 * inch, height=4 * inch)]
+        [Image(depth_img, width=7. * inch, height=4. * inch)]
     ],
         colWidths=[7 * inch],  # 👈 force total width
         style=[

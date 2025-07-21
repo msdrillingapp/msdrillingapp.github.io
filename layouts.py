@@ -269,13 +269,13 @@ def add_charts():
                 html.Button("Download PDF for PileID", id='download-pdf-btn', disabled=True),
                 dbc.Row([
                     dbc.Col(
-                            dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),
+                            dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px','height': '500px'}),
                     xs=12, sm=12, md=12, lg=12, xl=12),
                     ]), # close Row config={'responsive': True},
                 # html.Div([
                 dbc.Row([
                     dbc.Col(
-                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'marginTop':'5px'}),
+                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'marginTop':'5px','height': '500px'}),
                         xs=12, sm=12, md=12, lg=12, xl=12),
                 ]),  # close Row config={'responsive': True},
 

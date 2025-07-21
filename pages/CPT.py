@@ -338,7 +338,7 @@ def add_cpt_charts():
                 dbc.Col(
                     dcc.Graph(
                         id="cpt_graph",
-                        style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px'},
+                        style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},
                         config={'displayModeBar': False}
                     ),
                     xs=12, sm=12, md=12, lg=12, xl=12

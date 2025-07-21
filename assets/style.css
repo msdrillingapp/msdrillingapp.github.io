@@ -1,3 +1,9 @@
+body, html, #app {
+    max-width: 1200px;
+    margin: auto;
+    overflow-x: hidden;
+}
+
 .dark-dropdown .Select-control {
     background-color: #193153 !important;
     color: white !important;

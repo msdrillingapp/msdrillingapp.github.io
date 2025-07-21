@@ -57,9 +57,7 @@ navbar = dbc.NavbarSimple(
 
 layout = dbc.Container(
     [
-        # dcc.Location(id="url", refresh="callback-nav"),
         dcc.Location(id="url", refresh=False),
-        # dcc.Store(id='cleanup-dummy'),
         navbar,
         dash.page_container
     ],
@@ -83,4 +81,4 @@ app.layout = layout
 #     return ""
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)
