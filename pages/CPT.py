@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update
+from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update,ctx
 from functions import cpt_header,jobid_cpt_data
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -331,10 +331,9 @@ def add_cpt_charts():
 def add_chart_controls():
     layout = html.Div([
         # Collapse toggle
-        dbc.Button("Toggle Chart Controls", id="toggle-controls-btn", className="mb-2", color="secondary"),
+        dbc.Button("View Chart Controls", id="toggle-controls-btn", className="mb-2", color="secondary"),
         dbc.Collapse([
-            html.H4("CPT Chart Controls", style={"color": "white"}),
-
+            # html.H4("CPT Chart Controls", style={"color": "white"}),
             # Template dropdown
             html.Div([
                 html.Label("Layout Template:", style={"color": "white"}),
@@ -459,20 +458,50 @@ def add_chart_controls():
             # =============================================
             html.Hr(style={"borderTop": "1px solid white"}),
 
+            # html.Div([
+            #     html.Label("Save Settings As:", style={"color": "white"}),
+            #     dbc.Input(id="profile-name", placeholder="e.g. default, run1, clientXYZ", type="text",
+            #               style={"background": "#193153", "color": "white"}),
+            #     dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="mt-2"),
+            # # ], style={"width": "300px"}),
+            # #
+            # # html.Div([
+            #
+            #     html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white", "marginTop": "20px"}),
+            #     dcc.Dropdown(id="load-settings-dropdown", options=[], className="dark-dropdown"),
+            #     dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="mt-2"),
+            #
+            #     dbc.Button("Reset Controls", id="reset-controls-btn", color="warning", className="mb-2 ms-2"),
+            # ], style={"width": "300px", "marginTop": "20px"}),
             html.Div([
+                # Save section
                 html.Label("Save Settings As:", style={"color": "white"}),
-                dbc.Input(id="profile-name", placeholder="e.g. default, run1, clientXYZ", type="text",
-                          style={"background": "#193153", "color": "white"}),
-                dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="mt-2"),
-            ], style={"width": "300px"}),
+                dbc.Input(
+                    id="profile-name",
+                    placeholder="e.g. default, run1, clientXYZ",
+                    type="text",
+                    style={"background": "#193153", "color": "white", "marginBottom": "10px"}
+                ),
 
-            html.Div([
+                # Load section
+                html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white"}),
+                dcc.Dropdown(
+                    id="load-settings-dropdown",
+                    options=[],
+                    className="dark-dropdown",
+                    style={"marginBottom": "10px"}
+                ),
 
-                html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white", "marginTop": "20px"}),
-                dcc.Dropdown(id="load-settings-dropdown", options=[], className="dark-dropdown"),
-                dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="mt-2"),
-
-            ], style={"width": "300px", "marginTop": "20px"}),
+                # Buttons in a row
+                dbc.Row([
+                    dbc.Col(dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="w-100"),
+                            width="auto"),
+                    dbc.Col(dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="w-100"),
+                            width="auto"),
+                    dbc.Col(dbc.Button("⟳ Reset Controls", id="reset-controls-btn", color="warning", className="w-100"),
+                            width="auto"),
+                ], justify="start", className="g-2")  # g-2 adds gutter spacing
+            ], style={"width": "100%", "marginTop": "20px"}),
 
             dcc.Store(id="chart-settings"),
             # =============================================
@@ -909,30 +938,30 @@ def save_settings_to_file(n_clicks, profile_name, charts, x1min, x1max, x2min, x
 
     return [{"label": f, "value": f} for f in sorted(os.listdir(SETTINGS_DIR))]
 
-@callback(Output("chart-type-selector", "value"),
-    Output("x1-min", "value"), Output("x1-max", "value"),
-    Output("x2-min", "value"), Output("x2-max", "value"),
-    Output("x3-min", "value"), Output("x3-max", "value"),
-    Output("x4-min", "value"), Output("x4-max", "value"),
-    Output("template-selector", "value"),
-    Input("load-settings-btn", "n_clicks"),
-    State("load-settings-dropdown", "value"),
-    prevent_initial_call=True
-)
-def load_settings_from_file(n_clicks, selected_file):
-    if not selected_file:
-        return dash.no_update
-
-    filepath = os.path.join(SETTINGS_DIR, selected_file)
-    with open(filepath, "r") as f:
-        data = json.load(f)
-
-    charts = data.get("charts", [])
-    x_ranges = data.get("x_ranges", [(None, None)] * 4)
-    template = data.get("template", "4")
-    flat_ranges = [v for pair in x_ranges for v in pair]
-
-    return charts, *flat_ranges, template
+# @callback(Output("chart-type-selector", "value"),
+#     Output("x1-min", "value"), Output("x1-max", "value"),
+#     Output("x2-min", "value"), Output("x2-max", "value"),
+#     Output("x3-min", "value"), Output("x3-max", "value"),
+#     Output("x4-min", "value"), Output("x4-max", "value"),
+#     Output("template-selector", "value",allow_duplicate=True),
+#     Input("load-settings-btn", "n_clicks"),
+#     State("load-settings-dropdown", "value"),
+#     prevent_initial_call=True
+# )
+# def load_settings_from_file(n_clicks, selected_file):
+#     if not selected_file:
+#         return dash.no_update
+#
+#     filepath = os.path.join(SETTINGS_DIR, selected_file)
+#     with open(filepath, "r") as f:
+#         data = json.load(f)
+#
+#     charts = data.get("charts", [])
+#     x_ranges = data.get("x_ranges", [(None, None)] * 4)
+#     template = data.get("template", "4")
+#     flat_ranges = [v for pair in x_ranges for v in pair]
+#
+#     return charts, *flat_ranges, template
 
 @callback(
     Output("load-settings-dropdown", "options"),
@@ -940,3 +969,53 @@ def load_settings_from_file(n_clicks, selected_file):
 )
 def update_profile_dropdown(_):
     return [{"label": f, "value": f} for f in sorted(os.listdir(SETTINGS_DIR))]
+
+
+@callback(
+    Output("chart-type-selector", "value"),
+    Output("x1-min", "value"), Output("x1-max", "value"),
+    Output("x2-min", "value"), Output("x2-max", "value"),
+    Output("x3-min", "value"), Output("x3-max", "value"),
+    Output("x4-min", "value"), Output("x4-max", "value"),
+    Output("template-selector", "value", allow_duplicate=True),
+
+    Input("load-settings-btn", "n_clicks"),
+    Input("reset-controls-btn", "n_clicks"),
+
+    State("load-settings-dropdown", "value"),
+    prevent_initial_call=True
+)
+def handle_load_or_reset(load_clicks, reset_clicks, selected_file):
+    triggered_id = ctx.triggered_id
+
+    if triggered_id == "load-settings-btn":
+        if not selected_file:
+            return no_update
+
+        filepath = os.path.join(SETTINGS_DIR, selected_file)
+        try:
+            with open(filepath, "r") as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            return no_update
+
+        charts = data.get("charts", [])
+        x_ranges = data.get("x_ranges", [(None, None)] * 4)
+        template = data.get("template", "4")
+        flat_ranges = [v for pair in x_ranges for v in pair]
+
+        return charts, *flat_ranges, template
+
+    elif triggered_id == "reset-controls-btn":
+        # Set default values (adjust as needed)
+        return (
+            ["cone", "friction", "pore", "sbt"],
+            None, None,
+            None, None,
+            None, None,
+            None, None,
+            "4"
+        )
+
+    return no_update
