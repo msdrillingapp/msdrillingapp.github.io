@@ -28,15 +28,14 @@ import re
 from celery import shared_task
 logger = get_task_logger(__name__)
 
-assets_path = os.path.join(os.getcwd(), "assets", )
+assets_path = os.path.join(os.getcwd(), "assets")
 geojson_folder = os.path.join(assets_path, 'data')
 
-
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
+name_cpt_file_header = 'CPT-online-header.csv'
 
 def filter_none(lst):
     return filter(lambda x: not x is None, lst)
-
 
 
 def extract_trailing_numbers(s):
@@ -167,29 +166,52 @@ def load_geojson_data_OLD():
 
     return result
 
-def load_geojson_data():
-    # Check if cached data exists
-    cache_file = os.path.join(geojson_folder, 'cached_data.pkl')
-    if os.path.exists(cache_file):
-        return pd.read_pickle(cache_file)
+def load_geojson_data(jobID:str='1640',reload:bool=False):
+    if not reload:
+        # Check if cached data exists
+        cache_file = os.path.join(assets_path,'pkl', 'cached_data'+jobID+'.pkl')
+        if os.path.exists(cache_file):
+            return pd.read_pickle(cache_file)
     pileid_list_wrong=[]
     all_data = []
     jobid_pile_data ={}
+    jobid_cpt_data = {}
     markers = []
     latitudes = []
     longitudes = []
     cpt_files_folder = 'CPT-files'
-    count = 0
     cpt_header = {}
     for folder_name in os.listdir(geojson_folder):
-        if folder_name != '1640':
+        if folder_name != jobID:
             continue
         data_folder = os.path.join(geojson_folder,folder_name)
+        # =========================================================
+        # Process CPT data
+        cpt_data ={}
         dir_cpt_data = os.path.join(data_folder, cpt_files_folder)
-        cpt_header[folder_name] = pd.read_csv(os.path.join(dir_cpt_data, 'CPT-online-header.csv'))
+        if os.path.exists(dir_cpt_data):
+            if os.path.isfile(os.path.join(dir_cpt_data, name_cpt_file_header)):
+                headers = pd.read_csv(os.path.join(dir_cpt_data, name_cpt_file_header))
+                # 994-402_1_cpt.mat
+                headers['Name'] = headers['File Name'].str.split('_cpt.mat').str[0]
+                cpt_header[folder_name] = headers
+                for cpt_file in os.listdir(dir_cpt_data):
+                    if cpt_file ==name_cpt_file_header:
+                        continue
+                    cpt_data_file = pd.read_csv(os.path.join(dir_cpt_data,cpt_file))
+                    holeid = cpt_data_file['HoleID'].values[0] # CPT-1
+                    # name_hole = headers[headers['HoleID']==holeid]['HoleID'].values[0]
+                    # cpt_data_file['Name'] = name_hole
+                    for c in columns_cpt:
+                        if holeid in cpt_data:
+                            cpt_data[holeid].update({c:list(cpt_data_file[c].values)})
+                        else:
+                            cpt_data[holeid] = {c:list(cpt_data_file[c].values)}
+                jobid_cpt_data[folder_name] = cpt_data
+        # ===================================================
+
         pile_data = {}
         for filename in os.listdir(data_folder):
-
             if filename.endswith(".json"):
                 # file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
                 file_path = os.path.join(data_folder, filename)
@@ -198,7 +220,7 @@ def load_geojson_data():
                     geojson_data = json.load(f)
 
                 features = geojson_data.get("features", [])
-                count +=1
+
                 for feature in features:
                     properties = feature.get("properties", {})
                     geometry = feature.get("geometry", {})
@@ -295,20 +317,19 @@ def load_geojson_data():
                         else:
                             continue
                         # Store time-series data separately for graph plotting
-                        pile_id = properties.get("PileID")
-                        cpt_data = None
-
-                        if pile_id.startswith('PB-CPT'):
-                            cpt_pile_num = extract_trailing_numbers(pile_id)
-                            if not cpt_pile_num is None:
-
-                                for file in os.listdir(dir_cpt_data):
-                                    pileuse = 'CPT-'+str(cpt_pile_num)
-                                    if int(cpt_pile_num)<10:
-                                        pileuse = 'CPT-0'+str(cpt_pile_num)
-                                    if file.split('.')[0] == pileuse:
-                                        cpt_data = pd.read_csv(os.path.join(dir_cpt_data,file))
-                                        break
+                        # pile_id = properties.get("PileID")
+                        # cpt_data = None
+                        # if pile_id.startswith('PB-CPT'):
+                        #     cpt_pile_num = extract_trailing_numbers(pile_id)
+                        #     if not cpt_pile_num is None:
+                        #
+                        #         for file in os.listdir(dir_cpt_data):
+                        #             pileuse = 'CPT-'+str(cpt_pile_num)
+                        #             if int(cpt_pile_num)<10:
+                        #                 pileuse = 'CPT-0'+str(cpt_pile_num)
+                        #             if file.split('.')[0] == pileuse:
+                        #                 cpt_data = pd.read_csv(os.path.join(dir_cpt_data,file))
+                        #                 break
 
                         job_id = properties.get("JobNumber")
                         if str(job_id)!=folder_name:
@@ -330,14 +351,12 @@ def load_geojson_data():
                                 'Pulldown': properties['Data'].get('Pulldown', []),
                                 'Torque': properties['Data'].get('Torque', []),
                                 'Volume': volume }}
-                            if not cpt_data is None:
-                                for c in columns_cpt:
-                                    pile_data[pile_id][properties['date']].update({c:list(cpt_data[c].values)})
+
 
                         all_data.append(properties)
         jobid_pile_data[str(job_id)] = pile_data
     # Cache the result for next time
-    result = (pd.DataFrame(all_data),  latitudes, longitudes, markers,jobid_pile_data,cpt_header)
+    result = (pd.DataFrame(all_data),  latitudes, longitudes, markers,jobid_pile_data,cpt_header,jobid_cpt_data)
     pd.to_pickle(result, cache_file)
     # print('Total files loaded ' + str(count))
     #
@@ -456,10 +475,7 @@ def create_time_chart(pile_info):
         )
 
     )
-    # fig.update_layout(
-    #     autosize=True,
-    #     margin=dict(l=20, r=20, b=20, t=30),
-    # )
+
     fig.update_layout(autosize=False, height=400)
 
     return fig
@@ -555,7 +571,7 @@ def create_depth_chart(pile_info,diameter=None):
     #     autosize=True,
     #     margin=dict(l=20, r=20, b=20, t=30),
     # )
-    fig1.update_layout(autosize=False, height=600)
+    fig1.update_layout(autosize=False, height=700)
 
     return fig1
 # ===============================================================================
@@ -1249,7 +1265,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 # # Create a dictionary to map Field to Group
 groups_df = pd.read_csv(os.path.join(assets_path,'Groups.csv'))
 groups_df = groups_df.explode("Group").reset_index(drop=True)
-(properties_df, latitudes,longitudes,markers,jobid_pile_data,cpt_header) = load_geojson_data()
+(properties_df, latitudes,longitudes,markers,jobid_pile_data,cpt_header,jobid_cpt_data) = load_geojson_data()
 if 'FileName' in properties_df.columns:
     properties_df.drop(columns=['Data','UID','FileName'],inplace=True)
 else:

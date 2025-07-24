@@ -3,11 +3,12 @@ from dash import html
 from datetime import datetime as dt
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
-
+import os
 ####################################################################################################
 # 000 - DEFINE REUSABLE COMPONENTS AS FUNCTIONS
 ####################################################################################################
-
+assets_path = os.path.join(os.getcwd(), "assets")
+geojson_folder = os.path.join(assets_path, 'data')
 #####################
 # Header with logo
 def get_header():
