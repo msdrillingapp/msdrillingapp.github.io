@@ -41,7 +41,8 @@ app.title = 'MS Drill Tracker'
 
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dbc.NavLink("Home", href="/", active="exact")),
+        dbc.NavItem(dbc.NavLink("MWD", href="/", active="exact")),
+        # dbc.NavItem(dbc.NavLink("MWD", href="/MWD", active="exact")),
         dbc.NavItem(dbc.NavLink("CPT", href="/CPT", active="exact")),
     ],
 
@@ -59,6 +60,7 @@ layout = dbc.Container(
     [
         dcc.Location(id="url", refresh=False),
         navbar,
+        dcc.Store(id='selected-jobnumber'),
         dash.page_container
     ],
     style={
@@ -71,14 +73,6 @@ layout = dbc.Container(
 
 app.layout = layout
 
-# @app.callback(
-#     Output('cleanup-dummy', 'children'),
-#     Input('url', 'pathname')
-# )
-# def cleanup_callbacks(_):
-#     # Reset callback registry on page navigation
-#     app._callback_list = []
-#     return ""
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)

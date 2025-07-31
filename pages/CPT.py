@@ -1,8 +1,9 @@
 import dash
 from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update,ctx
-from functions import cpt_header,jobid_cpt_data
+from functions import cpt_header,jobid_cpt_data,get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
@@ -10,8 +11,11 @@ import os
 import base64
 from io import BytesIO
 import plotly.io as pio
+import uuid
 import json
 from datetime import datetime
+import dash_leaflet as dl
+import dash_ag_grid as dag
 #---------------------------------------------------------------
 from report_template import PileReportHeader
 #---------------------------------------------------------------
@@ -40,6 +44,17 @@ charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
                   "bq":["Pore Pressure Parameter",['B_q']],
                   "capacity":['Capacity (Tons)',['Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']]
                   }
+
+# In-memory store for chart HTML strings
+chart_store = {}
+# if latitudes and longitudes:
+#     lats = [x for x in latitudes if not x is None]
+#     lons = [x for x in longitudes if not x is None]
+#     zoom_level,map_center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lons,lats)
+# else:
+map_center = [40, -100]
+zoom_level = 4
+markers = []
 
 dash.register_page(
     __name__,
@@ -281,7 +296,7 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None,
         )
 
     fig.update_annotations(font_size=11)
-    fig.update_yaxes(range=[maxD, minD])
+    fig.update_yaxes(range=[minD, maxD])
 
     fig.update_layout(autosize=False, height=600)
     fig = go.Figure(fig)  # Create fresh figure object
@@ -292,6 +307,8 @@ def add_cpt_charts():
     charts = dbc.Collapse(
         html.Div([
             html.Button("Download PDF for PileID", id='download-pdf-btn-cpt', disabled=True),
+            # html.Button("Open Chart in New Tab", id='open-btn'),
+            # html.Div(id='link-container'),  # Where we'll insert the <a> link
             dbc.Row([
                 dbc.Col(
                     dcc.Graph(
@@ -327,6 +344,8 @@ def add_cpt_charts():
         is_open=False
     )
     return charts
+
+
 
 def add_chart_controls():
     layout = html.Div([
@@ -515,10 +534,108 @@ def add_chart_controls():
     ])
 
     return layout
+
+
+def add_map():
+
+    layout = html.Div([
+        # Map Section
+        dbc.Button("Show Map", id="toggle-map-cpt", color="primary", className="mb-2",
+                   style={"backgroundColor": "#f7b500", "color": "black", "border": "2px solid #f7b500"}),
+        dbc.Collapse(
+            dl.Map(id="map-cpt", center=map_center, zoom=zoom_level, zoomControl=True, children=[
+                dl.TileLayer(
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
+                    maxZoom=19,  # Higher max zoom (OSM supports up to 19)
+                    minZoom=2,  # Lower min zoom (adjust as needed)
+                ),
+                dl.LayerGroup(markers, id="map-markers-cpt"),
+
+            ], style={
+                'width': '100%',
+                'height': '400px',
+                'margin': '0 auto',  # Better centering
+            }, ),
+
+            id="collapse-map-cpt",
+            is_open=True
+        ),
+    ])
+
+    return layout
+
+def get_pilelist_cpt():
+
+   pileList = html.Div([
+        # Map Section
+        dbc.Button("Show Pile List", id="toggle-pilelist-cpt", color="primary", className="mb-2"),
+        dbc.Collapse(
+            [
+                dag.AgGrid(
+                    id="pilelist-table-cpt",
+                    columnDefs=[
+                        {"headerName": "JobNo", "field": "JobNumber", "sortable": True, "filter": True, "pinned": "left"},
+                        {"headerName": "HoleID", "field": "HoleID", "sortable": True, "filter": True, "pinned": "left"},
+                        {"headerName": "Job_Description", "field": "Job_Description", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
+                        {"headerName": "Area", "field": "Area", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
+                        {"headerName": "Pre drilled (feet)", "field": "pre drilled (feet)", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "Total Depth (feet)", "field": "Total Depth (feet)", "sortable": True, "filter": True,"editable": False},
+                        {"headerName": "Tip elevation (feet)", "field": "Tip elevation (feet)", "sortable": True, "filter": True, "editable": True},
+                        {"headerName": "Water_Table (feet)", "field": "Water_Table (feet)", "sortable": True, "filter": True,"editable": True },
+                        {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "Notes", "field": "Notes", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "P1_dia (inch)", "field": "P1_dia (inch)", "sortable": True, "filter": True, "editable": True},
+                        {"headerName": "X_Easting (feet)", "field": "X_Easting (feet)", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "Y_Northing (feet)", "field": "Y_Northing (feet)", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "Elevation (feet)", "field": "Elevation (feet)", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "Z_Elevation (feet)", "field": "Z_Elevation (feet)", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "Latitude (deg)", "field": "Latitude (deg)", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "Longitude (deg)", "field": "Longitude (deg)", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "File Name", "field": "File Name", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "DataFileID", "field": "DataFileID", "sortable": True, "filter": True, "editable": False},
+
+                    ],
+                    rowData=[],  # Initially empty
+                    defaultColDef={"resizable": True, "sortable": True, "filter": True, "editable": True},
+                    className="ag-theme-alpine-dark",
+                    dashGridOptions={
+                            "rowSelection": "single",
+                            "animateRows": True,
+                            'undoRedoCellEditing': True,
+                            'undoRedoCellEditingLimit': 20,
+                            # "suppressRowHoverHighlight": True,
+                            # "suppressColumnMoveAnimation": True,
+                            # "suppressDragLeaveHidesColumns": True,
+                            # "suppressLoadingOverlay": True,
+                            # "suppressMenuHide": True,
+                            # "rowBuffer": 20,  # Only render rows close to visible area
+                            # "cacheBlockSize": 20,
+                            # "maxBlocksInCache": 5
+                        },
+                    columnSize = "sizeToFit",
+                ),
+
+                # Print Button
+                html.Button("Download CPT List", id="btn_download-cpt", n_clicks=0),
+                # ,style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between','marginLeft': '5px'}
+                # html.Button("Save changes", id="btn_save_cpt", n_clicks=0,style={'marginLeft': '5px'}),
+                dcc.Download(id="download-csv-cpt"),
+
+            ],
+            id="collapse-pilelist-cpt",
+            is_open=False
+        ),
+
+    ], style={"backgroundColor": "#193153"})
+
+   return pileList
 # =================================================================
 # =================================================================
 # =================================================================
 flts = get_filters_cpt(cpt_header)
+map = add_map()
+table = get_pilelist_cpt()
 charts = add_cpt_charts()
 controls = add_chart_controls()
 
@@ -526,6 +643,10 @@ layout = html.Div([
     dcc.Store(id='window-size', data={'width': 1200}),
     html.Br(),
     flts,
+    map,
+    html.Br(),
+    table,
+    html.Br(),
     controls,
     dbc.Button("Show Plots", id="toggle-plots-cpt", color="primary", className="mb-2", style={"marginTop": "20px"}),
     charts
@@ -565,6 +686,8 @@ layout = html.Div([
 @callback(
     Output("cpt_graph", "figure"),
     Output('download-pdf-btn-cpt', 'disabled'),
+    # Output('link-container', 'children'),
+    # Input('open-btn', 'n_clicks'),
     # Output('y-value-slider', 'min'),
     # Output('y-value-slider', 'max'),
     # Output('y-value-slider', 'value'),
@@ -575,6 +698,7 @@ layout = html.Div([
     # Input('y-value-slider', 'value'),
     Input('cpt_graph', 'selectedData'),
     Input('window-size', 'data'),
+    Input('pilelist-table-cpt', 'selectedRows'),
     State("jobid-filter-cpt", "value"),
     # State('current-y-value', 'data'),
     State("y-axis-mode", "value"),
@@ -588,14 +712,16 @@ layout = html.Div([
     State("template-selector", "value"),
     prevent_initial_call=True
 )#slider_value,current_y_value,
-def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size, selected_jobid,
+def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size,selected_row,selected_jobid,
                       y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max,y_max,y_min,selected_charts,selected_template):
 
         ctx = dash.callback_context
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-        if not selected_pileid:
+        if not selected_pileid and not selected_row:
             return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True #, 0, 100, 50, None
+
+
 
         num_charts = 3 if selected_template=='3' else 4
         chart_types = selected_charts[:num_charts]
@@ -611,6 +737,10 @@ def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size, sele
         }
         if num_charts == 4:
             x_limits[4] = (x4_min, x4_max)
+
+        # jobid_cpt_data = data.get('jobid_cpt_data')
+        if not selected_row is None:
+            selected_pileid = selected_row[0].get('HoleID')
 
         # Get pile data
         pile_info = jobid_cpt_data[selected_jobid]
@@ -647,11 +777,17 @@ def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size, sele
             if min_val is not None and max_val is not None:
                 fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
 
-        fig.update_yaxes(range=[maxD,minD])
+        fig.update_yaxes(range=[minD,maxD])
 
-
+        # chart_html = pio.to_html(fig, full_html=True, include_plotlyjs='cdn')
+        # # Generate a unique ID and store the HTML
+        # chart_id = str(uuid.uuid4())
+        # chart_store[chart_id] = chart_html
 
         return fig, False #, minD, maxD, y_value,y_value
+
+# Custom Flask route to serve the HTML
+
 
 
 
@@ -673,21 +809,24 @@ def toggle_plots(n_clicks, is_open):
     Input("download-pdf-btn-cpt", "n_clicks"),
     [State('jobid-filter-cpt', 'value'),
      State('pileid-filter-cpt', 'value'),
+    State('pilelist-table-cpt', 'selectedRows'),
      # State('date-filter-cpt', 'value'),
      State('cpt_graph', 'figure') ],
     prevent_initial_call=True
 )
-def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id, cpt_fig): #selected_date,
-    if not n_clicks or not selected_pile_id:
+def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id,selected_row, cpt_fig): #selected_date,
+    if not n_clicks or (not selected_pile_id and not selected_row):
         return no_update
     try:
-        return generate_mwd_pdf_cpt(selected_job_id,selected_pile_id, cpt_fig) #selected_date,
+        if not selected_row is None:
+            selected_pile_id = selected_row[0].get('HoleID')
+        return generate_mwd_pdf_cpt(selected_job_id,selected_pile_id, cpt_fig,cpt_header) #selected_date,
     except Exception as e:
         print(f"PDF generation failed: {str(e)}")
         return no_update
 
 
-def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig): #selected_date,
+def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #selected_date,
 
     # Convert Plotly figures to images
     # Enhance visibility for PDF export
@@ -780,14 +919,18 @@ def toggle_chart_controls(n_clicks, is_open):
     Input("y-axis-mode", "value"),
     [State('jobid-filter-cpt', 'value'),
      State('pileid-filter-cpt', 'value'),
+State('pilelist-table-cpt', 'selectedRows'),
      # State('date-filter-cpt', 'value')
      ],
     prevent_initial_call=True
 )
-def set_y_axis_range(mode,selected_jobid,selected_pileid): #,selected_date
+def set_y_axis_range(mode,selected_jobid,selected_pileid,selected_row): #,selected_date
     # Replace with your real y-data based on mode
     # Get pile data
+    # jobid_cpt_data = data.get('jobid_cpt_data')
     pile_info = jobid_cpt_data[selected_jobid]
+    if not selected_row is None:
+        selected_pileid = selected_row[0].get('HoleID')
     pile_info = pile_info[selected_pileid]
     # Determine y-axis range
     if mode =='elevation':
@@ -833,12 +976,14 @@ def limit_chart_count(template, selected):
 @callback(
     Output("pileid-filter-cpt", "options"),
     Output("pileid-filter-cpt", "value"),
-    Input("jobid-filter-cpt", "value")
+    Input("jobid-filter-cpt", "value"),
+
+
 )
 def update_pileid_options(selected_jobid):
     if selected_jobid is None:
         return [], None
-
+    # cpt_header = data.get('cpt_header')
     # Safely get the DataFrame or an empty one
     df_headers = cpt_header.get(selected_jobid, pd.DataFrame())
 
@@ -878,13 +1023,17 @@ def update_chart_labels(selected):
     Input("chart-type-selector", "value"),
     [State('jobid-filter-cpt', 'value'),
      State('pileid-filter-cpt', 'value'),
+State('pilelist-table-cpt', 'selectedRows')
      # State('date-filter-cpt', 'value'),
      ],prevent_initial_call=True,
 )
-def populate_x_ranges(selected,selected_jobid,selected_pileid):
+def populate_x_ranges(selected,selected_jobid,selected_pileid,selected_row):
     if selected_jobid is None or selected_pileid is None:
         return None,None,None,None,None,None,None,None
+    # jobid_cpt_data = data.get('jobid_cpt_data')
     pile_info = jobid_cpt_data[selected_jobid]
+    if not selected_row is None:
+        selected_pileid = selected_row[0].get('HoleID')
     pile_info = pile_info[selected_pileid]
     ranges = []
     for i in range(len(selected)):
@@ -1019,3 +1168,124 @@ def handle_load_or_reset(load_clicks, reset_clicks, selected_file):
         )
 
     return no_update
+
+
+@callback(
+    [Output("map-markers-cpt", "children"),
+     Output("map-cpt", "center"),
+     Output('map-cpt','zoom'),
+     Output("map-cpt", "key")],
+    [
+     Input('jobid-filter-cpt', "value"),
+     Input('pileid-filter-cpt', "value"),
+     Input('pilelist-table-cpt', 'selectedRows')
+
+     ]#,prevent_initial_call=True
+)
+def update_map_markers(selected_jobid,selected_pileid,selected_row):
+
+    if not selected_jobid:
+        return no_update, no_update,no_update, no_update
+
+    zoom_level = 8
+
+    # Apply filters
+    filtered_df = cpt_header[selected_jobid]
+    if not selected_row is None:
+        selected_pileid = selected_row[0].get('HoleID')
+    if not selected_pileid is None:
+        filtered_df = filtered_df[filtered_df["HoleID"] == selected_pileid]
+        zoom_level = 45
+
+    markers = []
+    lat_col = "Latitude (deg)"
+    lon_col =  "Longitude (deg)"
+    if len(filtered_df)>0:
+        zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df[lon_col])),list(filter_none(filtered_df[lat_col])))
+        for _, row in filtered_df.iterrows():
+            if pd.notna(row[lat_col]) and pd.notna(row[lon_col]):
+
+                    donut = "/assets/icons/red-triangle.png"
+                    marker = dl.Marker(
+                        position=(row[lat_col], row[lon_col]),
+                        icon=dict(
+                            iconUrl=donut,  # Path to your image in assets folder
+                            iconSize=[10, 10]  # Size of the icon in pixels
+                        ),
+                        children=[dl.Tooltip(f"CPTID: {row['HoleID']}")]
+                    )
+
+            center = [row[lat_col], row[lon_col]]
+            markers.append(marker)
+
+
+    return markers, center,zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
+
+
+
+@callback(
+    Output("collapse-map-cpt", "is_open"),
+    [Input("toggle-map-cpt", "n_clicks")],
+    [State("collapse-map-cpt", "is_open")],prevent_initial_call=True
+)
+def toggle_map(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+
+
+@callback(
+    Output("pilelist-table-cpt", "rowData"),
+    Input("jobid-filter-cpt", "value")
+    # prevent_initial_call=True,
+)
+def update_table(selected_jobid):
+    if not selected_jobid:# and not selected_date:
+        raise PreventUpdate
+        # return []  # Return an empty table before selection
+    filtered_df = cpt_header[selected_jobid]
+    filtered_df['Tip elevation (feet)'] =filtered_df['Tip elevation (feet)'].round(decimals=2)
+    filtered_df['Total Depth (feet)'] = filtered_df['Total Depth (feet)'].round(decimals=2)
+    #
+    # if not selected_rigid is None:
+    #     filtered_df = filtered_df[(filtered_df["RigID"] == selected_rigid)]
+    # JobNumber
+    summary_data = []
+    list_col = ['JobNumber', 'Job_Description', 'HoleID', 'LocationID', 'Area', 'pre drilled (feet)', 'Total Depth (feet)',
+                'Tip elevation (feet)', 'Water_Table (feet)', 'Comments', 'Notes', 'P1_dia (inch)', 'X_Easting (feet)',
+                'Y_Northing (feet)', 'Elevation (feet)', 'Z_Elevation (feet)', 'Latitude (deg)', 'Longitude (deg)',
+                'File Name', 'DataFileID']
+    for _, row in filtered_df.iterrows():
+        dict_data = {}
+        for x in list_col:
+            dict_data.update({x:row[x]})
+
+        summary_data.append(dict_data)
+
+    return summary_data
+
+
+@callback(
+    Output("collapse-pilelist-cpt", "is_open"),
+    [Input("toggle-pilelist-cpt", "n_clicks")],
+    [State("collapse-pilelist-cpt", "is_open")],prevent_initial_call=True
+)
+def toggle_views_cpt_list(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+
+@callback(
+    Output("download-csv-cpt", "data"),
+    Input("btn_download-cpt", "n_clicks"),
+    State("pilelist-table-cpt","rowData"),
+    prevent_initial_call=True
+)
+def download_csv_cpt(n_clicks,data):
+    if n_clicks:
+        # Convert DataFrame to CSV in memory
+        df = pd.DataFrame(data)
+        csv_string = df.to_csv(index=False, encoding='utf-8')
+        return dict(content=csv_string, filename=f"CPTList_data_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")

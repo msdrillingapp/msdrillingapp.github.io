@@ -131,7 +131,7 @@ class PileReportHeader:
 
             if scaled_height > available_height:
                 scaled_height = available_height
-                # scaled_width = scaled_height / aspect
+                scaled_width = scaled_height / aspect
 
             print(f"Scaled image size: {scaled_width} x {scaled_height}")
 
