@@ -120,7 +120,7 @@ def get_pilelist():
                     id="pilelist-table",
                     columnDefs=[
                         {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True, "pinned": "left"},
-                        {"headerName": "Time", "field": "Time", "sortable": True, "filter": True},
+                        {"headerName": "Date", "field": "Date", "sortable": True, "filter": True},
                         {"headerName": "JobNumber", "field": "JobNumber", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
                         {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
@@ -270,13 +270,12 @@ def add_charts():
                 html.Button("Download PDF for PileID", id='download-pdf-btn', disabled=True),
                 dbc.Row([
                     dbc.Col(
-                            dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px','height': '500px'}),
+                            dcc.Graph(id="time_graph", style={"backgroundColor": "#193153",'width': '100%','marginBottom':'5px'}),#,'height': '400px'
                     xs=12, sm=12, md=12, lg=12, xl=12),
-                    ]), # close Row config={'responsive': True},
-                # html.Div([
+                    ]),
                 dbc.Row([
                     dbc.Col(
-                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'marginTop':'5px','height': '500px'}),
+                        dcc.Graph(id="depth_graph", style={"backgroundColor": "#193153",'marginTop':'5px'}),#,'height': '700px'
                         xs=12, sm=12, md=12, lg=12, xl=12),
                 ]),  # close Row config={'responsive': True},
 

@@ -28,9 +28,6 @@ changed_values ={}
 
 # Calculate map center and zoom
 if latitudes and longitudes:
-    # center_lat = np.nanmean([float(item) for item in latitudes if item is not None])
-    # center_lon = np.nanmean([float(item) for item in longitudes if item is not None])
-    # map_center = [center_lat, center_lon]
     zoom_level = 8  # Adjust zoom for a closer view
     lats = [x for x in latitudes if not x is None]
     lons = [x for x in longitudes if not x is None]
@@ -43,7 +40,6 @@ markers = []
 
 flts = get_filters(properties_df)
 pilelist = get_pilelist()
-# header = get_header()
 charts = add_charts()
 filtered_table = get_filtered_table()
 layout = html.Div([
@@ -144,6 +140,9 @@ layout = html.Div([
 #     Output("scroll-top-button", "n_clicks"),
 #     Input("scroll-top-button", "n_clicks")
 # )
+# ==============================================================================
+# ================ CALLBACKS====================================================
+# ==============================================================================
 # # Callback to filter table
 def check_is_none(mdict,name_var):
     if name_var in mdict:
@@ -157,17 +156,31 @@ def check_is_none(mdict,name_var):
 
 @callback(    Output("filtered-table", "rowData"),
     [ Input('pilelist-table', 'selectedRows'),
-     Input("group-filter", "value")],prevent_initial_call=True,
+      Input('pileid-filter','value'),
+     Input("group-filter", "value")],
+    State('date-filter','value'),prevent_initial_call=True,
 )
-def update_table(selected_row, selected_group):
-    if not selected_row:
-        raise PreventUpdate
-        # return []  # Return an empty table before selection
-    filtered_df = merged_df.copy()
+def update_table(selected_row,selected_pileid, selected_group,selected_date):
+    ctx = dash.callback_context  # Get the trigger
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+    if triggered_id == "pileid-filter":
+        if not selected_date or not selected_pileid:
+            return []
+    elif triggered_id == "pilelist-table":
+        if not selected_row:
+            return []
+        selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+        selected_pileid = selected_row['PileID']
+        selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
+    else:
+        if not selected_row or (not selected_pileid or not selected_date ):
+            return []
+        if selected_row:
+            selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+            selected_pileid = selected_row['PileID']
+            selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
-    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
-    selected_pileid = selected_row['PileID']
-    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
+    filtered_df = merged_df.copy()
     # Filter DataFrame based on selected PileID and Date
     filtered_df = filtered_df[(filtered_df["PileID"] == selected_pileid) & (filtered_df["date"] == selected_date)]
 
@@ -226,9 +239,9 @@ def update_table(selected_jobid, selected_date,selected_rigid):
 
         time = row['Time']
         try:
-            time = pd.to_datetime(time)
+            time = pd.to_datetime(time).date()
         except:
-            time = datetime.today()
+            time = datetime.today().date()
         movetime = row['MoveTime']
         try:
             movetime = datetime.strptime(movetime, '%H:%M:%S').time()
@@ -279,7 +292,7 @@ def update_table(selected_jobid, selected_date,selected_rigid):
 
         dict_data = {
             "PileID": pile_id,
-            "Time": time,
+            "Date": time,
             "JobNumber": row['JobNumber'],
             "LocationID": row['LocationID'],
             "MinDepth": min_depth,
@@ -468,8 +481,6 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 
     markers = []
     if len(filtered_df)>0:
-
-        # center = [np.nanmean(list(filter_none(filtered_df["latitude"]))), np.nanmean(list(filter_none(filtered_df["longitude"])))]  # Default center
         zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df["longitude"])),list(filter_none(filtered_df["latitude"])))
         for _, row in filtered_df.iterrows():
             if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
@@ -523,9 +534,6 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                 center = [row["latitude"], row["longitude"]]
                 markers.append(marker)
 
-                if not selected_pileid is None:  # Recenter on selected PileID
-                    # center = [row["latitude"], row["longitude"]]
-                    zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(row["longitude"],row["latitude"])
 
     return markers, center,zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
 
@@ -535,26 +543,52 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     Output("depth_graph", "figure"),
     Output('download-pdf-btn', 'disabled'),
     Input('pilelist-table', 'selectedRows'),
-    Input('window-size', 'data'),
+    Input('pileid-filter', 'value'),
+    # Input('window-size', 'data'),
     State("jobid-filter", "value"),
+    State("date-filter", "value"),
     prevent_initial_call=True
 
-)
-def update_combined_graph(selected_row, window_size,selected_jobid):
-    if not selected_row:
-        # No row selected - you might want to show all data or a default view
-        return go.Figure(
-            layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
-            layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
-    selected_row = selected_row[0].copy()
-    selected_pileid = selected_row['PileID']
-    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
+)#window_size,
+def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_date):
+    ctx = dash.callback_context  # Get the trigger
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+    if triggered_id == "pileid-filter":
+        if not selected_date or not selected_pileid:
+            return go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True  # Dark background even if empty
+        tmp = properties_df.copy()
+        tmp = tmp[tmp['PileID'] == selected_pileid]
+        tmp = tmp[tmp['date'] == selected_date]
+        try:
+            diameter = float(tmp['PileDiameter'].values[0])
+        except:
+            diameter = None
+    elif triggered_id == "pilelist-table":
+        if not selected_row:
+            # No row selected - you might want to show all data or a default view
+            return go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
+        selected_row = selected_row[0].copy()
+        selected_pileid = selected_row['PileID']
+        selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
+        try:
+            diameter = float(selected_row['PileDiameter'])
+        except:
+            diameter = None
+    else:
+        if not selected_row and (not selected_pileid or not selected_date):
+            # No row selected - you might want to show all data or a default view
+            return go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
+
+
     pile_data = jobid_pile_data[selected_jobid]
     pile_info = pile_data[selected_pileid][selected_date]
-    try:
-        diameter = float(selected_row['PileDiameter'])
-    except:
-        diameter = None
+
     fig = create_time_chart(pile_info)
     fig1 = create_depth_chart(pile_info,diameter)
 
@@ -571,19 +605,29 @@ def update_combined_graph(selected_row, window_size,selected_jobid):
 
 @callback(
     Output("pile-summary-cards", "children"),
-    [Input('pilelist-table', 'selectedRows'), Input("jobid-filter", "value")],
+    Input('pilelist-table', 'selectedRows'),
+    Input("pileid-filter",'value'),
+     State("jobid-filter", "value"),
+    State("date-filter", "value"),
     prevent_initial_call=True
 )
-# def update_summary_cards(selected_pileid, selected_jobid,selected_date):
-#     if not selected_pileid or not selected_jobid:
-#         return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
-def update_summary_cards(selected_row,selected_jobid):
-    if not selected_row:
-        return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
+def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_date):
+    ctx = dash.callback_context  # Get the trigger
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
+    if triggered_id =="pileid-filter":
+        if not selected_date or not selected_pileid:
+            return html.Div("Select a Date and PileID or Table Raw to view statistics.", style={'color': 'white', 'textAlign': 'center'})
+        tmp = properties_df.copy()
+        tmp = tmp[(tmp['PileID']==selected_pileid)&(tmp['date']==selected_date)]
+        # selected_row = tmp.to_dict(orient='records')
+    elif triggered_id =="pilelist-table":
+        if not selected_row:
+            return html.Div("Select a PileID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
+        else:
+            selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
+            selected_pileid = selected_row['PileID']
+            selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
-    selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
-    selected_pileid = selected_row['PileID']
-    selected_date = pd.to_datetime(selected_row['Time']).date().strftime(format='%Y-%m-%d')
     # Filter data for the selected PileID
     filtered_df = properties_df[properties_df["PileID"] == selected_pileid]
 
@@ -611,7 +655,6 @@ def update_summary_cards(selected_row,selected_jobid):
     [Input("jobid-filter", "value"),
      Input("date-filter", "value"),
      Input("rigid-filter", "value"),
-     # Input("pileid-filter", "value"),
      Input('pilecode-filter', "value"),
      Input('pilestatus-filter', "value"),
      Input('piletype-filter', "value"),
@@ -700,28 +743,28 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
 #
 #     return ""
 
-@callback(
-    [Output("save-button", "style"),  # Show/Hide Save button
-     Output("save-button", "disabled")],  # Disable after clicking
-    [Input("group-filter", "value"),  # Trigger when Group changes
-     Input("save-button", "n_clicks"),  # Track Save button clicks
-     Input("pileid-filter", "value")],  # Reset on PileID change
-    [State("save-button", "disabled")],  # Keep track of the disabled state
-    prevent_initial_call=True
-)
-def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled):
-    # Show button only if "Edit" is selected
-    button_style = {"display": "block"} if selected_group == "Edit" else {"display": "none"}
-
-    # If PileID changes, re-enable the button
-    if selected_pileid:
-        return button_style, False
-
-    # Disable only after clicking the button
-    if save_clicks:
-        return button_style, True
-
-    raise PreventUpdate  # Prevent unnecessary updates
+# @callback(
+#     [Output("save-button", "style"),  # Show/Hide Save button
+#      Output("save-button", "disabled")],  # Disable after clicking
+#     [Input("group-filter", "value"),  # Trigger when Group changes
+#      Input("save-button", "n_clicks"),  # Track Save button clicks
+#      Input("pileid-filter", "value")],  # Reset on PileID change
+#     [State("save-button", "disabled")],  # Keep track of the disabled state
+#     prevent_initial_call=True
+# )
+# def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled):
+#     # Show button only if "Edit" is selected
+#     button_style = {"display": "block"} if selected_group == "Edit" else {"display": "none"}
+#
+#     # If PileID changes, re-enable the button
+#     if selected_pileid:
+#         return button_style, False
+#
+#     # Disable only after clicking the button
+#     if save_clicks:
+#         return button_style, True
+#
+#     raise PreventUpdate  # Prevent unnecessary updates
 
 
 # Callbacks to toggle each collapsible section
@@ -794,16 +837,31 @@ def download_csv(n_clicks,data):
 @callback(
     Output("download-pdf", "data"),
     Input("download-pdf-btn", "n_clicks"),
-    [State('pilelist-table', 'selectedRows'),
+    Input('pilelist-table', 'selectedRows'),
+    Input("pileid-filter", "value"),
+     State("date-filter", "value"),
      State('time_graph', 'figure'),
-     State('depth_graph', 'figure')],
+     State('depth_graph', 'figure'),
     prevent_initial_call=True
 )
-def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
-    if not n_clicks or not selected_rows:
+def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date,time_fig, depth_fig):
+    if not n_clicks:
         return no_update
+    if not selected_rows and (not selected_pileid or not selected_date):
+        return no_update
+    if selected_rows:
+        selected_row = selected_rows[0]
+    else:
+        tmp = properties_df[(properties_df['PileID']==selected_pileid)&(properties_df['date']==selected_date)]
+        tmp.rename(columns={'date':'Date'},inplace=True)
+        selected_row = tmp.to_dict(orient='records')[0]
+        # adjust overbreak
+        overbreak = float(selected_row['OverBreak'])
+        overbreak = overbreak * 100 - 100.0
+        selected_row['OverBreak'] = f"{overbreak :.0f}%"
+        selected_row['Calibration'] = selected_row['PumpCalibration']
+        selected_row['MaxStrokes'] = selected_row['MaxStroke']
 
-    selected_row = selected_rows[0]
     try:
         return generate_mwd_pdf(selected_row, time_fig, depth_fig)
     except Exception as e:
@@ -903,20 +961,20 @@ def generate_pdf_callback(n_clicks, selected_rows, time_fig, depth_fig):
 #         return "⏳ In progress", None, False
 
 
-@callback(
-    Output('job-info', 'children'),
-    Output('job-graph', 'figure'),
-    Input('shared-job-data-mwd', 'data'),
-    Input('selected-jobnumber', 'data'),
-)
-def update_analysis(data, job_number):
-    if not data:
-        return "No data loaded.", {}
-    properties_df = data[0]
-    latitudes = data[1]
-    longitudes = data[2]
-    markers = data[3]
-    jobid_pile_data = data[4]
-    groups_list = data[5]
-    merged_df = data[6]
-    return
+# @callback(
+#     Output('job-info', 'children'),
+#     Output('job-graph', 'figure'),
+#     Input('shared-job-data-mwd', 'data'),
+#     Input('selected-jobnumber', 'data'),
+# )
+# def update_analysis(data, job_number):
+#     if not data:
+#         return "No data loaded.", {}
+#     properties_df = data[0]
+#     latitudes = data[1]
+#     longitudes = data[2]
+#     markers = data[3]
+#     jobid_pile_data = data[4]
+#     groups_list = data[5]
+#     merged_df = data[6]
+#     return

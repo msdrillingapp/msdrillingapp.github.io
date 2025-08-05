@@ -226,6 +226,11 @@ def load_geojson_data(jobID:str='1640',reload:bool=False):
 
                             calibration = float(properties.get("PumpCalibration"))
                             strokes = properties["Data"].get("Strokes", [])
+                            depths = properties["Data"].get("Depth", [])
+
+                            properties['MaxStroke'] = max(strokes)
+                            properties['MinDepth'] = min(depths)
+
                             volume = [calibration*float(x) for x in strokes]
                             if pile_id and "Data" in properties:
                                 pile_data[pile_id] = {properties['date']: {
@@ -299,13 +304,17 @@ def indrease_decrease_split(x,y):
     increasing_y = []
     decreasing_x = []
     decreasing_y = []
+    increasing_index =[]
+    decreasing_index = []
     for i in range(1, len(y)):
         if y[i] > y[i - 1]:
             increasing_x.append(x[i])
             increasing_y.append(y[i])
+            increasing_index.append(i)
         else:
             decreasing_x.append(x[i])
             decreasing_y.append(y[i])
+            decreasing_index.append(i)
 
     return increasing_x,increasing_y,decreasing_x,decreasing_y
 
@@ -326,13 +335,15 @@ def create_time_chart(pile_info):
     # depths = pile_info["Strokes"]
     depth_min = min(depths)
     depth_max = max(depths)
-
-    strokes_min = min(pile_info["Strokes"])
-    strokes_max = max(pile_info["Strokes"])
-
-    # Adjust both to include 0 and match relative proportions
     depth_range = [depth_min, depth_max]
-    strokes_range = [depth_min, strokes_max] if depth_min < 0 else [strokes_min, strokes_max]
+
+    add_strokes = False
+    if sum(pile_info["Strokes"])!=0:
+        add_strokes = True
+
+        strokes_min = min(pile_info["Strokes"])
+        strokes_max = max(pile_info["Strokes"])
+        strokes_range = [depth_min, strokes_max] if depth_min < 0 else [strokes_min, strokes_max]
 
     fig.add_scatter(
         # x=pile_info["Time"],
@@ -347,23 +358,25 @@ def create_time_chart(pile_info):
     fig.update_xaxes(
         tickformat="%H:%M:%S",  # Format: Hours:Minutes:Seconds
     )
-    # Add Strokes vs Time (Primary Y-Axis)
-    fig.add_scatter(
-        x=time_interval,
-        y=pile_info["Strokes"],
-        mode="lines+markers",  # Markers help reveal even one point
-        name="Strokes",
-        yaxis="y2",
-        line=dict(color="green", width=3),
-        marker=dict(size=6, color='lime')
 
-    )
+
+    if add_strokes:
+        # Add Strokes vs Time (Primary Y-Axis)
+        fig.add_scatter(
+            x=time_interval,
+            y=pile_info["Strokes"],
+            mode="lines",
+            name="Strokes",
+            yaxis="y2",
+            line=dict(color="green", width=3),
+        )
 
     # Update layout for dual y-axes and dark background
     fig.update_layout(
+        margin=dict(b=100),
         yaxis=dict(title="Depth", zerolinecolor='black',side="left", showgrid=True, linecolor='black',gridcolor='rgba(100,100,100,0.5)',mirror=True,minor=dict(showgrid=True,gridcolor='rgba(100,100,100,0.5)',griddash='dot'),range=depth_range), #
-        yaxis2=dict(title="Strokes",zerolinecolor='black', overlaying="y", side="right", showgrid=False, linecolor='black',position=1,range=strokes_range), #
-        xaxis=dict(title="Time",zerolinecolor='black',showgrid=True, linecolor='black',gridcolor='rgba(100,100,100,0.5)',minor=dict(showgrid=True,gridcolor='rgba(100,100,100,0.5)',griddash='dot')),
+        xaxis=dict(title="Time",zerolinecolor='black',showgrid=True, linecolor='black',mirror=True,gridcolor='rgba(100,100,100,0.5)',minor=dict(showgrid=True,gridcolor='rgba(100,100,100,0.5)',griddash='dot')),
+
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
         font=dict(color="white"),
@@ -373,7 +386,7 @@ def create_time_chart(pile_info):
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=-0.2,  # position below the plot
+            y=-0.3,  # position below the plot
             xanchor="center",
             x=0.5,
             # bgcolor="rgba(0,0,0,0.5)",  # semi-transparent background
@@ -382,8 +395,10 @@ def create_time_chart(pile_info):
         )
 
     )
+    if add_strokes:
+        fig.update_layout( yaxis2=dict(title="Strokes",zerolinecolor='black', overlaying="y", side="right", showgrid=False, linecolor='black',position=1,range=strokes_range))
 
-    fig.update_layout(autosize=False, height=400)
+    fig.update_layout(autosize=False, height=300)
     # for trace in fig.data:
     #     print(trace.name, trace.yaxis)
     #
@@ -404,28 +419,29 @@ def create_depth_chart(pile_info,diameter=None):
         "Rotary<br>Pressure", "Pulldown", "Rotation","Volume"))
 
     # Add traces
-    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"],pile_info["Depth"])
+    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"][1:],pile_info["Depth"][1:])
     # increasing_PR = [-x for x in increasing_PR]
     decreasing_PR = [-x for x in decreasing_PR]
     fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='UP'), row=1,col=1)
     fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='DOWN'), row=1, col=1)
     # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
-    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"],pile_info["Depth"])
+    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"][1:],pile_info["Depth"][1:])
     fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=2)
     fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=2)
     # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
-    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"], pile_info["Depth"])
+    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(pile_info["Pulldown"][1:], pile_info["Depth"][1:])
     fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False),row=1, col=3)
     fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=3)
     # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
-    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"],pile_info["Depth"])
+    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(pile_info["Rotation"][1:],pile_info["Depth"][1:])
     fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=4)
     fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=4)
     # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
-    fig1.add_trace(go.Scatter(x=pile_info["Volume"], y=pile_info["Depth"], name='Actual' , mode='lines', line=dict(color='black', width=2), showlegend=True),row=1, col=5)
+    fig1.add_trace(go.Scatter(x=pile_info["Volume"][1:], y=pile_info["Depth"][1:], name='Actual' , mode='lines', line=dict(color='black', width=2), showlegend=True),row=1, col=5)
     if not diameter is None:
-        minDepth = float(min(pile_info["Depth"]))
-        volume_cy = cylinder_volume_cy(diameter,-minDepth)
+        feet2inch = 12
+        minDepth = float(min(pile_info["Depth"][1:]))
+        volume_cy = cylinder_volume_cy(diameter*feet2inch,-minDepth)
         fig1.add_trace(go.Scatter(x=[volume_cy,0],y=[0,minDepth],mode='lines',name = 'Theoretical',line=dict(color='grey', width=2, dash='dashdot'), showlegend=True),row=1,col=5)
     # Update layout for dual y-axes and dark background
     fig1.update_layout(
@@ -482,7 +498,7 @@ def create_depth_chart(pile_info,diameter=None):
     #     autosize=True,
     #     margin=dict(l=20, r=20, b=20, t=30),
     # )
-    fig1.update_layout(autosize=False, height=700)
+    fig1.update_layout(autosize=False, height=600)
 
     return fig1
 # ===============================================================================
@@ -746,9 +762,12 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     story.append(header_table)
 
     # Job Site Data
-    date_drill = pd.to_datetime(selected_row.get('Time', '')).date().strftime(format='%Y-%m-%d')
+    date_drill = pd.to_datetime(selected_row.get('Date', '')).date().strftime(format='%Y-%m-%d')
+    jobid=selected_row.get('JobID', '').lower()
+    if len(jobid)>0:
+        jobid = selected_row.get('JobNumber', '').lower()
     job_data = [
-        ["JOB ID:", selected_row.get('JobID', '')],
+        ["JOB ID:",jobid],
         ["CLIENT:", "Morris Shea Bridge"],#selected_row.get('Client', '')
         ["CONTRACTOR:", "Morris Shea Bridge"],
         ["DATE:", date_drill],
@@ -765,8 +784,9 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         # ["OPERATOR:", selected_row.get('OPERATOR', '')],
 
     ]
+    covertFeet2inch=12
     try:
-        diameter = str(round(float(selected_row.get('PileDiameter', '')),2))
+        diameter = str(round(float(selected_row.get('PileDiameter', ''))*covertFeet2inch,2))
     except:
         diameter = str(selected_row.get('PileDiameter', ''))
     pile_data_2 = [["PILE LENGTH:", str(selected_row.get('PileLength', ''))+' [ft]'],
@@ -848,7 +868,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 
     # Build PDF
     file_name = 'JobID_' + str(selected_row.get('JobID', '')) + '_PileID_' + str(
-        selected_row.get('PileID', '')) + '_Time_' + str(selected_row.get('Time', '')) + '.pdf'
+        selected_row.get('PileID', '')) + '_Time_' + str(selected_row.get('Date', '')) + '.pdf'
     doc.build(story)
     buffer.seek(0)
     pdf_data = base64.b64encode(buffer.read()).decode('utf-8')
@@ -997,7 +1017,7 @@ def get_last_updated(job_number):
 # groups_list = list(merged_df["Group"].dropna().unique())
 # groups_list.remove('Edit')
 
-(properties_df, latitudes,longitudes,markers,jobid_pile_data,merged_df,groups_list),(cpt_header,jobid_cpt_data) = load_geojson_data()
+(properties_df, latitudes,longitudes,markers,jobid_pile_data,groups_list,merged_df),(cpt_header,jobid_cpt_data) = load_geojson_data()
 
 
 

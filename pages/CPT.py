@@ -179,20 +179,20 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None,
     fig = add_subchart(fig, pile_info, y_ax, selected_charts)
 
 
-    # # Add horizontal line and value annotations if y_value is provided
-    # if y_value is not None:
-    #     filtered_data = {k: pile_info[k] for k in columns_cpt if k in pile_info}
-    #     # Find the closest data point to the selected y_value for each trace
-    #     df = pd.DataFrame(filtered_data)
-    #     # Add horizontal line to each subplot
-    #     for col in range(1, 5):
-    #         fig.add_hline(
-    #             y=y_value,
-    #             line_dash="dot",
-    #             line_color="cyan",
-    #             line_width=2,
-    #             row=1, col=col
-    #         )
+    # Add horizontal line and value annotations if y_value is provided
+    if y_value is not None:
+        filtered_data = {k: pile_info[k] for k in columns_cpt if k in pile_info}
+        # Find the closest data point to the selected y_value for each trace
+        df = pd.DataFrame(filtered_data)
+        # Add horizontal line to each subplot
+        for col in range(1, 5):
+            fig.add_hline(
+                y=y_value,
+                line_dash="dot",
+                line_color="cyan",
+                line_width=2,
+                row=1, col=col
+            )
     #         # Add value annotations for each trace in the subplot
     #         if col == 1:  # Cone resistance (q_c and q_t)
     #             qc_x = get_closest_x(df[y_ax_name], df['q_c (tsf)'], y_value)
@@ -314,30 +314,30 @@ def add_cpt_charts():
                     dcc.Graph(
                         id="cpt_graph",
                         style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},
-                        config={'displayModeBar': False}
+                        config={'displayModeBar': False,'scrollZoom': True}
                     ),
                     xs=12, sm=12, md=12, lg=12, xl=12
                 ),
             ]),
             dcc.Download(id="download-pdf-cpt"),
             # Add the slider below the graph
-            # dbc.Row([
-            #     dbc.Col(
-            #         dcc.Slider(
-            #             id='y-value-slider',
-            #             min=0,
-            #             max=100,
-            #             value=50,
-            #             step=0.1,
-            #             marks=None,
-            #             tooltip={"placement": "bottom", "always_visible": True},
-            #             className="custom-slider"
-            #         ),
-            #         width=12
-            #     )
-            # ], style={'marginTop': '20px', 'padding': '0 20px'}),
-            # # Store the current y-value
-            # dcc.Store(id='current-y-value', storage_type='memory', data=None)
+            dbc.Row([
+                dbc.Col(
+                    dcc.Slider(
+                        id='y-value-slider',
+                        min=0,
+                        max=100,
+                        value=50,
+                        step=0.1,
+                        marks=None,
+                        tooltip={"placement": "bottom", "always_visible": True},
+                        className="custom-slider"
+                    ),
+                    width=12
+                )
+            ], style={'marginTop': '20px', 'padding': '0 20px'}),
+            # Store the current y-value
+            dcc.Store(id='current-y-value', storage_type='memory', data=None)
 
         ]),
         id="collapse-plots-cpt",
@@ -568,7 +568,7 @@ def get_pilelist_cpt():
 
    pileList = html.Div([
         # Map Section
-        dbc.Button("Show Pile List", id="toggle-pilelist-cpt", color="primary", className="mb-2"),
+        dbc.Button("Show CPT List", id="toggle-pilelist-cpt", color="primary", className="mb-2"),
         dbc.Collapse(
             [
                 dag.AgGrid(
@@ -653,31 +653,31 @@ layout = html.Div([
 ], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 #
-# # Custom CSS for the slider
-# app = dash.get_app()
-# app.clientside_callback(
-#     """
-#     function(href) {
-#         var style = document.createElement('style');
-#         style.innerHTML = `
-#             .custom-slider .rc-slider-track {
-#                 background-color: #4a90e2;
-#             }
-#             .custom-slider .rc-slider-handle {
-#                 border-color: #4a90e2;
-#             }
-#             .custom-slider .rc-slider-tooltip-inner {
-#                 background-color: #4a90e2;
-#                 color: white;
-#             }
-#         `;
-#         document.head.appendChild(style);
-#         return window.innerWidth;
-#     }
-#     """,
-#     Output('window-size', 'data'),
-#     Input('url', 'href')
-# )
+# Custom CSS for the slider
+app = dash.get_app()
+app.clientside_callback(
+    """
+    function(href) {
+        var style = document.createElement('style');
+        style.innerHTML = `
+            .custom-slider .rc-slider-track {
+                background-color: #4a90e2;
+            }
+            .custom-slider .rc-slider-handle {
+                border-color: #4a90e2;
+            }
+            .custom-slider .rc-slider-tooltip-inner {
+                background-color: #4a90e2;
+                color: white;
+            }
+        `;
+        document.head.appendChild(style);
+        return window.innerWidth;
+    }
+    """,
+    Output('window-size', 'data'),
+    Input('url', 'href')
+)
 
 
 # =================================================================
@@ -688,19 +688,19 @@ layout = html.Div([
     Output('download-pdf-btn-cpt', 'disabled'),
     # Output('link-container', 'children'),
     # Input('open-btn', 'n_clicks'),
-    # Output('y-value-slider', 'min'),
-    # Output('y-value-slider', 'max'),
-    # Output('y-value-slider', 'value'),
-    # Output('current-y-value', 'data'),
+    Output('y-value-slider', 'min'),
+    Output('y-value-slider', 'max'),
+    Output('y-value-slider', 'value'),
+    Output('current-y-value', 'data'),
     Input("update-btn", "n_clicks"),
     Input('pileid-filter-cpt', 'value'),
     # Input('date-filter-cpt', 'value'),
-    # Input('y-value-slider', 'value'),
+    Input('y-value-slider', 'value'),
     Input('cpt_graph', 'selectedData'),
     Input('window-size', 'data'),
     Input('pilelist-table-cpt', 'selectedRows'),
     State("jobid-filter-cpt", "value"),
-    # State('current-y-value', 'data'),
+    State('current-y-value', 'data'),
     State("y-axis-mode", "value"),
     State("x1-min", "value"), State("x1-max", "value"),
     State("x2-min", "value"), State("x2-max", "value"),
@@ -712,14 +712,20 @@ layout = html.Div([
     State("template-selector", "value"),
     prevent_initial_call=True
 )#slider_value,current_y_value,
-def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size,selected_row,selected_jobid,
+def update_cpt_graph(n_clicks,selected_pileid, slider_value, selected_data, window_size,selected_row,selected_jobid,current_y_value,
                       y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max,y_max,y_min,selected_charts,selected_template):
 
         ctx = dash.callback_context
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
+        if not selected_row is None:
+            selected_pileid = selected_row[0].get('HoleID')
+            if selected_pileid == 'ALL':
+                selected_pileid = None
+                selected_row = None
+
         if not selected_pileid and not selected_row:
-            return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True #, 0, 100, 50, None
+            return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True , 0, 100, 50, None
 
 
 
@@ -739,8 +745,7 @@ def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size,selec
             x_limits[4] = (x4_min, x4_max)
 
         # jobid_cpt_data = data.get('jobid_cpt_data')
-        if not selected_row is None:
-            selected_pileid = selected_row[0].get('HoleID')
+
 
         # Get pile data
         pile_info = jobid_cpt_data[selected_jobid]
@@ -757,11 +762,11 @@ def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size,selec
             maxD = y_max
 
         # Handle y-value updates
-        # y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
-        y_value = 0
+        y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
+        # y_value = 0
         if trigger_id == 'y-value-slider':
-            # y_value = slider_value
-            y_value=0
+            y_value = slider_value
+            # y_value=0
             pass
         elif trigger_id == 'cpt_graph' and selected_data is not None:
             y_values = [point['y'] for point in selected_data['points']]
@@ -784,7 +789,7 @@ def update_cpt_graph(n_clicks,selected_pileid,  selected_data, window_size,selec
         # chart_id = str(uuid.uuid4())
         # chart_store[chart_id] = chart_html
 
-        return fig, False #, minD, maxD, y_value,y_value
+        return fig, False, minD, maxD, y_value,y_value
 
 # Custom Flask route to serve the HTML
 
@@ -841,6 +846,8 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #
         fig['layout']['yaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'
         fig['layout']['yaxis']['gridwidth'] = 1.2
 
+        fig['layout']['shapes'] =[]
+
         # Increase line widths for better visibility
         if 'data' in fig and len(fig['data']) > 0:
             if 'line' in fig['data'][0]:
@@ -848,7 +855,7 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #
 
 
     cpt_png = BytesIO()
-    pio.write_image(cpt_fig, cpt_png, format='png', scale=3)
+    pio.write_image(cpt_fig, cpt_png, format='png', scale=3.5)
     cpt_png.seek(0)
     # Load metadata from your sources
     cpt_data = cpt_header[selected_job_id]
@@ -868,8 +875,8 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #
         project=project,
         location=location,
         pile_props={
-            "Pile diameter": str(pileDiameter) + " ft",
-            "Pile Model": pile_model,
+            # "Pile diameter": str(pileDiameter) + " in",
+            # "Pile Model": pile_model,
         },
         meta_info={
             "CPT ID": selected_pile_id,
@@ -881,6 +888,7 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #
             "lon": data['Longitude (deg)'].values[0],
             "cone_type": "tbc",
             "operator": data['Operator'].values[0],
+            "diameter":str(pileDiameter),
         },
         notes=[
             "Replace with Pile Diameter",
@@ -1193,6 +1201,9 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
     filtered_df = cpt_header[selected_jobid]
     if not selected_row is None:
         selected_pileid = selected_row[0].get('HoleID')
+        if selected_pileid =='ALL':
+            selected_pileid = None
+
     if not selected_pileid is None:
         filtered_df = filtered_df[filtered_df["HoleID"] == selected_pileid]
         zoom_level = 45
@@ -1256,6 +1267,9 @@ def update_table(selected_jobid):
                 'Tip elevation (feet)', 'Water_Table (feet)', 'Comments', 'Notes', 'P1_dia (inch)', 'X_Easting (feet)',
                 'Y_Northing (feet)', 'Elevation (feet)', 'Z_Elevation (feet)', 'Latitude (deg)', 'Longitude (deg)',
                 'File Name', 'DataFileID']
+    all_row = {col: "" for col in list_col}
+    all_row['HoleID'] = "ALL"
+    summary_data.append(all_row)
     for _, row in filtered_df.iterrows():
         dict_data = {}
         for x in list_col:
