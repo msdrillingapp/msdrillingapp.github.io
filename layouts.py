@@ -287,176 +287,176 @@ def add_charts():
             )
     return charts
 
-charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
-                  'friction':['Friction Ratio %',['R_f (%)']],
-                  'pore':["Pore Pressure (ft-head)",['U_2 (ft-head)','U_0 (ft-head)']],
-                  'sbt':["Soil Behaviour Type",['Zone_Icn']],
-                  'norm_cone':["Normalized Cone Resistance",['Q_t','Q_tn']],
-                  "sbi":["Soil Behavior Index",['Ic']],
-                  "sleve":["Sleeve Friction (tsf)",['f_s (tsf)']],
-                  "bq":["Pore Pressure Parameter",['B_q']],
-                  "capacity":['Capacity (Tons)',['Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']]
-                  }
-def add_chart_controls():
-    layout = html.Div([
-        # Collapse toggle
-        dbc.Button("View Chart Controls", id="toggle-controls-mwd", className="mb-2", color="secondary"),
-        dbc.Collapse([
-            # html.H4("CPT Chart Controls", style={"color": "white"}),
-            # Template dropdown
-            html.Div([
-                html.Label("Layout Template:", style={"color": "white"}),
-                dcc.Dropdown(
-                    id="template-selector-mwd",
-                    options=[
-                        {"label": "Landscape (4 charts)", "value": "4"},
-                        {"label": "Portrait (3 charts)", "value": "3"},
-                    ],
-                    value="landscape",
-                    clearable=False,
-                    className="dark-dropdown"
-                )
-            ], style={"width": "300px", "margin-bottom": "20px"}),
-
-            # Chart type selection
-            html.Div([
-                html.Label("Select Chart Types:", style={"color": "white"}),
-                dcc.Dropdown(
-                    id="chart-type-selector-mwd",
-                    options=[{"label": v[0], "value": k} for k, v in charts_details.items()],
-                    multi=True,
-                    value=["cone", "friction", "pore", "sbt"],
-                    className="dark-dropdown"
-                )
-            ], style={"width": "100%", "margin-bottom": "20px"}),
-
-            # Y-axis dropdown + min/max input
-            html.Div([
-                html.Label("Y-Axis Scale and Range:", style={"color": "white"}),
-                dbc.Row([
-                    dbc.Col(
-                        dcc.Dropdown(
-                            id="y-axis-mode-mwd",
-                            options=[
-                                {"label": "Elevation (feet)", "value": "elevation"},
-                                {"label": "Depth (feet)", "value": "depth"}
-                            ],
-                            value="elevation",
-                            clearable=False,
-                            className="dark-dropdown"
-                        ),
-                        width=4
-                    ),
-                    dbc.Col(
-                        dbc.Input(id="y-axis-min-mwd", type="number", placeholder="Min",
-                                  style={"background": "#193153", "color": "white"}),
-                        width=2
-                    ),
-                    dbc.Col(
-                        dbc.Input(id="y-axis-max-mwd", type="number", placeholder="Max",
-                                  style={"background": "#193153", "color": "white"}),
-                        width=2
-                    )
-                ])
-            ], style={"margin-bottom": "30px"}),
-
-            # Inputs for x-axis ranges
-            html.Div([
-                html.Label("X-Axis Ranges (Min/Max):", style={"color": "white"}),
-                dbc.Row([
-                    dbc.Col([
-                        html.Div(id="chart1-label-mwd", children=html.Label("Chart #1", style={"color": "white"})),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x1-min-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ], className="mb-4"),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x1-max-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ])
-                    ]),
-                    dbc.Col([
-                        html.Div(id="chart2-label-mwd", children=html.Label("Chart #2", style={"color": "white"})),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x2-min-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ], className="mb-4"),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x2-max-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ])
-                    ]),
-                    dbc.Col([
-                        html.Div(id="chart3-label-mwd", children=html.Label("Chart #3", style={"color": "white"})),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x3-min-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ], className="mb-4"),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x3-max-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ])
-                    ]),
-                    dbc.Col([
-                        html.Div(id="chart4-label-mwd", children=html.Label("None", style={"color": "white"})),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x4-min-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ], className="mb-4"),
-                        dbc.InputGroup([
-                            dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
-                            dbc.Input(id="x4-max-mwd", type="number", style={"background": "#193153", "color": "white"})
-                        ])
-                    ]),
-                ], className="mb-4")
-            ]),
-
-
-            # =============================================
-            html.Hr(style={"borderTop": "1px solid white"}),
-
-
-            html.Div([
-                # Save section
-                html.Label("Save Settings As:", style={"color": "white"}),
-                dbc.Input(
-                    id="profile-name-mwd",
-                    placeholder="e.g. default, run1, clientXYZ",
-                    type="text",
-                    style={"background": "#193153", "color": "white", "marginBottom": "10px"}
-                ),
-
-                # Load section
-                html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white"}),
-                dcc.Dropdown(
-                    id="load-settings-dropdown-mwd",
-                    options=[],
-                    className="dark-dropdown",
-                    style={"marginBottom": "10px"}
-                ),
-
-                # Buttons in a row
-                dbc.Row([
-                    dbc.Col(dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="w-100"),
-                            width="auto"),
-                    dbc.Col(dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="w-100"),
-                            width="auto"),
-                    dbc.Col(dbc.Button("⟳ Reset Controls", id="reset-controls-btn", color="warning", className="w-100"),
-                            width="auto"),
-                ], justify="start", className="g-2")  # g-2 adds gutter spacing
-            ], style={"width": "100%", "marginTop": "20px"}),
-
-            dcc.Store(id="chart-settings-mwd"),
-            # =============================================
-            html.Br(),
-            dbc.Button("Update Chart", id="update-btn", color="primary", className="mb-2"),
-
-        ],
-            id="chart-controls-collapse-mwd",
-            is_open=False
-        )
-    ])
-
-    return layout
+# charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
+#                   'friction':['Friction Ratio %',['R_f (%)']],
+#                   'pore':["Pore Pressure (ft-head)",['U_2 (ft-head)','U_0 (ft-head)']],
+#                   'sbt':["Soil Behaviour Type",['Zone_Icn']],
+#                   'norm_cone':["Normalized Cone Resistance",['Q_t','Q_tn']],
+#                   "sbi":["Soil Behavior Index",['Ic']],
+#                   "sleve":["Sleeve Friction (tsf)",['f_s (tsf)']],
+#                   "bq":["Pore Pressure Parameter",['B_q']],
+#                   "capacity":['Capacity (Tons)',['Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']]
+#                   }
+# def add_chart_controls():
+#     layout = html.Div([
+#         # Collapse toggle
+#         dbc.Button("View Chart Controls", id="toggle-controls-mwd", className="mb-2", color="secondary"),
+#         dbc.Collapse([
+#             # html.H4("CPT Chart Controls", style={"color": "white"}),
+#             # Template dropdown
+#             html.Div([
+#                 html.Label("Layout Template:", style={"color": "white"}),
+#                 dcc.Dropdown(
+#                     id="template-selector-mwd",
+#                     options=[
+#                         {"label": "Landscape (4 charts)", "value": "4"},
+#                         {"label": "Portrait (3 charts)", "value": "3"},
+#                     ],
+#                     value="landscape",
+#                     clearable=False,
+#                     className="dark-dropdown"
+#                 )
+#             ], style={"width": "300px", "margin-bottom": "20px"}),
+#
+#             # Chart type selection
+#             html.Div([
+#                 html.Label("Select Chart Types:", style={"color": "white"}),
+#                 dcc.Dropdown(
+#                     id="chart-type-selector-mwd",
+#                     options=[{"label": v[0], "value": k} for k, v in charts_details.items()],
+#                     multi=True,
+#                     value=["cone", "friction", "pore", "sbt"],
+#                     className="dark-dropdown"
+#                 )
+#             ], style={"width": "100%", "margin-bottom": "20px"}),
+#
+#             # Y-axis dropdown + min/max input
+#             html.Div([
+#                 html.Label("Y-Axis Scale and Range:", style={"color": "white"}),
+#                 dbc.Row([
+#                     dbc.Col(
+#                         dcc.Dropdown(
+#                             id="y-axis-mode-mwd",
+#                             options=[
+#                                 {"label": "Elevation (feet)", "value": "elevation"},
+#                                 {"label": "Depth (feet)", "value": "depth"}
+#                             ],
+#                             value="elevation",
+#                             clearable=False,
+#                             className="dark-dropdown"
+#                         ),
+#                         width=4
+#                     ),
+#                     dbc.Col(
+#                         dbc.Input(id="y-axis-min-mwd", type="number", placeholder="Min",
+#                                   style={"background": "#193153", "color": "white"}),
+#                         width=2
+#                     ),
+#                     dbc.Col(
+#                         dbc.Input(id="y-axis-max-mwd", type="number", placeholder="Max",
+#                                   style={"background": "#193153", "color": "white"}),
+#                         width=2
+#                     )
+#                 ])
+#             ], style={"margin-bottom": "30px"}),
+#
+#             # Inputs for x-axis ranges
+#             html.Div([
+#                 html.Label("X-Axis Ranges (Min/Max):", style={"color": "white"}),
+#                 dbc.Row([
+#                     dbc.Col([
+#                         html.Div(id="chart1-label-mwd", children=html.Label("Chart #1", style={"color": "white"})),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x1-min-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ], className="mb-4"),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x1-max-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ])
+#                     ]),
+#                     dbc.Col([
+#                         html.Div(id="chart2-label-mwd", children=html.Label("Chart #2", style={"color": "white"})),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x2-min-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ], className="mb-4"),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x2-max-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ])
+#                     ]),
+#                     dbc.Col([
+#                         html.Div(id="chart3-label-mwd", children=html.Label("Chart #3", style={"color": "white"})),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x3-min-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ], className="mb-4"),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x3-max-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ])
+#                     ]),
+#                     dbc.Col([
+#                         html.Div(id="chart4-label-mwd", children=html.Label("None", style={"color": "white"})),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Min", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x4-min-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ], className="mb-4"),
+#                         dbc.InputGroup([
+#                             dbc.InputGroupText("Max", style={"background": "#102640", "color": "white"}),
+#                             dbc.Input(id="x4-max-mwd", type="number", style={"background": "#193153", "color": "white"})
+#                         ])
+#                     ]),
+#                 ], className="mb-4")
+#             ]),
+#
+#
+#             # =============================================
+#             html.Hr(style={"borderTop": "1px solid white"}),
+#
+#
+#             html.Div([
+#                 # Save section
+#                 html.Label("Save Settings As:", style={"color": "white"}),
+#                 dbc.Input(
+#                     id="profile-name-mwd",
+#                     placeholder="e.g. default, run1, clientXYZ",
+#                     type="text",
+#                     style={"background": "#193153", "color": "white", "marginBottom": "10px"}
+#                 ),
+#
+#                 # Load section
+#                 html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white"}),
+#                 dcc.Dropdown(
+#                     id="load-settings-dropdown-mwd",
+#                     options=[],
+#                     className="dark-dropdown",
+#                     style={"marginBottom": "10px"}
+#                 ),
+#
+#                 # Buttons in a row
+#                 dbc.Row([
+#                     dbc.Col(dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="w-100"),
+#                             width="auto"),
+#                     dbc.Col(dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="w-100"),
+#                             width="auto"),
+#                     dbc.Col(dbc.Button("⟳ Reset Controls", id="reset-controls-btn", color="warning", className="w-100"),
+#                             width="auto"),
+#                 ], justify="start", className="g-2")  # g-2 adds gutter spacing
+#             ], style={"width": "100%", "marginTop": "20px"}),
+#
+#             dcc.Store(id="chart-settings-mwd"),
+#             # =============================================
+#             html.Br(),
+#             dbc.Button("Update Chart", id="update-btn", color="primary", className="mb-2"),
+#
+#         ],
+#             id="chart-controls-collapse-mwd",
+#             is_open=False
+#         )
+#     ])
+#
+#     return layout
 
 
