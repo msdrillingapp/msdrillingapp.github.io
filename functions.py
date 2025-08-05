@@ -65,6 +65,7 @@ def load_geojson_data(jobID:str='1640',reload:bool=False):
             (properties_df, latitudes, longitudes, markers, jobid_pile_data,groups_list,merged_df,cpt_header, jobid_cpt_data) = pd.read_pickle(cache_file)
             result_MWD = (properties_df, latitudes, longitudes, markers, jobid_pile_data,groups_list,merged_df)
             results_CPT = (cpt_header, jobid_cpt_data)
+            print('Loaded pickle data')
             return result_MWD,results_CPT
         else:
             get_data =True
