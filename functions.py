@@ -149,75 +149,12 @@ def load_geojson_data(jobID:str='1640',reload:bool=False):
                                 date = date2use
                                 properties['Time'] = date
 
-                            properties["date"] = date # Store the date from the filename
-
-                            # PileCode - PP = circle , TestPile = square , Reaction = Octagon
-                            pile_code = properties['PileCode']
-                            # print(pile_code)
-                            pile_status = properties['PileStatus']
-                            pile_id = properties['PileID']
                             if properties['PileType'] is None:
                                 properties['PileType'] = 0
-                            else:
-                                pileType = properties['PileType']
-                            # # if not lat is None and not lon is None:
-                            # #     # Assign different marker styles
-                            # #     if pile_code.lower() == "PRODUCTION PILE".lower():  # Circle
-                            # #
-                            # #         if pileType==1:
-                            # #             donut = "/assets/icons/blue-donut.png"
-                            # #         else:
-                            # #             donut = "/assets/icons/yellow-donut.png"
-                            # #         marker = dl.Marker(
-                            # #             position=(lat, lon),
-                            # #             icon=dict(
-                            # #                 iconUrl=donut,  # Path to your image in assets folder
-                            # #                 iconSize=[30, 30]  # Size of the icon in pixels
-                            # #             ),
-                            # #             children=[
-                            # #                 dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
-                            # #         )
-                            # #
-                            # #     elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
-                            # #         marker = dl.Marker(
-                            # #             position=(lat, lon),
-                            # #             icon=dict(
-                            # #                 iconUrl='assets/icons/yellow-square.png',  # Path to your image in assets folder
-                            # #                 iconSize=[30, 30]  # Size of the icon in pixels
-                            # #             ),
-                            # #             children=[
-                            # #                 dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
-                            # #         )
-                            # #
-                            # #     elif pile_code.lower() == "REACTION PILE".lower():  # Octagon (Using a custom SVG marker)
-                            # #
-                            # #         marker = dl.Marker(
-                            # #             position=(lat, lon),
-                            # #             icon=dict(
-                            # #                 iconUrl='assets/icons/blue-target.png',  # Path to your image in assets folder
-                            # #                 iconSize=[30, 30]  # Size of the icon in pixels
-                            # #             ),
-                            # #             children=[
-                            # #                 dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
-                            # #         )
-                            # #
-                            # #     else:  # Default marker for other PileCodes PB "PROBE"
-                            # #         marker = dl.Marker(
-                            # #             position=(lat, lon),
-                            # #             icon=dict(
-                            # #                 iconUrl="/assets/icons/red-triangle.png",  # Path to your image in assets folder
-                            # #                 iconSize=[30, 30]  # Size of the icon in pixels
-                            # #             ),
-                            # #             children=[
-                            # #                 dl.Tooltip(f"PileID: {pile_id}, Status: {pile_status}")]
-                            # #         )
-                            # #
-                            # #     markers.append(marker)
-                            #
-                            # else:
-                            #     continue
 
 
+                            properties["date"] = date # Store the date from the filename
+                            pile_id = properties['PileID']
                             job_id = properties.get("JobNumber")
                             if str(job_id)!=folder_name:
                                 print('Error '+str(job_id))
@@ -763,15 +700,17 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 
     # Job Site Data
     date_drill = pd.to_datetime(selected_row.get('Date', '')).date().strftime(format='%Y-%m-%d')
-    jobid=selected_row.get('JobID', '').lower()
-    if len(jobid)>0:
-        jobid = selected_row.get('JobNumber', '').lower()
+    jobid = selected_row.get('JobNumber', '').lower()
+    # if len(jobid)>0:
+    #     jobid = selected_row.get('JobNumber', '').lower()
+    jobname = selected_row.get('JobNumber', '').lower()
     job_data = [
-        ["JOB ID:",jobid],
+        ["JOB #:",jobid],
+        ['JOB NAME', jobname]
         ["CLIENT:", "Morris Shea Bridge"],#selected_row.get('Client', '')
         ["CONTRACTOR:", "Morris Shea Bridge"],
         ["DATE:", date_drill],
-        ['','']
+
     ]
 
     # Pile Data
