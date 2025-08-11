@@ -262,7 +262,7 @@ layout = html.Div([
     ),
     html.Div(id="summary-cards", style={"display": "flex", "gap": "20px", "marginTop": "20px"}),
     html.Br(),
-    dcc.Graph(id="job-bar-chart"),
+    dcc.Graph(id="job-bar-chart",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},),
     html.Br(),
     html.Div(
         dag.AgGrid(
@@ -279,7 +279,7 @@ layout = html.Div([
         style={"marginTop": "20px"}
     ),
     html.Br(),
-    dcc.Graph(id="job-pie"),
+    dcc.Graph(id="job-pie",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},),
 ], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 
