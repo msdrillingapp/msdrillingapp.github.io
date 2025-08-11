@@ -262,7 +262,7 @@ layout = html.Div([
     ),
     html.Div(id="summary-cards", style={"display": "flex", "gap": "20px", "marginTop": "20px"}),
     html.Br(),
-    dcc.Graph(id="job-bar-chart",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},),
+    dcc.Graph(id="job-bar-chart",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','marginTop': '5px','height': '500px'},),
     html.Br(),
     html.Div(
         dag.AgGrid(
@@ -382,13 +382,14 @@ def update_job_bar_chart(selected_date):
 @callback(
     Output("job-pie", "figure"),
     Input("job-table", "selectedRows"),
-    State("date-picker", "date"),prevent_initial_call=True
+    Input("date-picker", "date"),prevent_initial_call=True
 )
 
 
 def update_pie(selected_rows,selected_date):
     if not selected_rows:
-        return px.pie(title="Select a row to see details")
+        # return px.pie(title="Select a row to see details")
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
 
     row = selected_rows[0]  # Get the selected row's data
     df_daily = prepare_time_spent_stats(summary_dic_daily)
@@ -433,7 +434,7 @@ def update_pie(selected_rows,selected_date):
 
         fig.layout.annotations[i - 1].text = f"Rig {rig} — Piles: {piles}"
 
-    fig.update_layout(title_text=f"Job {row['JobNumber']} Breakdown by Rig")
+    fig.update_layout(title_text=f"Job {row['JobNumber']} Breakdown by Rig on {selected_date}")
     fig.update_layout(
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
