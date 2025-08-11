@@ -137,3 +137,68 @@ body, html, #app {
       zoom: 1;
     }
   }
+
+/* DatePicker input box */
+.DateInput_input {
+    background-color: #193153;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    box-shadow: none;
+}
+
+/* Placeholder text */
+.DateInput_input::placeholder {
+    color: white;
+}
+
+/* Remove default outline and add subtle glow on focus */
+.DateInput_input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+/* Calendar popup container */
+.SingleDatePicker_picker,
+.DateRangePicker_picker {
+    background-color: #193153;
+    color: white;
+    border-radius: 6px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Month/year header */
+.CalendarMonth_caption {
+    color: white;
+    font-weight: bold;
+}
+
+/* Day cells */
+.CalendarDay {
+    background-color: #193153;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+
+/* Hovered day */
+.CalendarDay:hover {
+    background-color: #244a75;
+    color: white;
+}
+
+/* Selected day */
+.CalendarDay__selected {
+    background-color: #4d7cb3;
+    color: white;
+}
+
+/* Today highlight */
+.CalendarDay__today {
+    border: 1px solid white;
+}
+
+.dash-datepicker{ background-color: #193153!important;
+    color: white;}

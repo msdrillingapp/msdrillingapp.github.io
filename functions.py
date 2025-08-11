@@ -153,6 +153,9 @@ def load_geojson_data(jobID:str='1640',reload:bool=False):
                             if properties['PileType'] is None:
                                 properties['PileType'] = 0
 
+                            if properties['ProductCode'] is None:
+                                properties['ProductCode'] = 'DWP'
+
 
                             properties["date"] = date # Store the date from the filename
                             pile_id = properties['PileID']
@@ -237,24 +240,46 @@ def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes
 
     return zoom, center
 
-def indrease_decrease_split(x,y):
+# def indrease_decrease_split(x,y):
+#     increasing_x = []
+#     increasing_y = []
+#     decreasing_x = []
+#     decreasing_y = []
+#     increasing_index =[]
+#     decreasing_index = []
+#     for i in range(1, len(y)):
+#         if y[i] > y[i - 1]:
+#             increasing_x.append(x[i])
+#             increasing_y.append(y[i])
+#             increasing_index.append(i)
+#         else:
+#             decreasing_x.append(x[i])
+#             decreasing_y.append(y[i])
+#             decreasing_index.append(i)
+#
+#     return increasing_x,increasing_y,decreasing_x,decreasing_y
+
+
+def indrease_decrease_split(x, y):
+    min_index = y.index(min(y))
+
+    # Increasing segment: from start to min_index
     increasing_x = []
     increasing_y = []
+    for i in range(1, min_index + 1):
+
+        increasing_x.append(x[i])
+        increasing_y.append(y[i])
+
+    # Decreasing segment: from min_index to end
     decreasing_x = []
     decreasing_y = []
-    increasing_index =[]
-    decreasing_index = []
-    for i in range(1, len(y)):
-        if y[i] > y[i - 1]:
-            increasing_x.append(x[i])
-            increasing_y.append(y[i])
-            increasing_index.append(i)
-        else:
-            decreasing_x.append(x[i])
-            decreasing_y.append(y[i])
-            decreasing_index.append(i)
+    for i in range(min_index + 1, len(y)):
+        decreasing_x.append(x[i])
+        decreasing_y.append(y[i])
 
-    return increasing_x,increasing_y,decreasing_x,decreasing_y
+
+    return increasing_x, increasing_y, decreasing_x, decreasing_y
 
 
 def create_time_chart(pile_info):
@@ -707,7 +732,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     jobname = selected_row.get('JobNumber', '').lower()
     job_data = [
         ["JOB #:",jobid],
-        ['JOB NAME', jobname]
+        ["JOB NAME", jobname]
         ["CLIENT:", "Morris Shea Bridge"],#selected_row.get('Client', '')
         ["CONTRACTOR:", "Morris Shea Bridge"],
         ["DATE:", date_drill],

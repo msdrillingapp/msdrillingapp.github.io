@@ -11,7 +11,7 @@ import os
 import base64
 from io import BytesIO
 import plotly.io as pio
-import uuid
+# import uuid
 import json
 from datetime import datetime
 import dash_leaflet as dl
@@ -47,11 +47,7 @@ charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
 
 # In-memory store for chart HTML strings
 chart_store = {}
-# if latitudes and longitudes:
-#     lats = [x for x in latitudes if not x is None]
-#     lons = [x for x in longitudes if not x is None]
-#     zoom_level,map_center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lons,lats)
-# else:
+
 map_center = [40, -100]
 zoom_level = 4
 markers = []
