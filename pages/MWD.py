@@ -6,13 +6,16 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import pandas as pd
-from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,properties_df, latitudes,longitudes,jobid_pile_data,merged_df,groups_list #,markers
+# from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,properties_df, latitudes,longitudes,jobid_pile_data,merged_df,groups_list,remove_min #,markers
+from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,result_MWD,remove_min
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
 from functions import generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
+feet2inch = 12
 
+groups_list = ['Project ', 'AsBuilt', 'Undefined', 'AsBuiltTime', 'ProfileView', 'Coordinates', 'Design', 'asBuilit', 'Equipment', 'Orphans ']
 # from celery.result import AsyncResult
 # from celery_config import celery_app
 
@@ -26,19 +29,12 @@ else:
 # Track changed values
 changed_values ={}
 
-# Calculate map center and zoom
-if latitudes and longitudes:
-    zoom_level = 8  # Adjust zoom for a closer view
-    lats = [x for x in latitudes if not x is None]
-    lons = [x for x in longitudes if not x is None]
-    zoom_level,map_center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lons,lats)
-else:
-    map_center = [40, -100]
-    zoom_level = 4
-
+map_center = [30.2991535,-87.6300472]
+zoom_level = 4
 markers = []
 
-flts = get_filters(properties_df)
+# flts = get_filters(properties_df)
+flts = get_filters(result_MWD)
 pilelist = get_pilelist()
 charts = add_charts()
 filtered_table = get_filtered_table()
@@ -158,9 +154,11 @@ def check_is_none(mdict,name_var):
     [ Input('pilelist-table', 'selectedRows'),
       Input('pileid-filter','value'),
      Input("group-filter", "value")],
-    State('date-filter','value'),prevent_initial_call=True,
+    State('date-filter','value'),
+              State('jobid-filter','value'),
+              prevent_initial_call=True,
 )
-def update_table(selected_row,selected_pileid, selected_group,selected_date):
+def update_table(selected_row,selected_pileid, selected_group,selected_date,selected_jobid):
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id == "pileid-filter":
@@ -173,14 +171,15 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date):
         selected_pileid = selected_row['PileID']
         selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
     else:
-        if not selected_row or (not selected_pileid or not selected_date ):
+        if not selected_row and (not selected_pileid or not selected_date ):
             return []
         if selected_row:
             selected_row = selected_row[0]  # Get first selected row (since we're using single selection)
             selected_pileid = selected_row['PileID']
             selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
-    filtered_df = merged_df.copy()
+    # filtered_df = merged_df.copy()
+    filtered_df = result_MWD[selected_jobid][-1].copy()
     # Filter DataFrame based on selected PileID and Date
     filtered_df = filtered_df[(filtered_df["PileID"] == selected_pileid) & (filtered_df["date"] == selected_date)]
 
@@ -224,10 +223,11 @@ def update_table(selected_jobid, selected_date,selected_rigid):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
         # return []  # Return an empty table before selection
-    filtered_df = properties_df.copy()
+    # filtered_df = properties_df.copy()
+    filtered_df = result_MWD[selected_jobid][0].copy()
     # Filter DataFrame based on selected PileID and Date
-    if not selected_jobid is None:
-        filtered_df = filtered_df[(filtered_df["JobNumber"] == selected_jobid)]
+    # if not selected_jobid is None:
+    #     filtered_df = filtered_df[(filtered_df["JobNumber"] == selected_jobid)]
     if not selected_date is None:
         filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
     if not selected_rigid is None:
@@ -237,16 +237,35 @@ def update_table(selected_jobid, selected_date,selected_rigid):
     for _, row in filtered_df.iterrows():
         pile_id = row["PileID"]
 
-        time = row['Time']
+        date = row['Time']
         try:
-            time = pd.to_datetime(time).date()
+            date = pd.to_datetime(date).date()
         except:
-            time = datetime.today().date()
+            date = datetime.today().date()
+
+        time = row['Time_Start']
+        try:
+            time = pd.to_datetime(time).strftime(format='%Y-%m-%d %H:%M:%S')
+        except:
+            time = None
+
         movetime = row['MoveTime']
         try:
             movetime = datetime.strptime(movetime, '%H:%M:%S').time()
         except:
-            pass
+            try:
+                movetime = remove_min(row['MoveTime'])
+            except:
+                movetime = None
+
+        try:
+            install = datetime.strptime(install, '%H:%M:%S').time()
+        except:
+            try:
+                install = remove_min(row['InstallTime'])
+            except:
+                install = None
+
         try:
             totaltime = row['TotalTime']
             totaltime = datetime.strptime(totaltime, '%H:%M:%S').time()
@@ -255,18 +274,23 @@ def update_table(selected_jobid, selected_date,selected_rigid):
             pass
 
         try:
-            delaytime = row['DelayTime']
-            delaytime = datetime.strptime(delaytime, '%H:%M:%S').time()
+            delaytime = str(row['DelayTime'])
+            try:
+                delaytime = remove_min(delaytime)
+            except:
+                delaytime = datetime.strptime(delaytime, '%H:%M:%S').time()
         except:
             delaytime = None
             pass
+
         movedistance = row['MoveDistance']
         try:
             movedistance = round(float(movedistance),1)
         except:
             pass
         try:
-            delay = row['Delay']
+            delay = row['DelayTime']
+            delay = remove_min(delay)
         except:
             delay = None
 
@@ -278,8 +302,9 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         min_depth = None
         max_strokes = None
         if not selected_jobid is None:
+            jobid_pile_data = result_MWD[selected_jobid][1]
             # Retrieve Depth & Strokes from pile_data
-            pile_data = jobid_pile_data[selected_jobid]
+            pile_data = jobid_pile_data[selected_jobid].copy()
             if pile_id in pile_data and use_date in pile_data[pile_id]:
                 depth_values = pile_data[pile_id][use_date]["Depth"]
                 strokes_values = pile_data[pile_id][use_date]["Strokes"]
@@ -288,11 +313,12 @@ def update_table(selected_jobid, selected_date,selected_rigid):
             else:
                 min_depth = None
                 max_strokes = None
-
+        diameter = round(float(row['PileDiameter'])*feet2inch,2)
 
         dict_data = {
             "PileID": pile_id,
-            "Date": time,
+            "Date": date,
+            "Time": time,
             "JobNumber": row['JobNumber'],
             "LocationID": row['LocationID'],
             "MinDepth": min_depth,
@@ -302,19 +328,20 @@ def update_table(selected_jobid, selected_date,selected_rigid):
             "PileCode": row['PileCode'],
             "Comments": row["Comments"],
             "DelayTime": delaytime,
-            "Delay": delay,
+            "DelayReason": None,
             "PumpID": row['PumpID'],
             "Calibration": row['PumpCalibration'],
             "PileType": row['PileType'],
             "Distance" : movedistance,
             "MoveTime": movetime,
             "Totaltime": totaltime,
+            "InstallTime": install,
             "RigID":row['RigID'],
             "Client":row['Client'],
             "DrillStartTime": row['DrillStartTime'],
             "DrillEndTime": row['DrillEndTime'],
             "PileLength": row['PileLength'],
-            "PileDiameter": row['PileDiameter'],
+            "PileDiameter": diameter,
         }
         summary_data.append(dict_data)
 
@@ -374,11 +401,16 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
 
     # Start with full dataset
+    # filtered_df = properties_df.copy()
+
+    properties_df = result_MWD[selected_jobid][0]
     filtered_df = properties_df.copy()
 
     # Apply filtering based on selected values
-    if selected_jobid:
-        filtered_df = filtered_df[filtered_df["JobNumber"] == selected_jobid]
+    # if selected_jobid:
+    #     properties_df = result_MWD[selected_jobid][0]
+    #     filtered_df = properties_df.copy()
+        # filtered_df = filtered_df[filtered_df["JobNumber"] == selected_jobid]
     if selected_date:
         filtered_df = filtered_df[filtered_df["date"] == selected_date]
     if selected_rigid:
@@ -454,8 +486,11 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
      ]#,prevent_initial_call=True
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
-    filtered_df = properties_df.copy()
+    if selected_jobid is None:
+        raise PreventUpdate
 
+    # filtered_df = properties_df.copy()
+    filtered_df = result_MWD[selected_jobid][0].copy()
     # center = [np.nanmean(list(filter_none(properties_df["latitude"]))), np.nanmean(list(filter_none(properties_df["longitude"])))]
     zoom_level = 8
     # Apply filters
@@ -467,9 +502,9 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     if not selected_pileid is None:
         filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
         zoom_level = 45
-    if not selected_jobid is None:
-        filtered_df = filtered_df[filtered_df['JobNumber'] == selected_jobid]
-        zoom_level = 20
+    # if not selected_jobid is None:
+    #     filtered_df = filtered_df[filtered_df['JobNumber'] == selected_jobid]
+    #     zoom_level = 20
     if not selected_pilecode is None:
         filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
     if not selected_pilestatus is None:
@@ -551,6 +586,8 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 
 )#window_size,
 def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_date):
+    if selected_jobid is None:
+        raise PreventUpdate
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id == "pileid-filter":
@@ -558,7 +595,8 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
             return go.Figure(
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), go.Figure(
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True  # Dark background even if empty
-        tmp = properties_df.copy()
+        # tmp = properties_df.copy()
+        tmp = result_MWD[selected_jobid][0].copy()
         tmp = tmp[tmp['PileID'] == selected_pileid]
         tmp = tmp[tmp['date'] == selected_date]
         try:
@@ -585,8 +623,8 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}),go.Figure(
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
 
-
-    pile_data = jobid_pile_data[selected_jobid]
+    jobid_pile_data = result_MWD[selected_jobid][1]
+    pile_data = jobid_pile_data[selected_jobid].copy()
     pile_info = pile_data[selected_pileid][selected_date]
 
     fig = create_time_chart(pile_info)
@@ -612,12 +650,15 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
     prevent_initial_call=True
 )
 def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_date):
+    if selected_jobid is None:
+        raise PreventUpdate
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id =="pileid-filter":
         if not selected_date or not selected_pileid:
             return html.Div("Select a Date and PileID or Table Raw to view statistics.", style={'color': 'white', 'textAlign': 'center'})
-        tmp = properties_df.copy()
+        # tmp = properties_df.copy()
+        tmp = result_MWD[selected_jobid][0].copy()
         tmp = tmp[(tmp['PileID']==selected_pileid)&(tmp['date']==selected_date)]
         # selected_row = tmp.to_dict(orient='records')
     elif triggered_id =="pilelist-table":
@@ -629,6 +670,7 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
             selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
     # Filter data for the selected PileID
+    properties_df = result_MWD[selected_jobid][0].copy()
     filtered_df = properties_df[properties_df["PileID"] == selected_pileid]
 
     # Extract statistics
@@ -639,6 +681,14 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
     except:
         move_distance = 0
     delay_time = filtered_df["DelayTime"].iloc[0] if "DelayTime" in filtered_df.columns else "N/A"
+    try:
+        installtime =  filtered_df["InstallTime"].iloc[0] if "InstallTime" in filtered_df.columns else "N/A"
+    except:
+        installtime =  0
+    try:
+        cycletime= filtered_df["CycleTime"].iloc[0] if "CycleTime" in filtered_df.columns else "N/A"
+    except:
+        cycletime = 0
     if "OverBreak" in filtered_df.columns:
         overbreak = float(filtered_df['OverBreak'].iloc[0])
         overbreak = overbreak* 100 - 100.0
@@ -647,7 +697,7 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
         "N/A"
 
     title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
-    details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak)
+    details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak,installtime,cycletime)
     return details
 
 @callback(
@@ -666,6 +716,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
         return html.Div("Select a JobID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
 
     # Filter data for the selected PileID
+    properties_df = result_MWD[selected_jobid][0].copy()
     filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
 
     if not selected_date is None:
@@ -842,9 +893,10 @@ def download_csv(n_clicks,data):
      State("date-filter", "value"),
      State('time_graph', 'figure'),
      State('depth_graph', 'figure'),
+    State('jobid-filter','value'),
     prevent_initial_call=True
 )
-def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date,time_fig, depth_fig):
+def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date,time_fig, depth_fig,selected_jobid):
     if not n_clicks:
         return no_update
     if not selected_rows and (not selected_pileid or not selected_date):
@@ -852,6 +904,8 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
     if selected_rows:
         selected_row = selected_rows[0]
     else:
+        # selected_jobid =
+        properties_df = result_MWD[selected_jobid][0].copy()
         tmp = properties_df[(properties_df['PileID']==selected_pileid)&(properties_df['date']==selected_date)]
         tmp.rename(columns={'date':'Date'},inplace=True)
         selected_row = tmp.to_dict(orient='records')[0]
@@ -867,6 +921,19 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
     except Exception as e:
         print(f"PDF generation failed: {str(e)}")
         return no_update
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

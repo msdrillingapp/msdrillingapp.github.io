@@ -3,7 +3,7 @@ from dash import dcc, html, Output, Input, State, callback,no_update,ctx
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
-# from dash.exceptions import PreventUpdate
+from dash.exceptions import PreventUpdate
 # import dash_bootstrap_components as dbc
 import numpy as np
 import pandas as pd
@@ -12,7 +12,8 @@ import os
 import dash
 import dash_ag_grid as dag
 from datetime import date
-
+from functions import result_MWD
+import dash_bootstrap_components as dbc
 dash.register_page(
     __name__,
     path_template="/Metrics",
@@ -250,37 +251,97 @@ date_picker_style = {
 }
 
 layout = html.Div([
-    # html.H3("Performance Dashboard",style={"color": "white", "marginBottom": "10px"}),
+    # Date picker
     dcc.DatePickerSingle(
         id="date-picker",
         date=date.today(),
         display_format="YYYY-MM-DD",
         style=date_picker_style,
         className="dash-datepicker",
-
-
     ),
-    html.Div(id="summary-cards", style={"display": "flex", "gap": "20px", "marginTop": "20px"}),
-    html.Br(),
-    dcc.Graph(id="job-bar-chart",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','marginTop': '5px','height': '500px'},),
-    html.Br(),
+
+    # Summary cards
     html.Div(
-        dag.AgGrid(
-            id="job-table",
-            columnDefs=column_defs,
-            rowData=[],
-            defaultColDef={"resizable": True, "sortable": True, "filter": True, "cellStyle": {"textAlign": "center"}},
-            dashGridOptions={"rowSelection": "single"},
-
-        style={"height": "300px", "width": "100%"},
-
-        className="ag-theme-alpine-dark",
-        ),
-        style={"marginTop": "20px"}
+        id="summary-cards",
+        style={"display": "flex", "gap": "20px", "marginTop": "20px"}
     ),
+
     html.Br(),
-    dcc.Graph(id="job-pie",style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},),
-], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
+
+    # Job bar chart
+    dbc.Row([
+        dbc.Col(
+            dcc.Graph(
+                id="job-bar-chart",
+                style={
+                    "backgroundColor": "#193153",
+                    'width': '100%',
+                    'height': '400px',
+                    'marginBottom': '40px'  # ensures space for labels
+                }
+            ),
+            width=12
+        )
+    ]),
+
+    # Job table
+    dbc.Row([
+        dbc.Col(
+            dag.AgGrid(
+                id="job-table",
+                columnDefs=column_defs,
+                rowData=[],
+                defaultColDef={
+                    "resizable": True,
+                    "sortable": True,
+                    "filter": True,
+                    "cellStyle": {"textAlign": "center"}
+                },
+                dashGridOptions={"rowSelection": "single"},
+                style={"height": "300px", "width": "100%"},
+                className="ag-theme-alpine-dark",
+            ),
+            width=12
+        )
+    ], style={"marginTop": "20px"}),
+
+    # Job pie chart
+    dbc.Row([
+        dbc.Col(
+            dcc.Graph(
+                id="job-pie",
+                style={
+                    "backgroundColor": "#193153",
+                    'width': '100%',
+                    'height': '500px',
+                    'marginTop': '40px'
+                }
+            ),
+            width=12
+        )
+    ]),
+    # Time chart
+    dbc.Row([
+        dbc.Col(
+            dcc.Graph(
+                id="time-chart",
+                style={
+                    "backgroundColor": "#193153",
+                    'width': '100%',
+                    'height': '500px',
+                    'marginTop': '40px'
+                }
+            ),
+            width=12
+        )
+    ])
+],
+style={
+    'backgroundColor': '#193153',
+    'minHeight': '100vh',  # grow with content
+    'padding': '20px'
+})
+    # style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 
 @callback(
@@ -299,25 +360,14 @@ def update_table(selected_date):
     total_labor_hours = table_rows_daily["LaborHours"]
 
     cards = [
-        html.Div(f"Total Piles Drilled: {total_piles:.0f}", style={"padding": "10px", "background": "#d4edda", "borderRadius": "8px", "flex": "1"}),
-        html.Div(f"Total Concrete: {total_concrete:.1f} CY", style={"padding": "10px", "background": "#cce5ff", "borderRadius": "8px", "flex": "1"}),
-        html.Div(f"Total Rig Days: {total_rig_days:.1f}", style={"padding": "10px", "background": "#fff3cd", "borderRadius": "8px", "flex": "1"}),
-        html.Div(f"Total Man Hours: {total_labor_hours:.0f}", style={"padding": "10px", "background": "#f8d7da", "borderRadius": "8px", "flex": "1"})
+        html.Div(f"# Piles Drilled: {total_piles:.0f}", style={"padding": "10px", "background": "#d4edda", "borderRadius": "8px", "flex": "1"}),
+        html.Div(f"Concrete Used: {total_concrete:.1f} CY", style={"padding": "10px", "background": "#cce5ff", "borderRadius": "8px", "flex": "1"}),
+        html.Div(f"# Man Hours: {total_labor_hours:.0f}", style={"padding": "10px", "background": "#f8d7da", "borderRadius": "8px", "flex": "1"}),
+        html.Div(f"# Rig Days: {total_rig_days:.1f}",style={"padding": "10px", "background": "#fff3cd", "borderRadius": "8px", "flex": "1"}),
     ]
 
     return table_rows, cards
 
-# layout = html.Div([
-#     dag.AgGrid(
-#         id="job-table",
-#         columnDefs=column_defs,
-#         rowData=table_rows,
-#         defaultColDef={"resizable": True, "sortable": True, "filter": True, "cellStyle": {"textAlign": "center"}},
-#         style={"height": "300px", "width": "100%"},
-#
-#         className="ag-theme-alpine-dark",
-#     )
-# ], style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 #
 @callback(
     Output("job-bar-chart", "figure"),
@@ -328,6 +378,8 @@ def update_job_bar_chart(selected_date):
     records = []
     for job, df in summary_metrics.items():
         df_to_date = df[df['Time']<=pd.to_datetime(selected_date)]
+        if len(df_to_date)==0:
+            raise PreventUpdate
         row = df_to_date.iloc[-1]
         records.append({
             "JobNumber": job,
@@ -371,9 +423,10 @@ def update_job_bar_chart(selected_date):
         font=dict(color="white"),
         showlegend=True,
         dragmode="select",
-        margin=dict(l=50, r=50, b=50, t=50, pad=4),
+        # margin=dict(l=50, r=50, b=50, t=50, pad=4),
+        margin=dict(l=40, r=40, t=40, b=100),
         autosize = False,
-        height = 600
+        height = 500
     )
 
     return fig
@@ -384,7 +437,6 @@ def update_job_bar_chart(selected_date):
     Input("job-table", "selectedRows"),
     Input("date-picker", "date"),prevent_initial_call=True
 )
-
 
 def update_pie(selected_rows,selected_date):
     if not selected_rows:
@@ -425,7 +477,7 @@ def update_pie(selected_rows,selected_date):
             rig_data['InstallTime'].sum(),
             rig_data['DelayTime'].sum(),
         ]
-        labels = ["MoveTime", "DrillTime", "GroutTime", "InstallTime", "DelayTime"]
+        labels = ["Avg MoveTime", "Avg DrillTime", "Avg GroutTime", "Avg InstallTime", "Avg DelayTime"]
 
         fig.add_trace(
             go.Pie(labels=labels, values=values, name=f"Rig {rig}"),
@@ -447,3 +499,101 @@ def update_pie(selected_rows,selected_date):
     )
 
     return fig
+
+@callback(
+    Output("time-chart", "figure"),
+    Input("job-table", "selectedRows"),
+    Input("date-picker", "date"),prevent_initial_call=True
+)
+def update_time_chart(selected_rows, selected_date):
+    if not selected_rows:
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+
+    row = selected_rows[0]
+    job = row['JobNumber']
+
+    # unpack your data
+    jobid_pile_data = result_MWD[str(job)][1].copy()  # dict of pile data
+    properties_df = result_MWD[str(job)][0].copy()    # pile properties dataframe
+
+    # Map RigID -> list of PileIDs
+    piles_by_rig = {
+        r: list(properties_df[properties_df['RigID'] == r]['PileID'].values)
+        for r in properties_df['RigID'].unique()
+    }
+
+    data = jobid_pile_data[str(job)]
+
+    # Prepare figure with one row per RigID
+    fig = make_subplots(rows=len(piles_by_rig), cols=1,
+                        shared_xaxes=True,
+                        subplot_titles=[f"Rig {r}" for r in piles_by_rig.keys()])
+
+    # Loop through each rig
+    for i, (rig_id, pile_ids) in enumerate(piles_by_rig.items(), start=1):
+        # Collect all piles for this rig on the selected date
+        rig_df_list = []
+        for pile_id in pile_ids:
+            if pile_id in data:
+                for day, pile_data in data[pile_id].items():
+                    if day == selected_date:
+                        # Assuming pile_data is dict with Time, Depth, Strokes, Torque
+                        df = pd.DataFrame(pile_data)
+                        df['PileID'] = pile_id
+                        rig_df_list.append(df)
+
+        if not rig_df_list:
+            continue
+
+        rig_df = pd.concat(rig_df_list, ignore_index=True)
+        rig_df['Time'] =pd.to_datetime(rig_df['Time'] )
+        rig_df.sort_values(by='Time',inplace=True)
+        # Add Depth trace
+        fig.add_trace(
+            go.Scatter(x=rig_df['Time'], y=rig_df['Depth'], mode='lines', name='Depth', line=dict(color='blue')),
+            row=i, col=1
+        )
+        # Add Strokes trace
+        fig.add_trace(
+            go.Scatter(x=rig_df['Time'], y=rig_df['Strokes'], mode='lines', name='Strokes', line=dict(color='green')),
+            row=i, col=1
+        )
+        # Add Torque trace
+        fig.add_trace(
+            go.Scatter(x=rig_df['Time'], y=rig_df['Torque'], mode='lines', name='Torque', line=dict(color='orange')),
+            row=i, col=1
+        )
+
+    fig.update_layout(
+        height=400 * len(piles_by_rig),
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font_color="white",
+        showlegend=True
+    )
+
+    return fig
+# def update_time_chart(selected_rows,selected_date):
+#     if not selected_rows:
+#         # return px.pie(title="Select a row to see details")
+#         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+#
+#     row = selected_rows[0]  # Get the selected row's data
+#     job = row['JobNumber']
+#     jobid_pile_data = result_MWD[str(job)][1].copy()
+#     properties_df = result_MWD[str(job)][0].copy()
+#     piles_by_rig = {}
+#     data_by_rig={}
+#     rigs = list(properties_df['RigID'].unique())
+#     for r in rigs:
+#         piles_by_rig[r] = list(properties_df[properties_df['RigID']==r]['PileID'].values)
+#     data = jobid_pile_data[str(job)]
+#     for pile, dict in data.items():
+#         for day,v in dict.items():
+#             if day == selected_date:
+#                 for r,list_piles in rigs.items():
+#                     if pile in list_piles:
+#                         tmp = v
+#
+#
+#     return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})

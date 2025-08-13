@@ -1,6 +1,6 @@
 import dash
 from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update,ctx
-from functions import cpt_header,jobid_cpt_data,get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none
+from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none,results_CPT #cpt_header,jobid_cpt_data,
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
@@ -71,14 +71,15 @@ os.makedirs(SETTINGS_DIR, exist_ok=True)
 def get_closest_x(y_series, x_series, target_y):
     idx = (y_series - target_y).abs().idxmin()
     return x_series.iloc[idx]#, idx
-def get_filters_cpt(cpt_header):
-    cpt_header = cpt_header.copy()
+def get_filters_cpt(results_CPT):
+    # cpt_header = cpt_header.copy()
     filters = html.Div([
         dbc.Row([
             dbc.Col(
                 dcc.Dropdown(
                 id="jobid-filter-cpt",
-                options=[{"label": str(r), "value": str(r)} for r in cpt_header],
+                # options=[{"label": str(r), "value": str(r)} for r in cpt_header],
+                options=[{"label": str(r), "value": str(r)} for r in results_CPT.keys()],
                 placeholder="Filter by JobID",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -629,7 +630,7 @@ def get_pilelist_cpt():
 # =================================================================
 # =================================================================
 # =================================================================
-flts = get_filters_cpt(cpt_header)
+flts = get_filters_cpt(results_CPT)
 map = add_map()
 table = get_pilelist_cpt()
 charts = add_cpt_charts()
@@ -742,7 +743,7 @@ def update_cpt_graph(n_clicks,selected_pileid, slider_value, selected_data, wind
 
         # jobid_cpt_data = data.get('jobid_cpt_data')
 
-
+        jobid_cpt_data=results_CPT[selected_jobid][-1]
         # Get pile data
         pile_info = jobid_cpt_data[selected_jobid]
         pile_info = pile_info[selected_pileid]
@@ -818,6 +819,7 @@ def toggle_plots(n_clicks, is_open):
 def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id,selected_row, cpt_fig): #selected_date,
     if not n_clicks or (not selected_pile_id and not selected_row):
         return no_update
+    cpt_header = results_CPT[selected_job_id][0]
     try:
         if not selected_row is None:
             selected_pile_id = selected_row[0].get('HoleID')
@@ -932,6 +934,7 @@ def set_y_axis_range(mode,selected_jobid,selected_pileid,selected_row): #,select
     # Replace with your real y-data based on mode
     # Get pile data
     # jobid_cpt_data = data.get('jobid_cpt_data')
+    jobid_cpt_data = results_CPT[selected_jobid][-1]
     pile_info = jobid_cpt_data[selected_jobid]
     if not selected_row is None:
         selected_pileid = selected_row[0].get('HoleID')
@@ -989,6 +992,9 @@ def update_pileid_options(selected_jobid):
         return [], None
     # cpt_header = data.get('cpt_header')
     # Safely get the DataFrame or an empty one
+    cpt_header = results_CPT[selected_jobid][0]
+    if len(cpt_header)==0:
+        raise PreventUpdate
     df_headers = cpt_header.get(selected_jobid, pd.DataFrame())
 
     # Ensure 'HoleID' exists and is not empty
@@ -1035,6 +1041,7 @@ def populate_x_ranges(selected,selected_jobid,selected_pileid,selected_row):
     if selected_jobid is None or selected_pileid is None:
         return None,None,None,None,None,None,None,None
     # jobid_cpt_data = data.get('jobid_cpt_data')
+    jobid_cpt_data = results_CPT[selected_jobid][-1]
     pile_info = jobid_cpt_data[selected_jobid]
     if not selected_row is None:
         selected_pileid = selected_row[0].get('HoleID')
@@ -1194,6 +1201,9 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
     zoom_level = 8
 
     # Apply filters
+    cpt_header = results_CPT[selected_jobid][0]
+    if len(cpt_header)==0:
+        raise PreventUpdate
     filtered_df = cpt_header[selected_jobid]
     if not selected_row is None:
         selected_pileid = selected_row[0].get('HoleID')
@@ -1251,6 +1261,9 @@ def update_table(selected_jobid):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
         # return []  # Return an empty table before selection
+    cpt_header = results_CPT[selected_jobid][0]
+    if len(cpt_header)==0:
+        raise PreventUpdate
     filtered_df = cpt_header[selected_jobid]
     filtered_df['Tip elevation (feet)'] =filtered_df['Tip elevation (feet)'].round(decimals=2)
     filtered_df['Total Depth (feet)'] = filtered_df['Total Depth (feet)'].round(decimals=2)

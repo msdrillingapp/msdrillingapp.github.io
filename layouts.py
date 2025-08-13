@@ -34,12 +34,13 @@ def get_header():
 
 #####################
 
-def get_filters(properties_df):
+def get_filters(results_MWD):
     filters = html.Div([
         dbc.Row([
             dbc.Col(dcc.Dropdown(
                 id="jobid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["JobNumber"].dropna().unique()],
+                # options=[{"label": str(r), "value": str(r)} for r in properties_df["JobNumber"].dropna().unique()],
+                options=[{"label": str(r), "value": str(r)} for r in results_MWD.keys()],
                 placeholder="Filter by JobNumber",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -47,21 +48,23 @@ def get_filters(properties_df):
 
             dbc.Col(dcc.Dropdown(
                 id="date-filter",
-                options=[{"label": d, "value": d} for d in sorted(properties_df["date"].unique())],
+                # options=[{"label": d, "value": d} for d in sorted(properties_df["date"].unique())],
                 placeholder="Select a Date",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
             ),xs=10, sm=5, md=8, lg=6, xl=5),
             dbc.Col(dcc.Dropdown(
                 id="rigid-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["RigID"].dropna().unique()],
+                options=[],
+                # options=[{"label": str(r), "value": str(r)} for r in properties_df["RigID"].dropna().unique()],
                 placeholder="Filter by RigID",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
             ),xs=10, sm=5, md=8, lg=6, xl=5),
             dbc.Col(dcc.Dropdown(
                 id="pileid-filter",
-                options=[{"label": str(p), "value": str(p)} for p in properties_df["PileID"].dropna().unique()],
+                # options=[{"label": str(p), "value": str(p)} for p in properties_df["PileID"].dropna().unique()],
+                options=[],
                 placeholder="Filter by PileID",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -72,14 +75,16 @@ def get_filters(properties_df):
         dbc.Row([
                 dbc.Col(dcc.Dropdown(
                     id="pilecode-filter",
-                    options=[{"label": str(r), "value": str(r)} for r in properties_df["PileCode"].dropna().unique()],
+                    # options=[{"label": str(r), "value": str(r)} for r in properties_df["PileCode"].dropna().unique()],
+                    options=[],
                     placeholder="Filter by PileCode",
                     style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                     className="dark-dropdown"
                  ),xs=10, sm=5, md=8, lg=6, xl=5),
             dbc.Col(dcc.Dropdown(
                 id="productcode-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["ProductCode"].dropna().unique()],
+                # options=[{"label": str(r), "value": str(r)} for r in properties_df["ProductCode"].dropna().unique()],
+                options=[],
                 placeholder="Filter by ProductCode",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -87,7 +92,8 @@ def get_filters(properties_df):
             #
             dbc.Col(dcc.Dropdown(
                 id="piletype-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["PileType"].dropna().unique()],
+                # options=[{"label": str(r), "value": str(r)} for r in properties_df["PileType"].dropna().unique()],
+                options=[],
                 placeholder="Filter by PileType",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -95,7 +101,8 @@ def get_filters(properties_df):
 
             dbc.Col(dcc.Dropdown(
                 id="pilestatus-filter",
-                options=[{"label": str(r), "value": str(r)} for r in properties_df["PileStatus"].dropna().unique()],
+                # options=[{"label": str(r), "value": str(r)} for r in properties_df["PileStatus"].dropna().unique()],
+                options=[],
                 placeholder="Filter by PileStatus",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -120,7 +127,8 @@ def get_pilelist():
                     id="pilelist-table",
                     columnDefs=[
                         {"headerName": "PileID", "field": "PileID", "sortable": True, "filter": True, "pinned": "left"},
-                        {"headerName": "Date", "field": "Date", "sortable": True, "filter": True},
+                        {"headerName": "Date", "field": "Date", "sortable": True, "filter": True,"hide": True},
+                        {"headerName": "Time", "field": "Time", "sortable": True, "filter": True},
                         {"headerName": "JobNumber", "field": "JobNumber", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
                         {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
@@ -131,23 +139,24 @@ def get_pilelist():
                         {"headerName": "PileCode", "field": "PileCode", "sortable": True, "filter": True,"editable": True, "cellEditor": "agSelectCellEditor",
                          "cellEditorParams": {"values": ["Production Pile", "Test Pile","Recation Pile","Probe"]},"headerClass": "header-red" },
                         {"headerName": "Comments", "field": "Comments", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
-                        {"headerName": "DelayTime", "field": "DelayTime", "sortable": True, "filter": True, "editable": False},
-                        {"headerName": "Delay", "field": "Delay", "sortable": True, "filter": True, "editable": True,
+                        {"headerName": "DelayTime[min]", "field": "DelayTime", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "DelayReason", "field": "Delay", "sortable": True, "filter": True, "editable": True,
                          "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ['Waiting on Concrete', 'Site access', 'Layout','Other']},"headerClass": "header-red"},
                          {"headerName": "PumpID", "field": "PumpID", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
                         {"headerName": "Calibration", "field": "Calibration", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
                         {"headerName": "PileType", "field": "PileType", "sortable": True, "filter": True, "editable": False,
                             "cellEditor": "agSelectCellEditor", "cellEditorParams": {"values": ["1", "2", "3", "3A", "4", "5"]},},
                         {"headerName": "Distance", "field": "Distance", "sortable": True, "filter": True, "editable": False},
-                        {"headerName": "MoveTime", "field": "MoveTime", "sortable": True, "filter": True, "editable": False},
-                        {"headerName": "Totaltime", "field": "Totaltime", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "MoveTime[min]", "field": "MoveTime", "sortable": True, "filter": True, "editable": False},
+                        {"headerName": "TotalTime", "field": "TotalTime", "sortable": True, "filter": True, "editable": False,'hide':True},
+                        {"headerName": "InstallTime[min]", "field": "InstallTime", "sortable": True, "filter": True,"editable": False},
 
                         {"headerName": "RigID", "field": "RigID", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "Client", "field": "Client", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "DrillStartTime", "field": "DrillStartTime", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "DrillEndTime", "field": "DrillEndTime", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "PileLength", "field": "PileLength", "sortable": True, "filter": True,"hide": True},
-                        {"headerName": "PileDiameter", "field": "PileDiameter", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "PileDiameter [in]", "field": "PileDiameter", "sortable": True, "filter": True, "hide": False},
 
                     ],
                     rowData=[],  # Initially empty
@@ -220,7 +229,7 @@ def get_filtered_table():
                         ),xs=12, sm=12, md=8, lg=6, xl=6)])],
     )
     return  filterd_table
-def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak):
+def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak,installtime,cycletime):
     details = html.Div([
         html.H5(title),
         dbc.Row([
