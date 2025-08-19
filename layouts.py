@@ -182,7 +182,7 @@ def get_pilelist():
                 # Print Button
                 html.Button("Download Pile List", id="btn_download", n_clicks=0),
                 # ,style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between','marginLeft': '5px'}
-                html.Button("Save changes", id="btn_save", n_clicks=0,style={'marginLeft': '5px'}),
+                # html.Button("Save changes", id="btn_save", n_clicks=0,style={'marginLeft': '5px'}),
                 dcc.Download(id="download-csv"),
                 # html.Button("Go to CPT charts", id='go-button'),
                 # dcc.Store(id='shared-data', storage_type='session')
@@ -238,31 +238,38 @@ def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak,in
                     html.Div("⏳ Move Time", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(move_time, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=3, xl=3
+                xs=6, sm=5, md=6, lg=2, xl=2
             ),
             dbc.Col(
                 html.Div([
                     html.Div("📐 Distance", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(move_distance, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=3, xl=3
+                xs=6, sm=5, md=6, lg=2, xl=2
+            ),
+            dbc.Col(
+                html.Div([
+                    html.Div("⏳ Install Time", style={"fontWeight": "bold", "fontSize": "14px"}),
+                    html.Div(installtime, style={"fontSize": "14px", "color": "white"})
+                ], style={"padding": "5px", "textAlign": "center"}),
+                xs=6, sm=5, md=6, lg=2, xl=2
             ),
             dbc.Col(
                 html.Div([
                     html.Div("⏰ Delay Time", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(delay_time, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=3, xl=3
+                xs=6, sm=5, md=6, lg=2, xl=2
             ),
             dbc.Col(
                 html.Div([
                     html.Div("🚧 OverBreak", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(overbreak, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center", }),
-                xs=6, sm=5, md=6, lg=3, xl=3
+                xs=6, sm=5, md=6, lg=2, xl=2
             ),
         ], className="g-2")
-    ], style={'padding': '20px'})
+    ], style={'padding': '10px'})
 
     return details
 

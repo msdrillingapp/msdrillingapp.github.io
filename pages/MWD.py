@@ -216,10 +216,15 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
     Output("pilelist-table", "rowData"),
     [Input("jobid-filter", "value"),
      Input("date-filter", "value"),
-     Input("rigid-filter", "value")],
+     Input("rigid-filter", "value"),
+     Input('pilecode-filter', "value"),
+     Input('pilestatus-filter', "value"),
+     Input('piletype-filter', "value"),
+     Input('productcode-filter', "value")
+     ],
     # prevent_initial_call=True,
 )
-def update_table(selected_jobid, selected_date,selected_rigid):
+def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
         # return []  # Return an empty table before selection
@@ -232,6 +237,13 @@ def update_table(selected_jobid, selected_date,selected_rigid):
         filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
     if not selected_rigid is None:
         filtered_df = filtered_df[(filtered_df["RigID"] == selected_rigid)]
+    if not selected_productcode is None:
+        filtered_df = filtered_df[(filtered_df["ProductCode"] == selected_productcode)]
+    if not selected_piletype is None:
+        filtered_df = filtered_df[(filtered_df["PileType"] == selected_piletype)]
+    if not selected_pilestatus is None:
+        filtered_df = filtered_df[(filtered_df["PileStatus"] == selected_pilestatus)]
+
 
     summary_data = []
     for _, row in filtered_df.iterrows():
@@ -305,14 +317,23 @@ def update_table(selected_jobid, selected_date,selected_rigid):
             jobid_pile_data = result_MWD[selected_jobid][1]
             # Retrieve Depth & Strokes from pile_data
             pile_data = jobid_pile_data[selected_jobid].copy()
-            if pile_id in pile_data and use_date in pile_data[pile_id]:
-                depth_values = pile_data[pile_id][use_date]["Depth"]
-                strokes_values = pile_data[pile_id][use_date]["Strokes"]
-                min_depth = min(depth_values) if depth_values else None
-                max_strokes = max(strokes_values) if strokes_values else None
+            if selected_date:
+                if pile_id in pile_data and use_date in pile_data[pile_id]:
+                    depth_values = pile_data[pile_id][use_date]["Depth"]
+                    strokes_values = pile_data[pile_id][use_date]["Strokes"]
+                    min_depth = min(depth_values) if depth_values else None
+                    max_strokes = max(strokes_values) if strokes_values else None
+                else:
+                    min_depth = None
+                    max_strokes = None
             else:
-                min_depth = None
-                max_strokes = None
+                if pile_id in pile_data:
+                    for k,v in pile_data[pile_id].items():
+                        min_depth = min(v['Depth'])
+                        max_strokes = max(v['Strokes'])
+                else:
+                    min_depth = None
+                    max_strokes = None
         diameter = round(float(row['PileDiameter'])*feet2inch,2)
 
         dict_data = {
@@ -407,10 +428,6 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
     filtered_df = properties_df.copy()
 
     # Apply filtering based on selected values
-    # if selected_jobid:
-    #     properties_df = result_MWD[selected_jobid][0]
-    #     filtered_df = properties_df.copy()
-        # filtered_df = filtered_df[filtered_df["JobNumber"] == selected_jobid]
     if selected_date:
         filtered_df = filtered_df[filtered_df["date"] == selected_date]
     if selected_rigid:
@@ -433,12 +450,12 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
     out.sort()
     out = [x.strftime(format='%Y-%m-%d') for x in out]
     date_options = [{"label": d, "value": d} for d in out]
-    rigid_options = [{"label": r, "value": r} for r in filtered_df["RigID"].unique()]
-    pileid_options = [{"label": p, "value": p} for p in filtered_df["PileID"].unique()]
-    pilecode_options = [{"label": p, "value": p} for p in filtered_df["PileCode"].unique()]
-    pilestatus_options = [{"label": p, "value": p} for p in filtered_df["PileStatus"].unique()]
-    piletype_options = [{"label": p, "value": p} for p in filtered_df["PileType"].unique()]
-    productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique()]
+    rigid_options = [{"label": r, "value": r} for r in filtered_df["RigID"].unique() if r == r]
+    pileid_options = [{"label": p, "value": p} for p in filtered_df["PileID"].unique() if p == p]
+    pilecode_options = [{"label": p, "value": p} for p in filtered_df["PileCode"].unique() if p == p]
+    pilestatus_options = [{"label": p, "value": p} for p in filtered_df["PileStatus"].unique() if p == p]
+    piletype_options = [{"label": p, "value": p} for p in filtered_df["PileType"].unique() if (p!='nan')]
+    productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
 
 
     # Reset values **ONLY IF JobID was changed**
@@ -466,7 +483,21 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
             prev_date, prev_rigid, prev_pileid,  prev_pilecode, prev_pilestatus, prev_piletype, prev_productcode)
 
 
-
+def get_color_marker(piletype):
+    if piletype == '1':
+        return 'blue'
+    elif piletype == '2':
+        return 'yellow'
+    elif piletype == '3':
+        return 'green'
+    elif piletype == '4':
+        return 'red'
+    elif piletype == '5':
+        return 'orange'
+    elif piletype == '5B':
+        return 'purple'
+    else:
+        return 'orange'
 
 # ==================================================================================================
 # Callback to update map markers and recenter the map
@@ -516,18 +547,22 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 
     markers = []
     if len(filtered_df)>0:
+        if len(list(filter_none(filtered_df["longitude"])))==0:
+            raise PreventUpdate
         zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df["longitude"])),list(filter_none(filtered_df["latitude"])))
         for _, row in filtered_df.iterrows():
             if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
                 pile_code = row.get("PileCode", "")
                 piletype = row.get("PileType", "")
-
+                pile_status = row.get("PileStatus", "")
                 # Assign different marker styles
                 if pile_code.lower() == "Production Pile".lower():  # Circle
-                    if piletype == 1:
-                        donut = "/assets/icons/blue-donut.png"
+                    color_text = get_color_marker(piletype)
+                    if pile_status=='Complete':
+                        donut = "/assets/icons/"+color_text+"-donut_fill.png"
                     else:
-                        donut = "/assets/icons/yellow-donut.png"
+                        donut = "/assets/icons/"+color_text+"-donut.png"
+
                     marker = dl.Marker(
                         position=(row["latitude"], row["longitude"]),
                         icon=dict(
@@ -538,10 +573,14 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                     )
 
                 elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
+                    if pile_status == 'Complete':
+                        icon = 'assets/icons/yellow-square_fill.png'
+                    else:
+                        icon = 'assets/icons/yellow-square.png'
                     marker = dl.Marker(
                         position=(row["latitude"], row["longitude"]),
                         icon=dict(
-                            iconUrl='assets/icons/yellow-square.png',  # Path to your image in assets folder
+                            iconUrl=icon,  # Path to your image in assets folder
                             iconSize=[10, 10]  # Size of the icon in pixels
                         ),
                         children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
@@ -558,10 +597,14 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                     )
 
                 else:  # Default marker for other PileCodes Probe
+                    if pile_status == 'Complete':
+                        icon = "/assets/icons/red-triangle_fill.png"
+                    else:
+                        icon = "/assets/icons/red-triangle.png"
                     marker = dl.Marker(
                         position=(row["latitude"], row["longitude"]),
                         icon=dict(
-                            iconUrl="/assets/icons/red-triangle.png",  # Path to your image in assets folder
+                            iconUrl=icon,  # Path to your image in assets folder
                             iconSize=[10, 10]  # Size of the icon in pixels
                         ),
                         children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
@@ -675,6 +718,7 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
 
     # Extract statistics
     move_time = filtered_df["MoveTime"].iloc[0] if "MoveTime" in filtered_df.columns else "N/A"
+
     move_distance = filtered_df["MoveDistance"].iloc[0] if "MoveDistance" in filtered_df.columns else "N/A"
     try:
         move_distance =round(move_distance,2)
@@ -717,16 +761,16 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
 
     # Filter data for the selected PileID
     properties_df = result_MWD[selected_jobid][0].copy()
-    filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
-
+    # filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
+    filtered_df = properties_df
     if not selected_date is None:
         filtered_df=filtered_df[filtered_df['date']==selected_date]
     if not selected_rigid is None:
         filtered_df = filtered_df[filtered_df['RigID'] == selected_rigid]
     if not selected_pilecode is None:
         filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
-    if not selected_pilestatus is None:
-        filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
+    # if not selected_pilestatus is None:
+    #     filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
     if not selected_pilestatus is None:
         filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
     if not selected_piletype is None:

@@ -73,13 +73,14 @@ def get_closest_x(y_series, x_series, target_y):
     return x_series.iloc[idx]#, idx
 def get_filters_cpt(results_CPT):
     # cpt_header = cpt_header.copy()
+    jobs = [x for x in results_CPT.keys() if len(results_CPT[x][0])>0]
     filters = html.Div([
         dbc.Row([
             dbc.Col(
                 dcc.Dropdown(
                 id="jobid-filter-cpt",
                 # options=[{"label": str(r), "value": str(r)} for r in cpt_header],
-                options=[{"label": str(r), "value": str(r)} for r in results_CPT.keys()],
+                options=[{"label": str(r), "value": str(r)} for r in jobs],
                 placeholder="Filter by JobID",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"
@@ -182,7 +183,7 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None,
         # Find the closest data point to the selected y_value for each trace
         df = pd.DataFrame(filtered_data)
         # Add horizontal line to each subplot
-        for col in range(1, 5):
+        for col in range(1, num_charts+1):
             fig.add_hline(
                 y=y_value,
                 line_dash="dot",
@@ -263,7 +264,7 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None,
         showlegend=False,
         dragmode="select",
         autosize=True,
-        margin=dict(l=50, r=50, b=50, t=50, pad=4)
+        margin=dict(l=50, r=50, b=100, t=50, pad=4)
     )
 
 
@@ -295,29 +296,31 @@ def create_cpt_charts(pile_info, use_depth: bool = False, y_value: float = None,
     fig.update_annotations(font_size=11)
     fig.update_yaxes(range=[minD, maxD])
 
-    fig.update_layout(autosize=False, height=600)
+    fig.update_layout(autosize=False, height=550)
     fig = go.Figure(fig)  # Create fresh figure object
     return fig
 
 
 def add_cpt_charts():
-    charts = dbc.Collapse(
-        html.Div([
+    return dbc.Collapse(
+        dbc.Container([
             html.Button("Download PDF for PileID", id='download-pdf-btn-cpt', disabled=True),
-            # html.Button("Open Chart in New Tab", id='open-btn'),
-            # html.Div(id='link-container'),  # Where we'll insert the <a> link
             dbc.Row([
                 dbc.Col(
                     dcc.Graph(
                         id="cpt_graph",
-                        style={"backgroundColor": "#193153", 'width': '100%', 'marginBottom': '5px','height': '500px'},
-                        config={'displayModeBar': False,'scrollZoom': True}
+                        style={
+                            "backgroundColor": "#193153",
+                            'width': '100%',
+                            'height': '500px',
+                            'marginBottom': '20px'  # Added space below graph
+                        },
+                        config={'displayModeBar': False, 'scrollZoom': True}
                     ),
-                    xs=12, sm=12, md=12, lg=12, xl=12
+                    width=12
                 ),
             ]),
             dcc.Download(id="download-pdf-cpt"),
-            # Add the slider below the graph
             dbc.Row([
                 dbc.Col(
                     dcc.Slider(
@@ -327,21 +330,20 @@ def add_cpt_charts():
                         value=50,
                         step=0.1,
                         marks=None,
-                        tooltip={"placement": "bottom", "always_visible": True},
-                        className="custom-slider"
+                        tooltip={"placement": "top", "always_visible": True},
+                        className="custom-slider",
+                        updatemode='mouseup',  # This ensures updates happen during drag, not just on release
+                        persistence=True,  # Helps maintain state
+                        persistence_type = 'memory'
                     ),
                     width=12
                 )
-            ], style={'marginTop': '20px', 'padding': '0 20px'}),
-            # Store the current y-value
+            ], style={'padding': '20px 0'}),  # Added padding above and below slider
             dcc.Store(id='current-y-value', storage_type='memory', data=None)
-
-        ]),
+        ], fluid=True),
         id="collapse-plots-cpt",
         is_open=False
     )
-    return charts
-
 
 
 def add_chart_controls():
@@ -467,28 +469,10 @@ def add_chart_controls():
                     ]),
                 ], className="mb-4")
             ]),
-            # dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="me-2"),
-            # dbc.Button("📂 Load Settings", id="load-settings-btn", color="success"),
-            # dcc.Store(id="chart-settings"),
 
             # =============================================
             html.Hr(style={"borderTop": "1px solid white"}),
 
-            # html.Div([
-            #     html.Label("Save Settings As:", style={"color": "white"}),
-            #     dbc.Input(id="profile-name", placeholder="e.g. default, run1, clientXYZ", type="text",
-            #               style={"background": "#193153", "color": "white"}),
-            #     dbc.Button("💾 Save Settings", id="save-settings-btn", color="info", className="mt-2"),
-            # # ], style={"width": "300px"}),
-            # #
-            # # html.Div([
-            #
-            #     html.Label("Load Saved Settings (please select JobID and CPTID):", style={"color": "white", "marginTop": "20px"}),
-            #     dcc.Dropdown(id="load-settings-dropdown", options=[], className="dark-dropdown"),
-            #     dbc.Button("📂 Load Settings", id="load-settings-btn", color="success", className="mt-2"),
-            #
-            #     dbc.Button("Reset Controls", id="reset-controls-btn", color="warning", className="mb-2 ms-2"),
-            # ], style={"width": "300px", "marginTop": "20px"}),
             html.Div([
                 # Save section
                 html.Label("Save Settings As:", style={"color": "white"}),
@@ -601,14 +585,6 @@ def get_pilelist_cpt():
                             "animateRows": True,
                             'undoRedoCellEditing': True,
                             'undoRedoCellEditingLimit': 20,
-                            # "suppressRowHoverHighlight": True,
-                            # "suppressColumnMoveAnimation": True,
-                            # "suppressDragLeaveHidesColumns": True,
-                            # "suppressLoadingOverlay": True,
-                            # "suppressMenuHide": True,
-                            # "rowBuffer": 20,  # Only render rows close to visible area
-                            # "cacheBlockSize": 20,
-                            # "maxBlocksInCache": 5
                         },
                     columnSize = "sizeToFit",
                 ),
@@ -657,6 +633,10 @@ app.clientside_callback(
     function(href) {
         var style = document.createElement('style');
         style.innerHTML = `
+            .custom-slider {
+                margin-top: 20px;
+                padding: 0 20px;
+            }
             .custom-slider .rc-slider-track {
                 background-color: #4a90e2;
             }
@@ -666,6 +646,9 @@ app.clientside_callback(
             .custom-slider .rc-slider-tooltip-inner {
                 background-color: #4a90e2;
                 color: white;
+            }
+            #cpt_graph {
+                margin-bottom: 30px !important;
             }
         `;
         document.head.appendChild(style);
@@ -680,117 +663,98 @@ app.clientside_callback(
 # =================================================================
 # ========================CALLBACKS ===============================
 # =================================================================
+
 @callback(
-    Output("cpt_graph", "figure"),
-    Output('download-pdf-btn-cpt', 'disabled'),
-    # Output('link-container', 'children'),
-    # Input('open-btn', 'n_clicks'),
     Output('y-value-slider', 'min'),
     Output('y-value-slider', 'max'),
     Output('y-value-slider', 'value'),
     Output('current-y-value', 'data'),
     Input("update-btn", "n_clicks"),
     Input('pileid-filter-cpt', 'value'),
-    # Input('date-filter-cpt', 'value'),
-    Input('y-value-slider', 'value'),
-    Input('cpt_graph', 'selectedData'),
-    Input('window-size', 'data'),
     Input('pilelist-table-cpt', 'selectedRows'),
     State("jobid-filter-cpt", "value"),
-    State('current-y-value', 'data'),
     State("y-axis-mode", "value"),
-    State("x1-min", "value"), State("x1-max", "value"),
-    State("x2-min", "value"), State("x2-max", "value"),
-    State("x3-min", "value"), State("x3-max", "value"),
-    State("x4-min", "value"), State("x4-max", "value"),
-    State("y-axis-min", "value"),
-    State("y-axis-max", "value"),
+    prevent_initial_call=True
+)
+def update_slider_range(n_clicks,selected_pileid, selected_row, selected_jobid, y_mode):
+
+    if not selected_jobid:
+        raise PreventUpdate
+    # Handle row selection
+    if not selected_row is None:
+        selected_pileid = selected_row[0].get('HoleID')
+        if selected_pileid == 'ALL':
+            selected_pileid = None
+            selected_row = None
+
+    if not selected_pileid and not selected_row:
+        raise PreventUpdate
+    # get the pile_info
+    jobid_cpt_data = results_CPT[selected_jobid][-1]
+    if selected_row:
+        selected_pileid = selected_row[0].get('HoleID')
+
+    pile_info = jobid_cpt_data[selected_jobid][selected_pileid]
+    y_ax_name = 'Depth (feet)' if y_mode == 'depth' else 'Elevation (feet)'
+
+    minD = min(pile_info[y_ax_name]) - 5
+    maxD = max(pile_info[y_ax_name]) + 5
+    mid = (minD + maxD) / 2
+
+    return minD, maxD, mid, mid
+
+# 2️⃣ Update chart when slider moves or y_value changes
+@callback(
+    Output("cpt_graph", "figure"),
+    Output('download-pdf-btn-cpt', 'disabled'),
+Input("update-btn", "n_clicks"),
+    Input('y-value-slider', 'value'),
+    State('current-y-value', 'data'),
+    State("pileid-filter-cpt", "value"),
+    State("pilelist-table-cpt", "selectedRows"),
+    State("jobid-filter-cpt", "value"),
+    State("y-axis-mode", "value"),
     State("chart-type-selector","value"),
     State("template-selector", "value"),
     prevent_initial_call=True
-)#slider_value,current_y_value,
-def update_cpt_graph(n_clicks,selected_pileid, slider_value, selected_data, window_size,selected_row,selected_jobid,current_y_value,
-                      y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max,y_max,y_min,selected_charts,selected_template):
+)
+def update_cpt_graph(n_clicks,slider_value, current_y_value,
+                     selected_pileid, selected_row,
+                     selected_jobid, y_mode,
+                     selected_charts, selected_template):
 
-        ctx = dash.callback_context
-        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
+    # fallback to current_y_value if slider not moved
+    y_value = slider_value if slider_value is not None else current_y_value
 
-        if not selected_row is None:
-            selected_pileid = selected_row[0].get('HoleID')
-            if selected_pileid == 'ALL':
-                selected_pileid = None
-                selected_row = None
+    if not selected_jobid:
+        raise PreventUpdate
+    # Handle row selection
+    if not selected_row is None:
+        selected_pileid = selected_row[0].get('HoleID')
+        if selected_pileid == 'ALL':
+            selected_pileid = None
+            selected_row = None
 
-        if not selected_pileid and not selected_row:
-            return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True , 0, 100, 50, None
+    if not selected_pileid and not selected_row:
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True
 
+    # get pile_info
+    jobid_cpt_data = results_CPT[selected_jobid][-1]
+    if selected_row:
+        selected_pileid = selected_row[0].get('HoleID')
+    pile_info = jobid_cpt_data[selected_jobid][selected_pileid]
 
+    num_charts = 3 if selected_template == '3' else 4
+    chart_types = selected_charts[:num_charts]
+    use_depth = (y_mode == "depth")
 
-        num_charts = 3 if selected_template=='3' else 4
-        chart_types = selected_charts[:num_charts]
+    fig = create_cpt_charts(
+        pile_info, use_depth=use_depth,
+        y_value=y_value, num_charts=num_charts,
+        selected_charts=chart_types
+    )
 
-        use_depth = (y_mode == "depth")
-
-        # Build a dict of x-axis limits
-        x_limits = {
-            1: (x1_min, x1_max),
-            2: (x2_min, x2_max),
-            3: (x3_min, x3_max),
-            # 4: (x4_min, x4_max),
-        }
-        if num_charts == 4:
-            x_limits[4] = (x4_min, x4_max)
-
-        # jobid_cpt_data = data.get('jobid_cpt_data')
-
-        jobid_cpt_data=results_CPT[selected_jobid][-1]
-        # Get pile data
-        pile_info = jobid_cpt_data[selected_jobid]
-        pile_info = pile_info[selected_pileid]
-        # Determine y-axis range
-        y_ax_name = 'Elevation (feet)'  # or 'Depth (feet)' based on your logic
-        if y_min is None:
-            minD = min(pile_info[y_ax_name]) - 5
-        else:
-            minD = y_min
-        if y_max is None:
-            maxD = max(pile_info[y_ax_name]) + 5
-        else:
-            maxD = y_max
-
-        # Handle y-value updates
-        y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
-        # y_value = 0
-        if trigger_id == 'y-value-slider':
-            y_value = slider_value
-            # y_value=0
-            pass
-        elif trigger_id == 'cpt_graph' and selected_data is not None:
-            y_values = [point['y'] for point in selected_data['points']]
-            if y_values:
-                y_value = np.mean(y_values)
-
-        # Create figure with current y-value and annotations
-        fig = create_cpt_charts(pile_info,use_depth=use_depth, y_value=y_value,num_charts=num_charts,selected_charts=chart_types)
-
-        # Apply x-axis ranges to each subplot
-        for i in range(1, num_charts+1):
-            min_val, max_val = x_limits[i]
-            if min_val is not None and max_val is not None:
-                fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
-
-        fig.update_yaxes(range=[minD,maxD])
-
-        # chart_html = pio.to_html(fig, full_html=True, include_plotlyjs='cdn')
-        # # Generate a unique ID and store the HTML
-        # chart_id = str(uuid.uuid4())
-        # chart_store[chart_id] = chart_html
-
-        return fig, False, minD, maxD, y_value,y_value
-
-# Custom Flask route to serve the HTML
-
-
+    return fig, False
 
 
 @callback(
@@ -919,36 +883,7 @@ def toggle_chart_controls(n_clicks, is_open):
     return is_open
 
 
-@callback(
-    Output("y-axis-min", "value"),
-    Output("y-axis-max", "value"),
-    Input("y-axis-mode", "value"),
-    [State('jobid-filter-cpt', 'value'),
-     State('pileid-filter-cpt', 'value'),
-State('pilelist-table-cpt', 'selectedRows'),
-     # State('date-filter-cpt', 'value')
-     ],
-    prevent_initial_call=True
-)
-def set_y_axis_range(mode,selected_jobid,selected_pileid,selected_row): #,selected_date
-    # Replace with your real y-data based on mode
-    # Get pile data
-    # jobid_cpt_data = data.get('jobid_cpt_data')
-    jobid_cpt_data = results_CPT[selected_jobid][-1]
-    pile_info = jobid_cpt_data[selected_jobid]
-    if not selected_row is None:
-        selected_pileid = selected_row[0].get('HoleID')
-    pile_info = pile_info[selected_pileid]
-    # Determine y-axis range
-    if mode =='elevation':
-        y_ax_name = 'Elevation (feet)'
-    else:
-        y_ax_name = 'Depth (feet)'
 
-    minD = round(min(pile_info[y_ax_name]),2)
-    maxD = round(max(pile_info[y_ax_name]),2)
-
-    return minD, maxD
 
 @callback(
     Output("chart-type-selector", "value",allow_duplicate=True),
@@ -1025,45 +960,6 @@ def update_chart_labels(selected):
     return labels
 
 
-@callback(
-    Output("x1-min", "value",allow_duplicate=True), Output("x1-max", "value",allow_duplicate=True),
-    Output("x2-min", "value",allow_duplicate=True), Output("x2-max", "value",allow_duplicate=True),
-    Output("x3-min", "value",allow_duplicate=True), Output("x3-max", "value",allow_duplicate=True),
-    Output("x4-min", "value",allow_duplicate=True), Output("x4-max", "value",allow_duplicate=True),
-    Input("chart-type-selector", "value"),
-    [State('jobid-filter-cpt', 'value'),
-     State('pileid-filter-cpt', 'value'),
-State('pilelist-table-cpt', 'selectedRows')
-     # State('date-filter-cpt', 'value'),
-     ],prevent_initial_call=True,
-)
-def populate_x_ranges(selected,selected_jobid,selected_pileid,selected_row):
-    if selected_jobid is None or selected_pileid is None:
-        return None,None,None,None,None,None,None,None
-    # jobid_cpt_data = data.get('jobid_cpt_data')
-    jobid_cpt_data = results_CPT[selected_jobid][-1]
-    pile_info = jobid_cpt_data[selected_jobid]
-    if not selected_row is None:
-        selected_pileid = selected_row[0].get('HoleID')
-    pile_info = pile_info[selected_pileid]
-    ranges = []
-    for i in range(len(selected)):
-        if i < len(selected):
-            chart_key = selected[i]
-            variables = charts_details[chart_key][1]
-            col = variables[0]  # use first x-variable
-            if col in pile_info:
-                col_min = np.nanmin(pile_info[col])
-                col_max = np.nanmax(pile_info[col])
-            else:
-                col_min, col_max = None, None
-        else:
-            col_min, col_max = None, None
-        ranges += [col_min, col_max]
-    while len(ranges)<8:
-        ranges+=[0,0]
-
-    return ranges
 
 
 @callback(
@@ -1075,11 +971,13 @@ def populate_x_ranges(selected,selected_jobid,selected_pileid,selected_row):
     State("x2-min", "value"), State("x2-max", "value"),
     State("x3-min", "value"), State("x3-max", "value"),
     State("x4-min", "value"), State("x4-max", "value"),
+    State("y-axis-min","value"),State("y-axis-max","value"),
+    State("y-axis-mode","value"),
     State("template-selector", "value"),
     prevent_initial_call=True
 )
 def save_settings_to_file(n_clicks, profile_name, charts, x1min, x1max, x2min, x2max, x3min, x3max, x4min, x4max,
-                          template):
+                          y_min,y_max,y_mode,template):
     if not profile_name:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         filename = f"profile_{timestamp}.json"
@@ -1089,6 +987,8 @@ def save_settings_to_file(n_clicks, profile_name, charts, x1min, x1max, x2min, x
     settings = {
         "charts": charts,
         "x_ranges": [(x1min, x1max), (x2min, x2max), (x3min, x3max), (x4min, x4max)],
+        "y_range": [(y_min,y_max)],
+        "y_mode": y_mode,
         "template": template
     }
 
@@ -1098,30 +998,7 @@ def save_settings_to_file(n_clicks, profile_name, charts, x1min, x1max, x2min, x
 
     return [{"label": f, "value": f} for f in sorted(os.listdir(SETTINGS_DIR))]
 
-# @callback(Output("chart-type-selector", "value"),
-#     Output("x1-min", "value"), Output("x1-max", "value"),
-#     Output("x2-min", "value"), Output("x2-max", "value"),
-#     Output("x3-min", "value"), Output("x3-max", "value"),
-#     Output("x4-min", "value"), Output("x4-max", "value"),
-#     Output("template-selector", "value",allow_duplicate=True),
-#     Input("load-settings-btn", "n_clicks"),
-#     State("load-settings-dropdown", "value"),
-#     prevent_initial_call=True
-# )
-# def load_settings_from_file(n_clicks, selected_file):
-#     if not selected_file:
-#         return dash.no_update
-#
-#     filepath = os.path.join(SETTINGS_DIR, selected_file)
-#     with open(filepath, "r") as f:
-#         data = json.load(f)
-#
-#     charts = data.get("charts", [])
-#     x_ranges = data.get("x_ranges", [(None, None)] * 4)
-#     template = data.get("template", "4")
-#     flat_ranges = [v for pair in x_ranges for v in pair]
-#
-#     return charts, *flat_ranges, template
+
 
 @callback(
     Output("load-settings-dropdown", "options"),
@@ -1131,54 +1008,6 @@ def update_profile_dropdown(_):
     return [{"label": f, "value": f} for f in sorted(os.listdir(SETTINGS_DIR))]
 
 
-@callback(
-    Output("chart-type-selector", "value"),
-    Output("x1-min", "value"), Output("x1-max", "value"),
-    Output("x2-min", "value"), Output("x2-max", "value"),
-    Output("x3-min", "value"), Output("x3-max", "value"),
-    Output("x4-min", "value"), Output("x4-max", "value"),
-    Output("template-selector", "value", allow_duplicate=True),
-
-    Input("load-settings-btn", "n_clicks"),
-    Input("reset-controls-btn", "n_clicks"),
-
-    State("load-settings-dropdown", "value"),
-    prevent_initial_call=True
-)
-def handle_load_or_reset(load_clicks, reset_clicks, selected_file):
-    triggered_id = ctx.triggered_id
-
-    if triggered_id == "load-settings-btn":
-        if not selected_file:
-            return no_update
-
-        filepath = os.path.join(SETTINGS_DIR, selected_file)
-        try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-            return no_update
-
-        charts = data.get("charts", [])
-        x_ranges = data.get("x_ranges", [(None, None)] * 4)
-        template = data.get("template", "4")
-        flat_ranges = [v for pair in x_ranges for v in pair]
-
-        return charts, *flat_ranges, template
-
-    elif triggered_id == "reset-controls-btn":
-        # Set default values (adjust as needed)
-        return (
-            ["cone", "friction", "pore", "sbt"],
-            None, None,
-            None, None,
-            None, None,
-            None, None,
-            "4"
-        )
-
-    return no_update
 
 
 @callback(
@@ -1229,12 +1058,18 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
                             iconUrl=donut,  # Path to your image in assets folder
                             iconSize=[10, 10]  # Size of the icon in pixels
                         ),
-                        children=[dl.Tooltip(f"CPTID: {row['HoleID']}")]
+                        children=[
+                            dl.Tooltip(
+                                f"{row['HoleID']}",
+                                permanent=True,  # 👈 always visible
+                                direction="top"  # place above the marker (options: "top", "right", "left", "bottom")
+                            )
+                        ]
                     )
+
 
             center = [row[lat_col], row[lon_col]]
             markers.append(marker)
-
 
     return markers, center,zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
 
@@ -1312,3 +1147,499 @@ def download_csv_cpt(n_clicks,data):
         df = pd.DataFrame(data)
         csv_string = df.to_csv(index=False, encoding='utf-8')
         return dict(content=csv_string, filename=f"CPTList_data_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+
+
+@callback(
+    Output("y-axis-min", "value", allow_duplicate=True),
+    Output("y-axis-max", "value", allow_duplicate=True),
+    Output("x1-min", "value", allow_duplicate=True),
+    Output("x1-max", "value", allow_duplicate=True),
+    Output("x2-min", "value", allow_duplicate=True),
+    Output("x2-max", "value", allow_duplicate=True),
+    Output("x3-min", "value", allow_duplicate=True),
+    Output("x3-max", "value", allow_duplicate=True),
+    Output("x4-min", "value", allow_duplicate=True),
+    Output("x4-max", "value", allow_duplicate=True),
+    Output("chart-type-selector", "value", allow_duplicate=True),
+    Output("y-axis-mode", "value", allow_duplicate=True),
+    Output("template-selector", "value", allow_duplicate=True),
+    Output("load-settings-dropdown", "value", allow_duplicate=True),
+
+    Input("y-axis-mode", "value"),
+    Input("chart-type-selector", "value"),
+    Input('pileid-filter-cpt', 'value'),
+    Input('pilelist-table-cpt', 'selectedRows'),
+    Input("load-settings-btn", "n_clicks"),
+    Input("reset-controls-btn", "n_clicks"),
+
+    State('jobid-filter-cpt', 'value'),
+    State("load-settings-dropdown", "value"),
+    prevent_initial_call=True
+)
+def combined_callback(
+        y_mode,
+        selected_charts,
+        selected_pileid,
+        selected_row,
+        load_clicks,
+        reset_clicks,
+        selected_jobid,
+        selected_file
+):
+    triggered_id = ctx.triggered_id
+
+    # Handle load settings case
+    if triggered_id == "load-settings-btn":
+        if not selected_file:
+            raise PreventUpdate
+
+        filepath = os.path.join(SETTINGS_DIR, selected_file)
+        try:
+            with open(filepath, "r") as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            raise PreventUpdate
+
+        charts = data.get("charts", [])
+        x_ranges = data.get("x_ranges", [(None, None)] * 4)
+        template = data.get("template", "4")
+        y_mode = data.get('y_mode', 'elevation')
+        y_min, y_max = data.get('y_range', (None, None))[0]
+
+        flat_ranges = [v for pair in x_ranges for v in pair]
+        return y_min, y_max, *flat_ranges, charts, y_mode, template, no_update
+
+    # Handle reset case
+    elif triggered_id == "reset-controls-btn":
+        # First get current pile data if available
+        if selected_jobid is None or (selected_pileid is None and selected_row is None):
+            # No pile selected - return defaults without data
+            return (
+                None, None,  # y-axis range
+                None, None, None, None, None, None, None, None,  # x-ranges
+                ["cone", "friction", "pore", "sbt"],  # charts
+                'elevation',  # y-mode
+                "4",  # template
+                None  # clear dropdown
+            )
+
+        # Get current pile data to populate ranges
+        jobid_cpt_data = results_CPT[selected_jobid][-1]
+        pile_info = jobid_cpt_data[selected_jobid]
+
+        if selected_row is not None:
+            selected_pileid = selected_row[0].get('HoleID')
+        pile_info = pile_info[selected_pileid]
+
+        # Calculate y-axis range
+        y_ax_name = 'Elevation (feet)' if y_mode == 'elevation' else 'Depth (feet)'
+        minD = round(min(pile_info[y_ax_name]), 2)
+        maxD = round(max(pile_info[y_ax_name]), 2)
+
+        # Calculate x-axis ranges for default charts
+        default_charts = ["cone", "friction", "pore", "sbt"]
+        ranges = []
+        for chart_key in default_charts:
+            variables = charts_details[chart_key][1]
+            col = variables[0]  # use first x-variable
+            if col in pile_info:
+                col_min = np.nanmin(pile_info[col])
+                col_max = np.nanmax(pile_info[col])
+            else:
+                col_min, col_max = None, None
+            ranges += [col_min, col_max]
+
+        return (
+            minD, maxD,  # y-axis range
+            *ranges,  # x-ranges
+            default_charts,  # charts
+            'elevation',  # y-mode
+            "4",  # template
+            None  # clear dropdown
+        )
+
+    # Handle normal data updates (pile selection or axis mode change)
+    if selected_jobid is None or (selected_pileid is None and selected_row is None):
+        raise PreventUpdate
+
+    # Get pile data
+    jobid_cpt_data = results_CPT[selected_jobid][-1]
+    pile_info = jobid_cpt_data[selected_jobid]
+
+    if selected_row is not None:
+        selected_pileid = selected_row[0].get('HoleID')
+    pile_info = pile_info[selected_pileid]
+
+    # Calculate y-axis range
+    y_ax_name = 'Elevation (feet)' if y_mode == 'elevation' else 'Depth (feet)'
+    minD = round(min(pile_info[y_ax_name]), 2)
+    maxD = round(max(pile_info[y_ax_name]), 2)
+
+    # Calculate x-axis ranges
+    ranges = []
+    for i in range(len(selected_charts)):
+        if i < len(selected_charts):
+            chart_key = selected_charts[i]
+            variables = charts_details[chart_key][1]
+            col = variables[0]  # use first x-variable
+            if col in pile_info:
+                col_min = np.nanmin(pile_info[col])
+                col_max = np.nanmax(pile_info[col])
+            else:
+                col_min, col_max = None, None
+        else:
+            col_min, col_max = None, None
+        ranges += [col_min, col_max]
+
+    while len(ranges) < 8:
+        ranges += [None, None]
+
+    return minD, maxD, *ranges, no_update, no_update, no_update, no_update
+
+
+
+# @callback(
+#     Output("chart-type-selector", "value"),
+#     Output("x1-min", "value"), Output("x1-max", "value"),
+#     Output("x2-min", "value"), Output("x2-max", "value"),
+#     Output("x3-min", "value"), Output("x3-max", "value"),
+#     Output("x4-min", "value"), Output("x4-max", "value"),
+#     Output("y-axis-min", "value"), Output("y-axis-max", "value"),
+#     Output("y-axis-mode", "value"),
+#     Output("template-selector", "value", allow_duplicate=True),
+#
+#     Input("load-settings-btn", "n_clicks"),
+#     Input("reset-controls-btn", "n_clicks"),
+#
+#     State("load-settings-dropdown", "value"),
+#     prevent_initial_call=True
+# )
+# def handle_load_or_reset(load_clicks, reset_clicks, selected_file):
+#     triggered_id = ctx.triggered_id
+#
+#     if triggered_id == "load-settings-btn":
+#         if not selected_file:
+#             return no_update
+#
+#         filepath = os.path.join(SETTINGS_DIR, selected_file)
+#         try:
+#             with open(filepath, "r") as f:
+#                 data = json.load(f)
+#         except Exception as e:
+#             print(f"Error loading settings: {e}")
+#             return no_update
+#
+#         charts = data.get("charts", [])
+#         x_ranges = data.get("x_ranges", [(None, None)] * 4)
+#         template = data.get("template", "4")
+#         flat_ranges = [v for pair in x_ranges for v in pair]
+#         y_mode = data.get('y_mode','elevation')
+#         y_min,y_max = data.get('y_range','')[0]
+#
+#
+#         return charts, *flat_ranges, y_min,y_max,y_mode, template
+#
+#     elif triggered_id == "reset-controls-btn":
+#         # Set default values (adjust as needed)
+#         return (
+#             ["cone", "friction", "pore", "sbt"],
+#             None, None,
+#             None, None,
+#             None, None,
+#             None, None,
+#             None,None,
+#             'elevation',
+#             "4"
+#         )
+#
+#     return no_update
+
+# @callback(
+#     Output("y-axis-min", "value",allow_duplicate=True),
+#     Output("y-axis-max", "value",allow_duplicate=True),
+#     Input("y-axis-mode", "value"),
+#     Input('pileid-filter-cpt', 'value'),
+#     Input('pilelist-table-cpt', 'selectedRows'),
+#     [State('jobid-filter-cpt', 'value')],
+#     prevent_initial_call=True
+# )
+# def set_y_axis_range(mode,selected_pileid,selected_row,selected_jobid): #,selected_date
+#     if selected_jobid is None or (selected_pileid is None and selected_row is None):
+#         raise PreventUpdate
+#
+#     # Get pile data
+#     # jobid_cpt_data = data.get('jobid_cpt_data')
+#     jobid_cpt_data = results_CPT[selected_jobid][-1]
+#     pile_info = jobid_cpt_data[selected_jobid]
+#     if not selected_row is None:
+#         selected_pileid = selected_row[0].get('HoleID')
+#     pile_info = pile_info[selected_pileid]
+#     # Determine y-axis range
+#     if mode =='elevation':
+#         y_ax_name = 'Elevation (feet)'
+#     else:
+#         y_ax_name = 'Depth (feet)'
+#
+#     minD = round(min(pile_info[y_ax_name]),2)
+#     maxD = round(max(pile_info[y_ax_name]),2)
+#
+#     return minD, maxD
+
+# @callback(
+#     Output("x1-min", "value",allow_duplicate=True), Output("x1-max", "value",allow_duplicate=True),
+#     Output("x2-min", "value",allow_duplicate=True), Output("x2-max", "value",allow_duplicate=True),
+#     Output("x3-min", "value",allow_duplicate=True), Output("x3-max", "value",allow_duplicate=True),
+#     Output("x4-min", "value",allow_duplicate=True), Output("x4-max", "value",allow_duplicate=True),
+#     # Output("y-axis-min", "value",allow_duplicate=True),
+#     # Output("y-axis-max", "value",allow_duplicate=True),
+#     # Input("y-axis-mode", "value"),
+#     Input("chart-type-selector", "value"),
+#     Input('pileid-filter-cpt', 'value'),
+#     Input('pilelist-table-cpt', 'selectedRows'),
+#     State('jobid-filter-cpt', 'value'),
+#
+#     prevent_initial_call=True,
+# )
+# def populate_x_ranges(selected,selected_pileid,selected_row,selected_jobid):
+#     if selected_jobid is None or (selected_pileid is None and selected_row is None):
+#         raise PreventUpdate
+#     # jobid_cpt_data = data.get('jobid_cpt_data')
+#     jobid_cpt_data = results_CPT[selected_jobid][-1]
+#     pile_info = jobid_cpt_data[selected_jobid]
+#     if not selected_row is None:
+#         selected_pileid = selected_row[0].get('HoleID')
+#     pile_info = pile_info[selected_pileid]
+#     ranges = []
+#     for i in range(len(selected)):
+#         if i < len(selected):
+#             chart_key = selected[i]
+#             variables = charts_details[chart_key][1]
+#             col = variables[0]  # use first x-variable
+#             if col in pile_info:
+#                 col_min = np.nanmin(pile_info[col])
+#                 col_max = np.nanmax(pile_info[col])
+#             else:
+#                 col_min, col_max = None, None
+#         else:
+#             col_min, col_max = None, None
+#         ranges += [col_min, col_max]
+#
+#     while len(ranges)<8:
+#         ranges+=[0,0]
+#
+#     return ranges
+
+# @callback(
+#     Output("cpt_graph", "figure"),
+#     Output('download-pdf-btn-cpt', 'disabled'),
+#     Output('y-value-slider', 'min'),
+#     Output('y-value-slider', 'max'),
+#     # Output('y-value-slider', 'value'),
+#     Output('current-y-value', 'data'),
+#
+#     Input("update-btn", "n_clicks"),
+#     Input('pileid-filter-cpt', 'value'),
+#     Input('y-value-slider', 'value'),
+#     Input('cpt_graph', 'selectedData'),
+#     Input('window-size', 'data'),
+#     Input('pilelist-table-cpt', 'selectedRows'),
+#
+#     State("jobid-filter-cpt", "value"),
+#     State('current-y-value', 'data'),
+#     State("y-axis-mode", "value"),
+#     State("x1-min", "value"), State("x1-max", "value"),
+#     State("x2-min", "value"), State("x2-max", "value"),
+#     State("x3-min", "value"), State("x3-max", "value"),
+#     State("x4-min", "value"), State("x4-max", "value"),
+#     State("y-axis-min", "value"),
+#     State("y-axis-max", "value"),
+#     State("chart-type-selector","value"),
+#     State("template-selector", "value"),
+#     prevent_initial_call=True
+# )
+# def update_cpt_graph(n_clicks,selected_pileid, slider_value, selected_data, window_size,selected_row,selected_jobid,current_y_value,
+#                       y_mode, x1_min, x1_max, x2_min, x2_max, x3_min, x3_max, x4_min, x4_max,y_max,y_min,selected_charts,selected_template):
+#
+#         ctx = dash.callback_context
+#         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
+#
+#         if not selected_row is None:
+#             selected_pileid = selected_row[0].get('HoleID')
+#             if selected_pileid == 'ALL':
+#                 selected_pileid = None
+#                 selected_row = None
+#
+#         if not selected_pileid and not selected_row:
+#             return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True , 0, 100, None
+#
+#         num_charts = 3 if selected_template=='3' else 4
+#         chart_types = selected_charts[:num_charts]
+#
+#         use_depth = (y_mode == "depth")
+#
+#         # Build a dict of x-axis limits
+#         x_limits = {
+#             1: (x1_min, x1_max),
+#             2: (x2_min, x2_max),
+#             3: (x3_min, x3_max),
+#             # 4: (x4_min, x4_max),
+#         }
+#         if num_charts == 4:
+#             x_limits[4] = (x4_min, x4_max)
+#
+#         # jobid_cpt_data = data.get('jobid_cpt_data')
+#
+#         jobid_cpt_data = results_CPT[selected_jobid][-1]
+#         # Get pile data
+#         pile_info = jobid_cpt_data[selected_jobid]
+#         pile_info = pile_info[selected_pileid]
+#         # Determine y-axis range
+#         y_ax_name = 'Elevation (feet)'  # or 'Depth (feet)' based on your logic
+#         if y_min is None:
+#             minD = min(pile_info[y_ax_name]) - 5
+#         else:
+#             minD = y_min
+#         if y_max is None:
+#             maxD = max(pile_info[y_ax_name]) + 5
+#         else:
+#             maxD = y_max
+#
+#         # Handle y-value updates
+#         if trigger_id == 'y-value-slider':
+#             # When slider moves, use its exact value
+#             y_value = slider_value
+#             # Create figure with current y-value and annotations
+#             fig = create_cpt_charts(pile_info, use_depth=use_depth, y_value=y_value, num_charts=num_charts,
+#                                     selected_charts=chart_types)
+#             return fig, False, minD, maxD, y_value#, y_value
+#         elif trigger_id == 'cpt_graph' and selected_data:
+#             # When graph is clicked, calculate new value
+#             y_values = [point['y'] for point in selected_data['points']]
+#             y_value = np.mean(y_values) if y_values else current_y_value or (minD + maxD) / 2
+#         else:
+#             # For all other cases, maintain current value or use midpoint
+#             y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
+#
+#         # Ensure y_value stays within bounds
+#         # y_value = max(minD, min(maxD, y_value))
+#
+#         # Create figure with current y-value and annotations
+#         fig = create_cpt_charts(pile_info,use_depth=use_depth, y_value=y_value,num_charts=num_charts,selected_charts=chart_types)
+#
+#         # Apply x-axis ranges to each subplot
+#         for i in range(1, num_charts+1):
+#             min_val, max_val = x_limits[i]
+#             if min_val is not None and max_val is not None:
+#                 fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
+#
+#         fig.update_yaxes(range=[minD,maxD])
+#
+#         return fig, False, minD, maxD, y_value#,y_value
+
+# 1️⃣ Update slider min/max only when pile/template changes
+# @callback(
+#     Output("cpt_graph", "figure"),
+#     Output('download-pdf-btn-cpt', 'disabled'),
+#     Output('y-value-slider', 'min'),
+#     Output('y-value-slider', 'max'),
+#     Output('current-y-value', 'data'),  # Moved before slider value
+#     # Output('y-value-slider', 'value'),  # Now last output
+#
+#     Input("update-btn", "n_clicks"),
+#     Input('pileid-filter-cpt', 'value'),
+#     Input('y-value-slider', 'value'),  # Changed to match slider ID
+#     Input('cpt_graph', 'selectedData'),
+#     Input('window-size', 'data'),
+#     Input('pilelist-table-cpt', 'selectedRows'),
+#
+#     State("jobid-filter-cpt", "value"),
+#     State('current-y-value', 'data'),
+#     State("y-axis-mode", "value"),
+#     State("x1-min", "value"), State("x1-max", "value"),
+#     State("x2-min", "value"), State("x2-max", "value"),
+#     State("x3-min", "value"), State("x3-max", "value"),
+#     State("x4-min", "value"), State("x4-max", "value"),
+#     State("y-axis-min", "value"),
+#     State("y-axis-max", "value"),
+#     State("chart-type-selector", "value"),
+#     State("template-selector", "value"),
+#     prevent_initial_call=True
+# )
+# def update_cpt_graph(n_clicks, selected_pileid, slider_value, selected_data, window_size, selected_row,
+#                      selected_jobid, current_y_value, y_mode, x1_min, x1_max, x2_min, x2_max,
+#                      x3_min, x3_max, x4_min, x4_max, y_max, y_min, selected_charts, selected_template):
+#     ctx = dash.callback_context
+#     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
+#
+#     # Handle row selection
+#     if not selected_row is None:
+#         selected_pileid = selected_row[0].get('HoleID')
+#         if selected_pileid == 'ALL':
+#             selected_pileid = None
+#             selected_row = None
+#
+#     if not selected_pileid and not selected_row:
+#         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True, 0, 100, None#, 50
+#
+#     # Setup chart parameters
+#     num_charts = 3 if selected_template == '3' else 4
+#     chart_types = selected_charts[:num_charts]
+#     use_depth = (y_mode == "depth")
+#
+#     # Get data
+#     jobid_cpt_data = results_CPT[selected_jobid][-1]
+#     pile_info = jobid_cpt_data[selected_jobid][selected_pileid]
+#     y_ax_name = 'Elevation (feet)' if not use_depth else 'Depth (feet)'
+#
+#     # Calculate y-axis range
+#     minD = y_min if y_min is not None else min(pile_info[y_ax_name]) - 5
+#     maxD = y_max if y_max is not None else max(pile_info[y_ax_name]) + 5
+#
+#     # Determine y-value based on trigger source
+#     if trigger_id == 'y-value-slider':
+#         # When slider moves, use its value but don't return it to prevent loop
+#         y_value = slider_value
+#         update_slider_pos = dash.no_update  # Critical change
+#     elif trigger_id == 'cpt_graph' and selected_data:
+#         # When graph is clicked
+#         y_values = [point['y'] for point in selected_data['points']]
+#         y_value = np.mean(y_values) if y_values else current_y_value or (minD + maxD) / 2
+#         update_slider_pos = y_value
+#     else:
+#         # For all other cases
+#         y_value = current_y_value if current_y_value is not None else (minD + maxD) / 2
+#         update_slider_pos = y_value
+#
+#     # Clamp the value
+#     # y_value = max(minD, min(maxD, y_value))
+#
+#     # Create figure
+#     fig = create_cpt_charts(pile_info, use_depth=use_depth, y_value=y_value,
+#                             num_charts=num_charts, selected_charts=chart_types)
+#
+#     # Apply x-axis ranges
+#     x_limits = {
+#         1: (x1_min, x1_max),
+#         2: (x2_min, x2_max),
+#         3: (x3_min, x3_max),
+#     }
+#     if num_charts == 4:
+#         x_limits[4] = (x4_min, x4_max)
+#
+#     for i in range(1, num_charts + 1):
+#         min_val, max_val = x_limits[i]
+#         if min_val is not None and max_val is not None:
+#             fig.update_xaxes(range=[min_val, max_val], row=1, col=i)
+#
+#     fig.update_yaxes(range=[minD, maxD])
+#
+#     # Return values - KEY CHANGE: only update slider position for non-slider triggers
+#     return (
+#         fig,
+#         False,
+#         minD,
+#         maxD,
+#         y_value,  # Store current value
+#         # update_slider_pos  # Only update slider position when not triggered by slider
+#     )

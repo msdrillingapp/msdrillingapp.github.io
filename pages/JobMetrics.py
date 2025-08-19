@@ -23,6 +23,26 @@ dash.register_page(
 assets_path = os.path.join(os.getcwd(), "assets")
 summary_folder = os.path.join(assets_path, 'data','Summary')
 
+def count_piles_for_date(data, target_date):
+    return sum(1 for pile_data in data.values() if target_date in pile_data)
+
+
+from collections import defaultdict
+
+
+def count_piles_per_date(data):
+    date_counts = defaultdict(int)
+
+    for pile_data in data.values():  # Loop through each nested dict
+        for date in pile_data:  # Extract each date in the nested dict
+            date_counts[date] += 1  # Increment count for that date
+    # Convert to DataFrame
+    df = pd.DataFrame(list(date_counts.items()), columns=['Date', 'PileCount'])
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date')  # Optional: Sort by date
+    return df
+
+    return dict(date_counts)  # Convert to a regular dict for cleaner output
 def load_data():
     summary_dict_to_date = {}
     summary_dict_daily = {}
@@ -33,15 +53,18 @@ def load_data():
     for f in os.listdir(summary_folder):
         jobnumber = None
         jobnumber_design = None
-        try:
+        if 'ESTIMATE' in f:
+            jobnumber_design = int(f.split('-')[0])
+        elif 'SiteProgression' in f:
             jobnumber = int(f.split('-')[0])
-            jobs.append(jobnumber)
-        except:
-            try:
-                jobnumber_design = int(f.split('_')[0])
-            except:
-                continue
+
+        else:
+            continue
+
         if not jobnumber is None:
+            if not str(jobnumber) in result_MWD.keys():
+                continue
+            jobs.append(jobnumber)
             df_todate = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Job To Date')
             df_daily = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Daily')
             df_todate['Time'] = pd.to_datetime(df_todate['Time'])
@@ -58,12 +81,12 @@ def load_data():
         if len(df_design)==0:
             continue
         df_todate_tot = df_todate.groupby('Time').sum()
-
+        df_design.columns = df_design.columns.str.strip()
         time_interval = pd.to_datetime(df_todate_tot.index)
         df_todate_tot['Piles%'] = df_todate_tot['Piles']/df_design['COUNT'].sum()
-        df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/df_design['TOTAL CONCRETE  (CY)'].sum()
-        df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/df_design['RIG DAYS '].sum()
-        df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours']/df_design['Man Hours Needed'].sum()
+        df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/df_design['CONCRETE'].sum()
+        df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/df_design['RIG DAYS'].sum()
+        df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours']/df_design['MAN HOURS'].sum()
         df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%']-df_todate_tot['Concrete%']
         df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
         df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
@@ -120,21 +143,27 @@ def prepare_table_data(summary_metrics, selected_date):
         else:
             status = "red"
             status_symbol = "❌"
-
+        piles_per_day = round(current['Piles']/current['DaysRigDrilled'],0)
         rows.append({
             "JobNumber": job,
             "StatusSymbol": status_symbol,
             "StatusColor": status,
+            "Piles Drilled":f"{current['Piles']}",
             "Piles %": f"{current['Piles%']*100:.1f}%",
+            "Concrete Delivered": f"{current['ConcreteDelivered']}",
             "Concrete %": f"{current['Concrete%']*100:.1f}%",
+            "Labor Hours": f"{current['LaborHours']}",
+            "Labor Hours %": f"{current['LaborHours%'] * 100:.1f}%",
+            "Days Rig Drilled": f"{current['DaysRigDrilled']}",
             "Rig Days %": f"{current['RigDays%']*100:.1f}%",
-            "Labor Hours %": f"{current['LaborHours%']*100:.1f}%",
-
+            "Average Piles/Day":f"{piles_per_day}",
+            "AveragePileLength": f"{current['AveragePileLength']:.2f}",
             "Delta_Piles_vs_Concrete": delta_cells['Delta_Piles_vs_Concrete'],
             "Delta_Piles_vs_RigDays": delta_cells['Delta_Piles_vs_RigDays'],
             "Delta_Piles_vs_Labor Hours": delta_cells['Delta_Piles_vs_Labor Hours'],
             "DeltaColors": delta_colors
         })
+
     return rows
 
 
@@ -199,7 +228,19 @@ summary_metrics,summary_dic_daily = load_data()
 # ======================
 # Dash AG Grid
 # ======================
-
+#  "JobNumber": job,
+#             "StatusSymbol": status_symbol,
+#             "StatusColor": status,
+#             "Piles Drilled":f"{current['Piles']}",
+#             "Piles %": f"{current['Piles%']*100:.1f}%",
+#             "Concrete Delivered": f"{current['ConcreteDelivered']}",
+#             "Concrete %": f"{current['Concrete%']*100:.1f}%",
+#             "Labor Hours": f"{current['LaborHours']}",
+#             "Labor Hours %": f"{current['LaborHours%'] * 100:.1f}%",
+#             "Days Rig Drilled": f"{current['DaysRigDrilled']}",
+#             "Rig Days %": f"{current['RigDays%']*100:.1f}%",
+#             "Average Piles/Day":f"{piles_per_day}",
+#             "AveragePileLength": f"{current['AveragePileLength']}",
 column_defs = [
     {"headerName": "JobNumber", "field": "JobNumber"},
     {
@@ -216,10 +257,17 @@ column_defs = [
             """
         }
     },
+    {"headerName": "Piles Drilled", "field": "Piles %"},
     {"headerName": "Piles %", "field": "Piles %"},
+    {"headerName": "Concrete Delivered", "field": "Concrete Delivered"},
     {"headerName": "Concrete %", "field": "Concrete %"},
+    {"headerName": "Labor Hours", "field": "Labor Hours"},
+    {"headerName": "Labor Hours", "field": "Labor Hours %"},
+    {"headerName": "Days Rig Drilled", "field": "Days Rig Drilled"},
     {"headerName": "Rig Days %", "field": "Rig Days %"},
-    {"headerName": "Labor Hours %", "field": "Labor Hours %"},
+    {"headerName": "Average Piles/Day", "field": "Average Piles/Day"},
+    {"headerName": "AveragePileLength", "field": "AveragePileLength"},
+
     {
         "headerName": "Delta Piles vs Concrete",
         "field": "Delta_Piles_vs_Concrete",
@@ -338,7 +386,7 @@ layout = html.Div([
 ],
 style={
     'backgroundColor': '#193153',
-    'minHeight': '100vh',  # grow with content
+    'minHeight': '200vh',  # grow with content
     'padding': '20px'
 })
     # style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
@@ -361,7 +409,7 @@ def update_table(selected_date):
 
     cards = [
         html.Div(f"# Piles Drilled: {total_piles:.0f}", style={"padding": "10px", "background": "#d4edda", "borderRadius": "8px", "flex": "1"}),
-        html.Div(f"Concrete Used: {total_concrete:.1f} CY", style={"padding": "10px", "background": "#cce5ff", "borderRadius": "8px", "flex": "1"}),
+        html.Div(f"Concrete Delivered: {total_concrete:.1f} CY", style={"padding": "10px", "background": "#cce5ff", "borderRadius": "8px", "flex": "1"}),
         html.Div(f"# Man Hours: {total_labor_hours:.0f}", style={"padding": "10px", "background": "#f8d7da", "borderRadius": "8px", "flex": "1"}),
         html.Div(f"# Rig Days: {total_rig_days:.1f}",style={"padding": "10px", "background": "#fff3cd", "borderRadius": "8px", "flex": "1"}),
     ]
@@ -417,6 +465,8 @@ def update_job_bar_chart(selected_date):
         template="plotly_white"
     )
 
+    fig.update_xaxes(type='category')
+
     fig.update_layout(
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
@@ -469,7 +519,7 @@ def update_pie(selected_rows,selected_date):
     # Add one pie per RigID
     for i, rig in enumerate(rig_ids, start=1):
         rig_data = df[df['RigID'] == rig]
-        piles  = str(rig_data['Piles'].values[0])
+        piles = str(rig_data['Piles'].values[0])
         values = [
             rig_data['MoveTime'].sum(),
             rig_data['DrillTime'].sum(),
@@ -515,6 +565,8 @@ def update_time_chart(selected_rows, selected_date):
     # unpack your data
     jobid_pile_data = result_MWD[str(job)][1].copy()  # dict of pile data
     properties_df = result_MWD[str(job)][0].copy()    # pile properties dataframe
+    properties_df = properties_df[properties_df['PileCode'] == 'Production Pile']
+    properties_df = properties_df[properties_df['PileStatus'] == 'Complete']
 
     # Map RigID -> list of PileIDs
     piles_by_rig = {
@@ -523,6 +575,10 @@ def update_time_chart(selected_rows, selected_date):
     }
 
     data = jobid_pile_data[str(job)]
+    count = sum(1 for d in data.values() if selected_date in d)
+    # summary_by_date = count_piles_per_date(data)
+    if count == 0:
+        raise PreventUpdate
 
     # Prepare figure with one row per RigID
     fig = make_subplots(rows=len(piles_by_rig), cols=1,
@@ -546,21 +602,21 @@ def update_time_chart(selected_rows, selected_date):
             continue
 
         rig_df = pd.concat(rig_df_list, ignore_index=True)
-        rig_df['Time'] =pd.to_datetime(rig_df['Time'] )
+        rig_df['Time'] = pd.to_datetime(rig_df['Time'],format='%d.%m.%Y %H:%M:%S')
         rig_df.sort_values(by='Time',inplace=True)
         # Add Depth trace
         fig.add_trace(
-            go.Scatter(x=rig_df['Time'], y=rig_df['Depth'], mode='lines', name='Depth', line=dict(color='blue')),
+            go.Scatter(x=rig_df['Time'], y=-rig_df['Depth'], mode='markers',yaxis="y1", name='Depth', marker=dict(color='blue',size=3)),
             row=i, col=1
         )
         # Add Strokes trace
         fig.add_trace(
-            go.Scatter(x=rig_df['Time'], y=rig_df['Strokes'], mode='lines', name='Strokes', line=dict(color='green')),
+            go.Scatter(x=rig_df['Time'], y=rig_df['Strokes'], mode='markers',yaxis="y1", name='Strokes',marker=dict(color='#006400',size=3)),
             row=i, col=1
         )
         # Add Torque trace
         fig.add_trace(
-            go.Scatter(x=rig_df['Time'], y=rig_df['Torque'], mode='lines', name='Torque', line=dict(color='orange')),
+            go.Scatter(x=rig_df['Time'], y=rig_df['Torque'], mode='markers',yaxis="y2", name='Torque', marker=dict(color='#F6BE00',size=3)),
             row=i, col=1
         )
 
@@ -597,3 +653,6 @@ def update_time_chart(selected_rows, selected_date):
 #
 #
 #     return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+
+
+# add bar chart showing pile/concrete/labour hours and pile length /rig days every day.

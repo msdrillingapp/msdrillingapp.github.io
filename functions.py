@@ -20,6 +20,7 @@ from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
                                 Table, TableStyle, Frame, PageTemplate,Image)
 import plotly.graph_objects as go
 import math
+import naming_conventions as nc
 
 
 # from celery_config import celery_app
@@ -40,6 +41,35 @@ filtered_columns = ["PileID", "Group", "Field", "Value", "latitude", "longitude"
 groups_df = pd.read_csv(os.path.join(assets_path,'Groups.csv'))
 groups_df = groups_df.explode("Group").reset_index(drop=True)
 
+from pyproj import Transformer
+def convert_easting_northing_to_lonlat(reference_lon, reference_lat, eastings, northings):
+    """
+    Convert Easting/Northing coordinates to longitude/latitude using a reference point.
+
+    Args:
+        reference_lon (float): Reference longitude in degrees
+        reference_lat (float): Reference latitude in degrees
+        eastings (list or array): List of Easting coordinates (meters)
+        northings (list or array): List of Northing coordinates (meters)
+
+    Returns:
+        list: List of longitude and list of latitude in degrees
+    """
+    # Create a local projection centered at the reference point
+    local_crs = f"+proj=tmerc +lat_0={reference_lat} +lon_0={reference_lon} +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+
+    # Create transformer from local projection to WGS84 (lon/lat)
+    transformer = Transformer.from_crs(local_crs, "EPSG:4326")
+
+    # Convert coordinates
+    lon_list =[]
+    lat_list = []
+    for easting, northing in zip(eastings, northings):
+        lon, lat = transformer.transform(easting, northing)
+        lon_list.append(lon)
+        lat_list.append(lat)
+
+    return lon_list,lat_list
 
 def remove_min(value:str):
     time = str(value)
@@ -225,10 +255,14 @@ def load_geojson_data_(jobID='1633',reload:bool=False):
 
     return result_MWD,results_CPT
 
-def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
+def load_geojson_data(jobs=[],reload:bool=False):
     result_MWD ={}
     results_CPT = {}
-
+    try:
+        df_baseCoords = pd.read_csv(os.path.join(geojson_folder,nc.baseCoordinates_file))
+    except:
+        df_baseCoords = None
+        pass
     for jobID in jobs:
         get_data = True
         if not reload:
@@ -252,8 +286,25 @@ def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
             cpt_data = {}
             data_folder = os.path.join(geojson_folder,jobID)
             # =========================================================
+            # Process Pile Design
+            # =========================================================
+            df_design = None
+            try:
+                df_design = pd.read_csv(os.path.join(data_folder,jobID+nc.designOutput_file))
+                df_design.dropna(subset=nc.ds_north,inplace=True)
+                col_keep = [nc.ds_pileid,nc.ds_status,nc.ds_date,nc.ds_rigid,nc.ds_lat,nc.ds_lon,nc.ds_pilecode,nc.ds_piletype]
+                # nc.ds_cage_color,
+                df_design_merge = df_design[col_keep]
+                df_design_merge['PileStatus']=['Complete' if x else 'NotDrilled' for x in df_design_merge[nc.ds_status]]
+                df_design_merge.pop(nc.ds_status)
+                df_design[nc.ds_pileid] = df_design[nc.ds_pileid].astype(str)
+                piles_list = list(df_design[nc.ds_pileid].values)
+            except:
+                piles_list = []
+                continue
+            # =========================================================
             # Process CPT data
-
+            # =========================================================
             dir_cpt_data = os.path.join(data_folder, cpt_files_folder)
             if os.path.exists(dir_cpt_data):
                 if os.path.isfile(os.path.join(dir_cpt_data, name_cpt_file_header)):
@@ -266,8 +317,6 @@ def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
                             continue
                         cpt_data_file = pd.read_csv(os.path.join(dir_cpt_data,cpt_file))
                         holeid = cpt_data_file['HoleID'].values[0] # CPT-1
-                        # name_hole = headers[headers['HoleID']==holeid]['HoleID'].values[0]
-                        # cpt_data_file['Name'] = name_hole
                         for c in columns_cpt:
                             if holeid in cpt_data:
                                 cpt_data[holeid].update({c: list(cpt_data_file[c].values)})
@@ -277,10 +326,8 @@ def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
             # ===================================================
             # End Process CPT data
             # =========================================================
-
             for filename in os.listdir(data_folder):
                 if filename.endswith(".json"):
-                    # file_date = filename.replace("header", "").replace(".json", "").strip()  # Extract date from filename
                     file_path = os.path.join(data_folder, filename)
 
                     with open(file_path, "r", encoding="utf-8") as f:
@@ -292,71 +339,90 @@ def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
                         properties = feature.get("properties", {})
                         geometry = feature.get("geometry", {})
                         coords = geometry.get("coordinates", [])
-                        # PileCode": "PP",  "PileCode": "PRODUCTION PILE",
-                        # "PileCode": "TP",  "PileCode": "TEST PILE",
-                        # "PileCode": "RP", "PileCode": "REACTION PILE",
-                        # "PileCode": "PB", "PileCode": "PROBE",
+                        pile_id = properties['PileID']
+                        lon = None
+                        lat = None
                         if coords and len(coords) >= 2:
                             lon, lat = coords[:2]  # Ensure correct coordinate order
-                            properties["latitude"] = lat
-                            properties["longitude"] = lon
-                            # latitudes.append(lat)
-                            # longitudes.append(lon)
-                            try:
-                                times = properties["Data"].get("Time", [])
-                                time_interval = pd.to_datetime(times).to_pydatetime()
-                                date2use = pd.to_datetime(time_interval[0]).date().strftime(format='%Y-%m-%d')
-                            except:
-                                date2use = datetime.today().date().strftime(format='%Y-%m-%d')
-                                pass
 
-                            try:
-                                date = pd.to_datetime(properties['Time']).date().strftime(format='%Y-%m-%d')
-                            except:
-                                date = date2use
-                                properties['Time'] = date
+                        if lon is None:
+                            if pile_id.upper().endswith('RD'):
+                                pile_id = pile_id.upper().split('RD')[0]
+                            if pile_id in df_design[nc.ds_pileid].values:
+                                lat = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lat].values[0]
+                                lon = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lon].values[0]
+                            if lon is None:
+                                if not df_baseCoords is None:
+                                    tmp = df_baseCoords[df_baseCoords['JobID']==int(jobID)]
+                                    if len(tmp)>0:
+                                        lat = float(tmp['lat'].values[0])
+                                        lon = float(tmp['lon'].values[0])
 
-                            if properties['PileType'] is None:
-                                properties['PileType'] = 0
+                        properties["latitude"] = lat
+                        properties["longitude"] = lon
+                        # ================================================
+                        # Remove the pile from the design piles list to avoid duplicates
+                        if len(piles_list)>0:
+                            if pile_id in piles_list:
+                                piles_list.remove(pile_id)
+                        # ================================================
+                        #  do not include incomplete piles
+                        pileStatus = properties.get("PileStatus")
+                        if (pileStatus =='Incomplete') and not (pile_id.upper().startswith('RP') or pile_id.upper().startswith('PB') or pile_id.upper().startswith('TP')):
+                            print(pile_id)
+                            continue
+                        properties['PileType'] = str(properties['PileType'])
+                        if (properties['PileType'] is None) or (properties['PileType']=='nan') :
+                            properties['PileType'] = 'None'
 
-                            if properties['ProductCode'] is None:
-                                properties['ProductCode'] = 'DWP'
+                        if (properties['ProductCode'] is None) or (properties['ProductCode']==''):
+                            properties['ProductCode'] = 'DWP'
 
 
-                            properties["date"] = date # Store the date from the filename
-                            pile_id = properties['PileID']
-                            job_id = properties.get("JobNumber")
-                            if str(job_id)!=jobID:
-                                print('Error '+str(job_id))
-                                pileid_list_wrong.append(pile_id)
-                                properties['JobNumber'] = jobID
+                        pile_id = properties['PileID']
+                        job_id = properties.get("JobNumber")
+                        if str(job_id)!=jobID:
+                            print('Error '+str(job_id))
+                            pileid_list_wrong.append(pile_id)
+                            properties['JobNumber'] = jobID
 
-                            calibration = float(properties.get("PumpCalibration"))
-                            strokes = properties["Data"].get("Strokes", [])
-                            depths = properties["Data"].get("Depth", [])
-                            time_start = properties["Data"].get("Time", [])
+                        calibration = float(properties.get("PumpCalibration"))
+                        strokes = properties["Data"].get("Strokes", [])
+                        depths = properties["Data"].get("Depth", [])
+                        time_start = properties["Data"].get("Time", [])
+                        time_start = pd.to_datetime(time_start[0],format='%d.%m.%Y %H:%M:%S')
 
-                            properties['MaxStroke'] = max(strokes)
-                            properties['MinDepth'] = min(depths)
-                            properties['Time_Start'] = time_start[0]
+                        date = time_start.date().strftime(format='%Y-%m-%d')
+                        if time_start>datetime.today():
+                            print()
+                        properties['Time'] = date
+                        properties["date"] = date  # Store the date from the filename
 
-                            volume = [calibration*float(x) for x in strokes]
-                            if pile_id and "Data" in properties:
-                                pile_data[pile_id] = {properties['date']: {
-                                    "Time": properties["Data"].get("Time", []),
-                                    "Strokes": properties["Data"].get("Strokes", []),
-                                    "Depth": properties["Data"].get("Depth", []),
-                                    'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', []),
-                                    'Rotation': properties['Data'].get('Rotation', []),
-                                    'PenetrationRate': properties['Data'].get('PenetrationRate', []),
-                                    'Pulldown': properties['Data'].get('Pulldown', []),
-                                    'Torque': properties['Data'].get('Torque', []),
-                                    'Volume': volume}}
+                        properties['MaxStroke'] = max(strokes)
+                        properties['MinDepth'] = min(depths)
+                        properties['Time_Start'] = time_start
 
-                            all_data.append(properties)
+                        if float(properties['PileDiameter']) > 3:
+                            print('For PileID:' + pile_id + ' diameter is  ' + str(properties['PileDiameter']))
+
+                        volume = [calibration*float(x) for x in strokes]
+                        if pile_id and "Data" in properties:
+                            pile_data[pile_id] = {properties['date']: {
+                                "Time": properties["Data"].get("Time", []),
+                                "Strokes": properties["Data"].get("Strokes", []),
+                                "Depth": properties["Data"].get("Depth", []),
+                                'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', []),
+                                'Rotation': properties['Data'].get('Rotation', []),
+                                'PenetrationRate': properties['Data'].get('PenetrationRate', []),
+                                'Pulldown': properties['Data'].get('Pulldown', []),
+                                'Torque': properties['Data'].get('Torque', []),
+                                'Volume': volume}}
+
+                        all_data.append(properties)
             jobid_pile_data[jobID] = pile_data.copy()
             # Cache the result for next time
             properties_df = pd.DataFrame(all_data)
+            properties_df['PileType'] = properties_df['PileType'].apply(lambda x: 'None' if x == '' or str(x).lower() == 'nan' else x)
             if 'FileName' in properties_df.columns:
                 properties_df.drop(columns=['FileName'], inplace=True)
             if 'Data' in properties_df.columns:
@@ -366,6 +432,28 @@ def load_geojson_data(jobs=['1633','1640'],reload:bool=False):
 
             properties_df['Time'].fillna(datetime.today())
             properties_df['JobNumber'] = properties_df['JobNumber'].astype(str)
+            locationID_list  = list(properties_df['LocationID'].unique())
+            piles_list = [x for x in piles_list if x not in locationID_list]
+            # append to properties_df all the piles in the design that have not been drilled yet
+            if len(piles_list)>0:
+                df_design_merge[nc.ds_pileid] = df_design_merge[nc.ds_pileid].astype(str)
+                df_design_merge = df_design_merge[df_design_merge[nc.ds_pileid].isin(piles_list)]
+                df_design_merge.rename(columns={nc.ds_pileid:'PileID',nc.ds_date:'Time'},inplace=True)
+
+                new_df = pd.DataFrame(columns=properties_df.columns)
+                new_df['JobNumber'] = str(jobID)
+                new_df['PileID'] = df_design_merge['PileID'].values
+                new_df['Time'] = df_design_merge['Time'].values
+                new_df['PileType'] = df_design_merge[nc.ds_piletype].values
+                new_df['PileType'] =new_df['PileType'].astype(str)
+                new_df['PileType']=new_df['PileType'].str.split('.').str[0]
+                new_df['PileStatus'] = df_design_merge['PileStatus'].values
+                new_df['PileCode'] = df_design_merge[nc.ds_pilecode].values
+                new_df['latitude'] = df_design_merge[nc.ds_lat].values
+                new_df['longitude'] = df_design_merge[nc.ds_lon].values
+                new_df['RigID'] = df_design_merge[nc.ds_rigid].values
+
+                properties_df = pd.concat([properties_df,new_df],ignore_index=True)
             # Melt the dataframe so each property is mapped to a Field and PileID
             melted_df = properties_df.melt(id_vars=["PileID", "latitude", "longitude", "date"], var_name="Field",
                                            value_name="Value")
@@ -454,7 +542,7 @@ def create_time_chart(pile_info):
     # Create figure with two y-axes
     # fig = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
     fig = px.line(title='')
-    time_interval = pd.to_datetime(pile_info["Time"]).to_pydatetime()
+    time_interval = pd.to_datetime(pile_info["Time"],format='%d.%m.%Y %H:%M:%S').to_pydatetime()
     minT = min(time_interval) - timedelta(minutes=2)
     maxT = max(time_interval) + timedelta(minutes=2)
     minT = minT.strftime(format='%Y-%m-%d %H:%M:%S')
@@ -464,7 +552,7 @@ def create_time_chart(pile_info):
     depths = [-x for x in pile_info["Depth"]]
     # depths = pile_info["Strokes"]
     depth_min = min(depths)
-    depth_max = max(depths)
+    depth_max = max(depths)+5
     depth_range = [depth_min, depth_max]
 
     add_strokes = False
@@ -472,7 +560,7 @@ def create_time_chart(pile_info):
         add_strokes = True
 
         strokes_min = min(pile_info["Strokes"])
-        strokes_max = max(pile_info["Strokes"])
+        strokes_max = max(pile_info["Strokes"])+5
         strokes_range = [depth_min, strokes_max] if depth_min < 0 else [strokes_min, strokes_max]
 
     fig.add_scatter(
@@ -486,7 +574,7 @@ def create_time_chart(pile_info):
     )
     # Format x-axis to show only time (HH:MM:SS)
     fig.update_xaxes(
-        tickformat="%H:%M:%S",  # Format: Hours:Minutes:Seconds
+        tickformat="%H:%M",  # Format: Hours:Minutes:Seconds
     )
 
 
@@ -511,8 +599,8 @@ def create_time_chart(pile_info):
         paper_bgcolor="#193153",
         font=dict(color="white"),
         xaxis_range=[minT, maxT],
-        # yaxis_range = [min(pile_info['Depth'])-5,max(pile_info['Depth'])+5],
-        # yaxis2_range=[min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
+        yaxis_range=[depth_min,depth_max],
+        # yaxis2_range= [min(pile_info['Strokes']) - 5, max(pile_info['Strokes']) + 5],
         legend=dict(
             orientation="h",
             yanchor="top",
@@ -526,7 +614,7 @@ def create_time_chart(pile_info):
 
     )
     if add_strokes:
-        fig.update_layout( yaxis2=dict(title="Strokes",zerolinecolor='black', overlaying="y", side="right", showgrid=False, linecolor='black',position=1,range=strokes_range))
+        fig.update_layout(yaxis2=dict(title="Strokes",zerolinecolor="#193153", overlaying="y", side="right", showgrid=False, linecolor='black',position=1,range=strokes_range))
 
     fig.update_layout(autosize=False, height=300)
     # for trace in fig.data:
@@ -567,11 +655,15 @@ def create_depth_chart(pile_info,diameter=None):
     fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=4)
     fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=4)
     # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
-    fig1.add_trace(go.Scatter(x=pile_info["Volume"][1:], y=pile_info["Depth"][1:], name='Actual' , mode='lines', line=dict(color='black', width=2), showlegend=True),row=1, col=5)
+    fig1.add_trace(go.Scatter(x=pile_info["Volume"][1:], y=pile_info["Depth"][1:], name='Actual' , mode='lines', line=dict(color='#F6BE00', width=2), showlegend=True),row=1, col=5)
     if not diameter is None:
         feet2inch = 12
         minDepth = float(min(pile_info["Depth"][1:]))
-        volume_cy = cylinder_volume_cy(diameter*feet2inch,-minDepth)
+        if diameter>3:
+            useDiameter = diameter
+        else:
+            useDiameter = diameter*feet2inch
+        volume_cy = cylinder_volume_cy(useDiameter,-minDepth)
         fig1.add_trace(go.Scatter(x=[volume_cy,0],y=[0,minDepth],mode='lines',name = 'Theoretical',line=dict(color='grey', width=2, dash='dashdot'), showlegend=True),row=1,col=5)
     # Update layout for dual y-axes and dark background
     fig1.update_layout(
@@ -1150,9 +1242,10 @@ def get_last_updated(job_number):
 # groups_list.remove('Edit')
 # latitudes,longitudes,markers,
 # (properties_df, jobid_pile_data,merged_df),(cpt_header,jobid_cpt_data) = load_geojson_data_()
-
-
-result_MWD,results_CPT = load_geojson_data()
-
+#
+# if __name__ == "__main__":
+#     result_MWD,results_CPT = load_geojson_data(['1604'])
+# ,'1604','1633'
+result_MWD,results_CPT = load_geojson_data(['1633','1640','1604'])
 
 
