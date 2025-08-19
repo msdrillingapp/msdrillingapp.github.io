@@ -257,7 +257,7 @@ column_defs = [
             """
         }
     },
-    {"headerName": "Piles Drilled", "field": "Piles %"},
+    {"headerName": "Piles Drilled", "field": "Piles Drilled"},
     {"headerName": "Piles %", "field": "Piles %"},
     {"headerName": "Concrete Delivered", "field": "Concrete Delivered"},
     {"headerName": "Concrete %", "field": "Concrete %"},
