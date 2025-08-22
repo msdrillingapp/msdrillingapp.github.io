@@ -628,7 +628,7 @@ def update_time_chart(selected_rows, selected_date):
 
     # Fast check using cache manager
     if not cache_manager.is_date_available(job, selected_date):
-        raise PreventUpdate
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
 
     # GET PRECOMPUTED DATA - This is now instant!
     precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
