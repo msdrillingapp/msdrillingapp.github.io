@@ -484,11 +484,11 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
 
 
 def get_color_marker(piletype):
-    if piletype == '1':
+    if piletype in ['1','14T1','24T1'] :
         return 'blue'
-    elif piletype == '2':
+    elif piletype in ['2','14T2','24T2'] :
         return 'yellow'
-    elif piletype == '3':
+    elif piletype in ['3','14T3','24T3'] :
         return 'green'
     elif piletype == '4':
         return 'red'
@@ -497,7 +497,7 @@ def get_color_marker(piletype):
     elif piletype == '5B':
         return 'purple'
     else:
-        return 'orange'
+        return 'grey'
 
 # ==================================================================================================
 # Callback to update map markers and recenter the map
@@ -779,7 +779,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
         filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
 
     # Extract statistics
-    unique_pile_count = properties_df[properties_df["JobNumber"] == selected_jobid]["PileID"].nunique()
+    unique_pile_count = properties_df["PileID"].nunique()
     unique_pile_count_filters = filtered_df['PileID'].nunique()
 
     # Create info cards

@@ -42,7 +42,7 @@ charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
                   "sbi":["Soil Behavior Index",['Ic']],
                   "sleve":["Sleeve Friction (tsf)",['f_s (tsf)']],
                   "bq":["Pore Pressure Parameter",['B_q']],
-                  "capacity":['Capacity (Tons)',['Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']]
+                  "capacity":['Capacity (Tons)',['Q_ult (Tons)','Q_s (Tons)','Q_b (Tons)']]
                   }
 
 # In-memory store for chart HTML strings
@@ -861,12 +861,13 @@ def generate_mwd_pdf_cpt(selected_job_id,selected_pile_id,cpt_fig,cpt_header): #
     header.build_pdf(images=[cpt_png])
     pdf_buffer.seek(0)
 
+    file_name = 'JobID_' + str(data['JobNumber'].values[0]) + '_CPTID_' + selected_pile_id + '_Time_' + str(data['Date'].values[0]) +'.pdf'
     # ✅ Encode PDF to base64
     pdf_data = base64.b64encode(pdf_buffer.read()).decode('utf-8')
 
     return {
         'content': pdf_data,
-        'filename': f"pile_report_{selected_pile_id}.pdf",
+        'filename': file_name,
         'type': 'application/pdf',
         'base64': True
     }
