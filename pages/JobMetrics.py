@@ -346,7 +346,7 @@ layout = html.Div([
                     style={
                         "backgroundColor": "#193153",
                         'width': '100%',
-                        'height': '400px',
+                        'height': '500px',
                         'marginBottom': '40px'  # ensures space for labels
                     }
                 ),
@@ -384,7 +384,7 @@ layout = html.Div([
                 style={
                     "backgroundColor": "#193153",
                     'width': '100%',
-                    # 'height': '500px',
+                    'height': '800px',
                     'marginTop': '40px',
                     'marginBottom': '40px'
                 }
@@ -402,7 +402,7 @@ layout = html.Div([
                 style={
                     "backgroundColor": "#193153",
                     'width': '100%',
-                    # 'height': '500px',
+                    'height': '400px',
                     'marginTop': '40px'
                 }
             ),
@@ -418,7 +418,7 @@ layout = html.Div([
                 style={
                     "backgroundColor": "#193153",
                     'width': '100%',
-                    # 'height': '500px',
+                    'height': '700px',
                     'marginTop': '40px'
                 }
             ),
