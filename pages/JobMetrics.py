@@ -4,15 +4,14 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 from dash.exceptions import PreventUpdate
-import numpy as np
 import pandas as pd
 import os
 import dash
 import dash_ag_grid as dag
-from datetime import date
-from functions import result_MWD,cache_manager
+from datetime import date,timedelta
+from collections import defaultdict
 import dash_bootstrap_components as dbc
-
+from data_loader import get_data,ensure_data_loaded
 
 dash.register_page(
     __name__,
@@ -22,14 +21,17 @@ dash.register_page(
 
 assets_path = os.path.join(os.getcwd(), "assets")
 summary_folder = os.path.join(assets_path, 'data','Summary')
-# Initialize cache manager
-# from cache_manager import ChartDataCache
-# cache_manager = ChartDataCache(result_MWD)
+
+# Get data from cache
+def get_data_summary(value:str):
+    data = ensure_data_loaded()
+    return data[value]
+    # result_MWD = data['result_MWD']
+    # my_jobs = data['my_jobs']
+    # cache_manager = data['cache_manager']
+
 def count_piles_for_date(data, target_date):
     return sum(1 for pile_data in data.values() if target_date in pile_data)
-
-
-from collections import defaultdict
 
 
 def count_piles_per_date(data):
@@ -45,13 +47,14 @@ def count_piles_per_date(data):
     return df
 
     return dict(date_counts)  # Convert to a regular dict for cleaner output
-def load_data():
+def load_data_metrics_():
     summary_dict_to_date = {}
     summary_dict_daily = {}
     summary_design = {}
     summary_metrics ={}
     summary_metrics_daily = {}
     jobs = []
+    result_MWD = get_data_summary('result_MWD')
     for f in os.listdir(summary_folder):
         jobnumber = None
         jobnumber_design = None
@@ -89,6 +92,55 @@ def load_data():
         df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/df_design['CONCRETE'].sum()
         df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/df_design['RIG DAYS'].sum()
         df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours']/df_design['MAN HOURS'].sum()
+        df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%']-df_todate_tot['Concrete%']
+        df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
+        df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
+        df_todate_tot['Delta_Piles_vs_Concrete_prev'] = df_todate_tot['Delta_Piles_vs_Concrete'].shift(1)
+        df_todate_tot['Delta_Piles_vs_RigDays_prev'] = df_todate_tot['Delta_Piles_vs_RigDays'].shift(1)
+        df_todate_tot['Delta_Piles_vs_Labor Hours_prev'] = df_todate_tot['Delta_Piles_vs_Labor Hours'].shift(1)
+
+        summary_metrics[jb] = df_todate_tot.reset_index()
+
+    return summary_metrics,summary_dict_daily
+
+def load_data_metrics():
+    summary_dict_to_date = {}
+    summary_dict_daily = {}
+    summary_design = {}
+    summary_metrics ={}
+    summary_metrics_daily = {}
+    jobs = []
+    result_MWD = get_data_summary('result_MWD')
+    for f in os.listdir(summary_folder):
+        jobnumber = None
+        if 'SiteProgression' in f:
+            jobnumber = int(f.split('-')[0])
+
+        else:
+            continue
+
+        if not jobnumber is None:
+            if not str(jobnumber) in result_MWD.keys():
+                continue
+            jobs.append(jobnumber)
+            df_todate = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Job To Date')
+            df_daily = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Daily')
+            df_todate['Time'] = pd.to_datetime(df_todate['Time'])
+            df_daily['Time'] = pd.to_datetime(df_daily['Time'])
+            summary_dict_to_date[jobnumber] = df_todate
+            summary_dict_daily[jobnumber] = df_daily
+    my_jobs = get_data_summary('my_jobs')
+    for jb in jobs:
+        if not str(jb) in my_jobs.jobs:
+            continue
+        job = my_jobs.jobs[str(jb)]
+        df_todate = summary_dict_to_date[jb]
+        df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
+        time_interval = pd.to_datetime(df_todate_tot.index)
+        df_todate_tot['Piles%'] = df_todate_tot['Piles']/job.estimate_piles
+        df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/job.estimate_concrete
+        df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/job.estimate_rig_days
+        df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours']/job.estimate_labourHours
         df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%']-df_todate_tot['Concrete%']
         df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
         df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
@@ -224,7 +276,7 @@ def prepare_time_spent_stats(summary_dict_daily):
     return out_df
 
 
-summary_metrics,summary_dic_daily = load_data()
+summary_metrics,summary_dic_daily = load_data_metrics()
 # table_rows = prepare_table_data(summary_metrics,selected_date)
 
 # ======================
@@ -304,7 +356,7 @@ layout = html.Div([
     # Date picker
     dcc.DatePickerSingle(
         id="date-picker",
-        date=date.today(),
+        date=date.today() - timedelta(days=1),
         display_format="YYYY-MM-DD",
         style=date_picker_style,
         className="dash-datepicker",
@@ -331,15 +383,15 @@ layout = html.Div([
                     value='percent',
                     inline=True,
                     style={
-                    'color': 'white',
-                    'fontSize': '12px',  # Smaller text
-                    'textAlign': 'right',  # Align to right
-                    'marginBottom': '10px',
-                    'justifyContent': 'flex-end',  # Push to right
-                    'display': 'flex',
-                    'gap': '15px'  # Space between options
-                },
-                labelStyle={'marginRight': '10px'}
+                        'color': 'white',
+                        'fontSize': '12px',
+                        'textAlign': 'right',
+                        'marginBottom': '10px',
+                        'justifyContent': 'flex-end',
+                        'display': 'flex',
+                        'gap': '15px'
+                    },
+                    labelStyle={'marginRight': '10px'}
                 ),
                 dcc.Graph(
                     id="job-bar-chart",
@@ -347,7 +399,7 @@ layout = html.Div([
                         "backgroundColor": "#193153",
                         'width': '100%',
                         'height': '500px',
-                        'marginBottom': '40px'  # ensures space for labels
+                        'marginBottom': '40px'
                     }
                 ),
             ],
@@ -376,39 +428,100 @@ layout = html.Div([
         )
     ], style={"marginTop": "20px"}),
 
-    # Job metrics bar charts
-    dbc.Row([
-        dbc.Col(
-            dcc.Graph(
-                id="job-metrics-bar_chart",
-                style={
-                    "backgroundColor": "#193153",
-                    'width': '100%',
-                    'height': '800px',
-                    'marginTop': '40px',
-                    'marginBottom': '40px'
-                }
+    dbc.Button("Show Job Metrics Bar Charts", id="toggle-bar-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
 
-            ),
-            width=12
-        )
-    ]),
+    # Job metrics bar charts
+    dbc.Collapse(
+        html.Div([
+        dbc.Row([
+            dbc.Col(
+                children=[
+                    dcc.RadioItems(
+                        id='metric-toggle-daily',
+                        options=[
+                            {'label': 'Cumulative', 'value': 'cumulative'},
+                            {'label': 'Daily', 'value': 'daily'}
+                        ],
+                        value='daily',
+                        inline=True,
+                        style={
+                            'color': 'white',
+                            'fontSize': '12px',
+                            'textAlign': 'right',
+                            'marginTop': '20px',
+                            'justifyContent': 'flex-end',
+                            'display': 'flex',
+                            'gap': '15px'
+                        },
+                        labelStyle={'marginRight': '10px'}
+                    ),
+                    dcc.Graph(
+                        id="job-metrics-bar_chart",
+                        style={
+                            "backgroundColor": "#193153",
+                            'width': '100%',
+                            'height': '800px',
+                            'marginTop': '10px',
+                            'marginBottom': '40px'
+                        }
+                    )],
+                width=12
+            )
+        ]),
+        ]),#close html.Div
+        id="collapse-job-metrics-bar_chart",
+        is_open=False
+    ),
+
+    # job-metrics-line_chart
+    dbc.Button("Show Job Metrics Line Charts", id="toggle-line-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
+
+    dbc.Collapse(
+        html.Div([
+            dbc.Row([
+                dbc.Col(
+                    children=[
+                        dcc.Graph(
+                            id="job-metrics-line_chart",
+                            style={
+                                "backgroundColor": "#193153",
+                                'width': '100%',
+                                'height': '800px',
+                                'marginTop': '10px',
+                                'marginBottom': '40px'
+                            }
+                        )],
+                    width=12
+                )
+            ]),
+        ]),  #close DIV
+        id="collapse-job-metrics-line_chart",
+        is_open=False
+        ),#clode collapse
 
     # Job pie chart
-    dbc.Row([
-        dbc.Col(
-            dcc.Graph(
-                id="job-pie",
-                style={
-                    "backgroundColor": "#193153",
-                    'width': '100%',
-                    'height': '400px',
-                    'marginTop': '40px'
-                }
-            ),
-            width=12
-        )
-    ]),
+    dbc.Button("Show Job Metrics Pie Charts", id="toggle-pie-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
+
+    dbc.Collapse(
+        html.Div([
+            dbc.Row([
+                dbc.Col(
+                    dcc.Graph(
+                        id="job-pie",
+                        style={
+                            "backgroundColor": "#193153",
+                            'width': '100%',
+                            'height': '400px',
+                            'marginTop': '40px'
+                        }
+                    ),
+                    width=12
+                )
+            ]),
+            ]),#close DIV
+        id="collapse-job-metrics-pie_chart",
+        is_open=False
+    ),#close collapse
 
     # Time chart
     dbc.Row([
@@ -424,13 +537,29 @@ layout = html.Div([
             ),
             width=12
         )
+    ]),
+
+    # Pile location chart - NEW ROW
+    dbc.Row([
+        dbc.Col(
+            dcc.Graph(
+                id="pile-location-chart",
+                style={
+                    "backgroundColor": "#193153",
+                    'width': '100%',
+                    'height': '700px',
+                    'marginTop': '40px'
+                }
+            ),
+            width=12
+        )
     ])
 ],
-style={
-    'backgroundColor': '#193153',
-    'minHeight': '500vh',  # grow with content
-    'padding': '20px'
-})
+    style={
+        'backgroundColor': '#193153',
+        'minHeight': '500vh',
+        'padding': '20px'
+    })
     # style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 
@@ -468,7 +597,10 @@ def update_job_bar_chart(selected_date, metric_type):
     # Get filtered data from your summary_metrics
     records = []
     for job, df in summary_metrics.items():
-        df_to_date = df[df['Time']<=pd.to_datetime(selected_date)]
+        try:
+            df_to_date = df[df['Time']<=pd.to_datetime(selected_date)]
+        except:
+            raise PreventUpdate
         if len(df_to_date)==0:
             raise PreventUpdate
         row = df_to_date.iloc[-1]
@@ -627,6 +759,7 @@ def update_time_chart(selected_rows, selected_date):
     job = row['JobNumber']
 
     # Fast check using cache manager
+    cache_manager = get_data_summary('cache_manager')
     if not cache_manager.is_date_available(job, selected_date):
         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
 
@@ -651,7 +784,7 @@ def update_time_chart(selected_rows, selected_date):
 
     # Consistent colors
     DEPTH_COLOR = '#1E90FF'    # Bright blue
-    STROKES_COLOR = '#006400'  # Dark green
+    STROKES_COLOR = 'green'#'#006400'  # Dark green
     TORQUE_COLOR = '#FFD700'   # Gold/yellow
 
     annotations = []
@@ -663,7 +796,9 @@ def update_time_chart(selected_rows, selected_date):
 
         pile_data_dict = rig_pile_dataframes[rig_id]
 
-        for pile_idx, (pile_id, pile_df) in enumerate(pile_data_dict.items()):
+        for pile_idx, mdict in enumerate(pile_data_dict):
+            pile_id = list(mdict.keys())[0]
+            pile_df = mdict[pile_id]
             # Depth trace
             fig.add_trace(
                 go.Scatter(
@@ -687,7 +822,7 @@ def update_time_chart(selected_rows, selected_date):
             fig.add_trace(
                 go.Scatter(
                     x=pile_df['Time'],
-                    y=pile_df['Strokes'],
+                    y=pile_df['Strokes'].round(0),
                     mode='lines',
                     name='Strokes',
                     line=dict(color=STROKES_COLOR, width=2),
@@ -706,7 +841,7 @@ def update_time_chart(selected_rows, selected_date):
             fig.add_trace(
                 go.Scatter(
                     x=pile_df['Time'],
-                    y=pile_df['Torque'],
+                    y=pile_df['Torque'].round(2),
                     mode='lines',
                     name='Torque',
                     line=dict(color=TORQUE_COLOR, width=2),
@@ -714,7 +849,7 @@ def update_time_chart(selected_rows, selected_date):
                     # hovertext=f'Pile {pile_id}: Torque',
                     hovertext='Torque',
                     # hovertemplate='Time: %{x}<br>Torque: %{y}<extra></extra>',
-                    legendgroup='Torque',
+                    legendgroup='Torque [ton*meters]',
                     showlegend=(i == 1 and pile_idx == 0),
                     opacity=0.8
                 ),
@@ -808,23 +943,27 @@ def update_time_chart(selected_rows, selected_date):
 @callback(Output('job-metrics-bar_chart', 'figure'),
           Input("job-table", "selectedRows"),
           Input("date-picker", "date"),
+          Input("metric-toggle-daily", "value")
           # prevent_initial_call=True
           )
-def update_time_chart(selected_rows, selected_date):
+def update_time_chart(selected_rows, selected_date,metric_unit):
     if not selected_rows:
         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
 
     row = selected_rows[0]
     job = row['JobNumber']
     data = summary_metrics[job]
-
+    if metric_unit == 'cumulative':
+        subplot_titles = ("Piles & Concrete (cumulative)", "Labor Hours & Rig Days (cumulative)")
+    else:
+        subplot_titles = ("Piles & Concrete (daily)", "Labor Hours & Rig Days (daily)")
     # Create subplots with secondary y-axes
     fig = make_subplots(
         rows=2,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.08,
-        subplot_titles=("Piles & Concrete Delivered", "Labor Hours & Rig Days"),
+        subplot_titles=subplot_titles,
         specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
     )
 
@@ -834,59 +973,114 @@ def update_time_chart(selected_rows, selected_date):
     YELLOW_COLOR = '#FFD700'  # Gold/yellow
     RED_COLOR = '#FF4500'  # Orange-red (for secondary axes)
 
-    # First row: Piles (primary) and ConcreteDelivered (secondary)
-    fig.add_trace(
-        go.Bar(
-            x=data['Time'],
-            y=data['Piles'],
-            name='Piles',
-            marker_color=BLUE_COLOR,
-            opacity=0.7,
-            offsetgroup="1",
-        ),
-        row=1, col=1,
-        secondary_y=False
-    )
+    if metric_unit=='cumulative':
+        # First row: Piles (primary) and ConcreteDelivered (secondary)
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['Piles'],
+                name='Piles',
+                marker_color=BLUE_COLOR,
+                opacity=0.7,
+                offsetgroup="1",
+            ),
+            row=1, col=1,
+            secondary_y=False
+        )
 
-    fig.add_trace(
-        go.Bar(
-            x=data['Time'],
-            y=data['ConcreteDelivered'],
-            name='Concrete Delivered',
-            marker_color=YELLOW_COLOR,
-            opacity=0.7,
-            offsetgroup="2",
-        ),
-        row=1, col=1,
-        secondary_y=True
-    )
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['ConcreteDelivered'],
+                name='Concrete',
+                marker_color=YELLOW_COLOR,
+                opacity=0.7,
+                offsetgroup="2",
+            ),
+            row=1, col=1,
+            secondary_y=True
+        )
 
-    # Second row: LaborHours (primary) and RigDays (secondary)
-    fig.add_trace(
-        go.Bar(
-            x=data['Time'],
-            y=data['LaborHours'],
-            name='Labor Hours',
-            marker_color=GREEN_COLOR,
-            opacity=0.7,
-            offsetgroup="1",
-        ),
-        row=2, col=1,
-        secondary_y=False
-    )
+        # Second row: LaborHours (primary) and RigDays (secondary)
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['LaborHours'],
+                name='Labor Hours',
+                marker_color=GREEN_COLOR,
+                opacity=0.7,
+                offsetgroup="1",
+            ),
+            row=2, col=1,
+            secondary_y=False
+        )
 
-    fig.add_trace(
-        go.Bar(
-            x=data['Time'],
-            y=data['DaysRigDrilled'],
-            name='Rig Days',
-            marker_color=RED_COLOR,
-            opacity=0.7,
-            offsetgroup="2",
-        ),
-        row=2, col=1,
-        secondary_y=True
-    )
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['DaysRigDrilled'],
+                name='Rig Days',
+                marker_color=RED_COLOR,
+                opacity=0.7,
+                offsetgroup="2",
+            ),
+            row=2, col=1,
+            secondary_y=True
+        )
+    else:
+        # First row: Piles (primary) and ConcreteDelivered (secondary)
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['Piles'].diff(),
+                name='Piles',
+                marker_color=BLUE_COLOR,
+                opacity=0.7,
+                offsetgroup="1",
+            ),
+            row=1, col=1,
+            secondary_y=False
+        )
+
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['ConcreteDelivered'].diff(),
+                name='Concrete',
+                marker_color=YELLOW_COLOR,
+                opacity=0.7,
+                offsetgroup="2",
+            ),
+            row=1, col=1,
+            secondary_y=True
+        )
+
+        # Second row: LaborHours (primary) and RigDays (secondary)
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['LaborHours'].diff(),
+                name='Labor Hours',
+                marker_color=GREEN_COLOR,
+                opacity=0.7,
+                offsetgroup="1",
+            ),
+            row=2, col=1,
+            secondary_y=False
+        )
+
+        fig.add_trace(
+            go.Bar(
+                x=data['Time'],
+                y=data['DaysRigDrilled'].diff(),
+                name='Rig Days',
+                marker_color=RED_COLOR,
+                opacity=0.7,
+                offsetgroup="2",
+            ),
+            row=2, col=1,
+            secondary_y=True
+        )
 
     # Update layout
     fig.update_layout(
@@ -933,4 +1127,379 @@ def update_time_chart(selected_rows, selected_date):
     return fig
 
 
+
 # add bar chart showing pile/concrete/labour hours and pile length /rig days every day.
+@callback(Output('job-metrics-line_chart', 'figure'),
+          Input("job-table", "selectedRows"),
+          Input("date-picker", "date"),
+          # Input("metric-toggle-daily", "value")
+          # prevent_initial_call=True
+          )
+def update_line_chart(selected_rows, selected_date):
+    if not selected_rows:
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+
+    row = selected_rows[0]
+    job = row['JobNumber']
+    data = summary_metrics[job]
+    subplot_titles =''
+    # Create subplots with secondary y-axes
+    fig = make_subplots(
+        rows=3,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=subplot_titles,
+        # specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+    )
+
+    # Consistent colors for all measurements
+    BLUE_COLOR = '#1E90FF'  # Bright blue
+    GREEN_COLOR = '#006400'  # Dark green
+    YELLOW_COLOR = '#FFD700'  # Gold/yellow
+    RED_COLOR = '#FF4500'  # Orange-red (for secondary axes)
+
+    # First row: Piles (primary)
+    fig.add_trace(
+        go.Scatter(
+            x=data['Time'],
+            y=data['Piles'],
+            name='Actual Piles',
+            mode='lines+markers',
+
+        ),
+        row=1, col=1,
+        # secondary_y=False
+    )
+    # ConcreteDelivered
+    fig.add_trace(
+        go.Scatter(
+            x=data['Time'],
+            y=data['ConcreteDelivered'],
+            name='Concrete',
+            mode='lines+markers',
+
+        ),
+        row=2, col=1,
+        # secondary_y=False
+    )
+
+    # Third row: LaborHours (primary)
+    fig.add_trace(
+        go.Scatter(
+            x=data['Time'],
+            y=data['LaborHours'],
+            name='Labor Hours',
+            mode='lines+markers',
+        ),
+        row=3, col=1,
+        # secondary_y=False
+    )
+
+
+    # Update layout
+    fig.update_layout(
+        height=800,
+        autosize=False,
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font_color="white",
+        showlegend=True,
+        # margin=dict(l=50, r=80, t=80, b=50),
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.01,
+            font=dict(size=11),
+            bgcolor='rgba(25, 49, 83, 0.9)',
+
+        ),
+        barmode='group'
+    )
+
+    # Update y-axis titles and colors
+    # First row axes
+    fig.update_yaxes(title_text="Piles", row=1, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
+    fig.update_yaxes(title_text="Concrete Delivered", row=2, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
+    fig.update_yaxes(title_text="Labor Hours", row=3, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
+
+    # Update x-axis title for the bottom subplot
+    fig.update_xaxes(title_text="Date", row=3, col=1)
+
+    # Update subplot title styles
+    fig.update_annotations(font_color="white", font_size=14)
+
+
+    return fig
+
+
+@callback(
+    Output("pile-location-chart", "figure"),
+    Input("job-table", "selectedRows"),
+    Input("date-picker", "date"),
+)
+def update_pile_location_chart(selected_rows, selected_date):
+    if not selected_rows:
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+
+    row = selected_rows[0]
+    job = row['JobNumber']
+    result_MWD = get_data_summary('result_MWD')
+    df_prop = result_MWD[str(job)][0]
+    cache_manager = get_data_summary('cache_manager')
+    if not cache_manager.is_date_available(job, selected_date):
+        return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+
+    precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
+
+    if not precomputed_data or not precomputed_data['rig_pile_dataframes']:
+        raise PreventUpdate
+
+    piles_by_rig = precomputed_data['piles_by_rig']
+    rig_pile_dataframes = precomputed_data['rig_pile_dataframes']
+    fig = go.Figure()
+    # Different colors for different rigs
+    rig_colors = ['#1E90FF', '#FF6B6B', '#32CD32', '#FFD700', '#9370DB', '#FF6347']
+    # Loop rigs
+    for i, (rig_id, pile_ids) in enumerate(piles_by_rig.items(), start=1):
+        if rig_id not in rig_pile_dataframes:
+            continue
+        color = rig_colors[i % len(rig_colors)]
+        pile_data_dict = rig_pile_dataframes[rig_id]
+        x_coords = []
+        y_coords = []
+        pile_ids = []
+        position = []
+        for order_num, mdict in enumerate(pile_data_dict, start=1):
+                pile_id = list(mdict.keys())[0]
+                tmp = df_prop[df_prop['PileID']==pile_id][['latitude','longitude']]
+                x_coords.append(tmp['latitude'].values[0])
+                y_coords.append(tmp['longitude'].values[0])
+                pile_ids.append(pile_id)
+                position.append(order_num)
+
+        # Add ONE trace for this rig with all points
+        fig.add_trace(go.Scatter(
+            x=x_coords,
+            y=y_coords,
+            mode='markers+text',
+            marker=dict(size=12, color=color),
+            text=[str(n) for n in position],  # Use the collected positions
+            textposition="top center",
+            name=f"Rig {rig_id}",
+            # hovertemplate='PileID: %{text}<br>X: %{x}<br>Y: %{y}<extra></extra>'
+            hovertemplate = (
+                '<b>PileID: %{customdata[0]}<br>'
+                '<extra></extra>'
+            ),
+            customdata=list(zip(pile_ids))
+        ))
+
+        # Add arrows for drilling order
+        for j in range(len(pile_ids) - 1):
+            fig.add_annotation(
+                x=x_coords[j + 1],
+                y=y_coords[j + 1],
+                ax=x_coords[j],
+                ay=y_coords[j],
+                xref="x", yref="y",
+                axref="x", ayref="y",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor=color,
+                opacity=0.7
+            )
+    fig.update_yaxes(showgrid=True, gridcolor="grey")
+    fig.update_xaxes(showgrid=True, gridcolor="grey")
+
+    fig.update_layout(
+        title="Pile Locations with Drilling Order",
+        plot_bgcolor="#193153",
+        paper_bgcolor="#193153",
+        font_color="white",
+        showlegend=True,
+        xaxis_title="Latitude",
+        yaxis_title="Longitude",
+        height=500
+    )
+
+    return fig
+
+
+# @callback(
+#     Output("pile-location-chart", "figure"),
+#     Input("job-table", "selectedRows"),
+#     Input("date-picker", "date"),
+# )
+# def update_pile_location_chart(selected_rows, selected_date):
+#     if not selected_rows:
+#         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+#
+#     row = selected_rows[0]
+#     job = row['JobNumber']
+#     result_MWD = get_data_summary('result_MWD')
+#     df_prop = result_MWD[str(job)][0]
+#     cache_manager = get_data_summary('cache_manager')
+#     if not cache_manager.is_date_available(job, selected_date):
+#         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+#
+#     precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
+#
+#     if not precomputed_data or not precomputed_data['rig_pile_dataframes']:
+#         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
+#
+#     piles_by_rig = precomputed_data['piles_by_rig']
+#     rig_pile_dataframes = precomputed_data['rig_pile_dataframes']
+#
+#     fig = go.Figure()
+#
+#     # Calculate overall center for the map
+#     all_lats = []
+#     all_lons = []
+#
+#     # Different colors for different rigs
+#     rig_colors = ['#1E90FF', '#FF6B6B', '#32CD32', '#FFD700', '#9370DB', '#FF6347']
+#
+#     # Loop rigs
+#     for rig_idx, (rig_id, pile_ids_list) in enumerate(piles_by_rig.items(), start=1):
+#         if rig_id not in rig_pile_dataframes:
+#             continue
+#
+#         pile_data_dict = rig_pile_dataframes[rig_id]
+#         lats = []
+#         lons = []
+#         pile_ids = []
+#         order_numbers = []  # Store order numbers for annotation
+#
+#         for order_num, mdict in enumerate(pile_data_dict, start=1):
+#             pile_id = list(mdict.keys())[0]
+#             tmp = df_prop[df_prop['PileID'] == pile_id][['latitude', 'longitude']]
+#             if not tmp.empty:
+#                 lats.append(tmp['latitude'].values[0])
+#                 lons.append(tmp['longitude'].values[0])
+#                 pile_ids.append(pile_id)
+#                 all_lats.append(tmp['latitude'].values[0])
+#                 all_lons.append(tmp['longitude'].values[0])
+#                 order_numbers.append(order_num)
+#
+#
+#         if not lats or not lons:
+#             continue
+#
+#         color = rig_colors[rig_idx % len(rig_colors)]
+#
+#         # Main markers
+#         fig.add_trace(go.Scattermapbox(
+#             lat=lats,
+#             lon=lons,
+#             mode='markers+text',
+#             marker=dict(size=12, color=color),
+#             text=[str(n) for n in order_numbers],  # <-- force string
+#             textposition="top right",
+#             textfont=dict(size=14, color="white"),  # <-- brighter & bigger
+#             name=f"Rig {rig_id}",
+#             hovertemplate=(
+#                 '<b>PileID: %{customdata[0]}<br>'
+#                 'Order: %{customdata[1]}<br>'
+#                 '<extra></extra>'
+#             ),
+#             customdata=list(zip(pile_ids, order_numbers))
+#         ))
+#
+#
+#         # Add arrows for drilling order with proper arrowheads
+#         for i in range(len(pile_ids) - 1):
+#             # Add arrow line
+#             fig.add_trace(go.Scattermapbox(
+#                 lat=[lats[i], lats[i + 1]],
+#                 lon=[lons[i], lons[i + 1]],
+#                 mode='lines',
+#                 line=dict(width=3, color=color),
+#                 showlegend=False,
+#                 hoverinfo='skip',
+#                 name=f"Rig {rig_id} path"
+#             ))
+#
+#     # Set map configuration after collecting all coordinates
+#     if all_lats and all_lons:
+#         center_lat = sum(all_lats) / len(all_lats)
+#         center_lon = sum(all_lons) / len(all_lons)
+#
+#         # Calculate appropriate zoom level based on spread
+#         lat_range = max(all_lats) - min(all_lats)
+#         lon_range = max(all_lons) - min(all_lons)
+#         max_range = max(lat_range, lon_range)
+#
+#         # Adjust zoom based on data spread
+#         if max_range < 0.001:
+#             zoom = 18
+#         elif max_range < 0.01:
+#             zoom = 15
+#         elif max_range < 0.1:
+#             zoom = 13
+#         else:
+#             zoom = 11
+#     else:
+#         center_lat, center_lon, zoom = 0, 0, 1
+#
+#     map_style = "open-street-map"
+#     fig.update_layout(
+#         mapbox=dict(
+#             style=map_style,
+#             center=dict(lat=center_lat, lon=center_lon),
+#             zoom=zoom
+#         ),
+#         title="Pile Locations with Drilling Order",
+#         plot_bgcolor="#193153",
+#         paper_bgcolor="#193153",
+#         font_color="white",
+#         showlegend=True,
+#         height=600,
+#         margin=dict(l=20, r=20, t=50, b=20),
+#         legend=dict(
+#             orientation="h",
+#             yanchor="bottom",
+#             y=1.02,
+#             xanchor="center",
+#             x=0.5
+#         )
+#     )
+#
+#     return fig
+
+
+@callback(
+    Output("collapse-job-metrics-bar_chart", "is_open"),
+    [Input("toggle-bar-chart", "n_clicks")],
+    [State("collapse-job-metrics-bar_chart", "is_open")],prevent_initial_call=True
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@callback(
+    Output("collapse-job-metrics-line_chart", "is_open"),
+    [Input("toggle-line-chart", "n_clicks")],
+    [State("collapse-job-metrics-line_chart", "is_open")],prevent_initial_call=True
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@callback(
+    Output("collapse-job-metrics-pie_chart", "is_open"),
+    [Input("toggle-pie-chart", "n_clicks")],
+    [State("collapse-job-metrics-pie_chart", "is_open")],prevent_initial_call=True
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+

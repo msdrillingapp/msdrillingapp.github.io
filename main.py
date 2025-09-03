@@ -1,17 +1,23 @@
 import dash
 import os
-from dash import dcc, html #, CeleryManager
+from dash import dcc, html,Output, Input #, CeleryManager
+
 # from celery_config import celery_app
 from flask import Flask
 import dash_bootstrap_components as dbc
-from dash import Output, Input
-
+# from dash import Output, Input
+from flask_caching import Cache
+from data_loader import load_all_data,set_cache
 
 if '__file__' in globals():
     root_path = os.path.dirname(os.path.abspath(__file__))
 else:
     # Fallback for environments where __file__ isn't available
     root_path = os.getcwd()
+
+# Load data immediately when app starts
+from data_loader import load_all_data
+load_all_data()  # This will load the data once
 # if 'REDIS_URL' in os.environ:
 # if True:
 #     # Use Redis & Celery if REDIS_URL set as an env variable
@@ -34,10 +40,32 @@ app = dash.Dash(__name__, server=server, use_pages=True,
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}]
                 )
 
-# Add these right after app creation
-# app.config.suppress_callback_exceptions = True
-app._callback_list = []  # Clear any existing callbacks
+# Set up caching
+cache = Cache(server, config={
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': 'cache-directory',
+    'CACHE_THRESHOLD': 100
+})
 
+# Make cache available to other modules
+app.cache = cache
+# Initialize cache in data_loader module
+set_cache(cache)
+
+# Add a startup callback to load data
+@app.callback(
+    Output('dummy-output', 'children'),
+    Input('url', 'pathname'),
+    prevent_initial_call=False
+)
+def load_data_on_startup(pathname):
+    """Load data when the app starts or on first navigation"""
+    from data_loader import ensure_data_loaded
+    ensure_data_loaded()
+    return ""
+
+
+app._callback_list = []  # Clear any existing callbacks
 app.title = 'MS Drill Tracker'
 
 navbar = dbc.NavbarSimple(
@@ -60,6 +88,7 @@ navbar = dbc.NavbarSimple(
 layout = dbc.Container(
     [
         dcc.Location(id="url", refresh=False),
+        html.Div(id='dummy-output', style={'display': 'none'}),
         navbar,
         dcc.Store(id='selected-jobnumber'),
         dash.page_container

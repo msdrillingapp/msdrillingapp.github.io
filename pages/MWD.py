@@ -6,10 +6,12 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import pandas as pd
-# from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,properties_df, latitudes,longitudes,jobid_pile_data,merged_df,groups_list,remove_min #,markers
-from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,result_MWD,remove_min
+
+from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,remove_min
+from data_loader import get_data,ensure_data_loaded
+
 from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
-from functions import generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart
+from functions import generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart#,result_MWD
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
@@ -27,14 +29,17 @@ else:
     # Fallback for environments where __file__ isn't available
     root_path = os.getcwd()
 # Track changed values
-changed_values ={}
+changed_values = {}
 
-map_center = [30.2991535,-87.6300472]
+map_center = [30.2991535, -87.6300472]
 zoom_level = 4
 markers = []
 
+def get_data_MWD(value:str='result_MWD'):
+    data = ensure_data_loaded()
+    return data[value]
 # flts = get_filters(properties_df)
-flts = get_filters(result_MWD)
+flts = get_filters() #result_MWD
 pilelist = get_pilelist()
 charts = add_charts()
 filtered_table = get_filtered_table()
@@ -62,9 +67,9 @@ layout = html.Div([
         dbc.Collapse(
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
                 dl.TileLayer(
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
-                    maxZoom=19,  # Higher max zoom (OSM supports up to 19)
-                    minZoom=2,  # Lower min zoom (adjust as needed)
+                    # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
+                    # maxZoom=19,  # Higher max zoom (OSM supports up to 19)
+                    # minZoom=2,  # Lower min zoom (adjust as needed)
                 ),
                 dl.LayerGroup(markers, id="map-markers"),
 
@@ -178,6 +183,7 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
             selected_pileid = selected_row['PileID']
             selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
+    result_MWD = get_data_MWD()
     # filtered_df = merged_df.copy()
     filtered_df = result_MWD[selected_jobid][-1].copy()
     # Filter DataFrame based on selected PileID and Date
@@ -227,12 +233,9 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
 def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
-        # return []  # Return an empty table before selection
-    # filtered_df = properties_df.copy()
+    result_MWD = get_data_MWD()
     filtered_df = result_MWD[selected_jobid][0].copy()
     # Filter DataFrame based on selected PileID and Date
-    # if not selected_jobid is None:
-    #     filtered_df = filtered_df[(filtered_df["JobNumber"] == selected_jobid)]
     if not selected_date is None:
         filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
     if not selected_rigid is None:
@@ -248,7 +251,6 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
     summary_data = []
     for _, row in filtered_df.iterrows():
         pile_id = row["PileID"]
-
         date = row['Time']
         try:
             date = pd.to_datetime(date).date()
@@ -314,6 +316,11 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
         min_depth = None
         max_strokes = None
         if not selected_jobid is None:
+            # job = my_jobs.jobs[selected_jobid]
+            # pile = job.piles[pile_id]
+            # min_depth = pile.mindepth
+            # max_strokes = pile.maxstrokes
+
             jobid_pile_data = result_MWD[selected_jobid][1]
             # Retrieve Depth & Strokes from pile_data
             pile_data = jobid_pile_data[selected_jobid].copy()
@@ -334,6 +341,7 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
                 else:
                     min_depth = None
                     max_strokes = None
+
         diameter = round(float(row['PileDiameter'])*feet2inch,2)
 
         dict_data = {
@@ -341,6 +349,7 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
             "Date": date,
             "Time": time,
             "JobNumber": row['JobNumber'],
+            "JobName": row['JobName'],
             "LocationID": row['LocationID'],
             "MinDepth": min_depth,
             "MaxStrokes": max_strokes,
@@ -420,10 +429,11 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
                           prev_productcode):
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
-
+    if selected_jobid is None:
+        raise PreventUpdate
     # Start with full dataset
     # filtered_df = properties_df.copy()
-
+    result_MWD = get_data_MWD()
     properties_df = result_MWD[selected_jobid][0]
     filtered_df = properties_df.copy()
 
@@ -506,20 +516,41 @@ def get_color_marker(piletype):
      Output("map", "center"),
      Output('map','zoom'),
      Output("map", "key")],
-    [dash.dependencies.Input("date-filter", "value"),
-     dash.dependencies.Input("rigid-filter", "value"),
-     dash.dependencies.Input("pileid-filter", "value"),
-     dash.dependencies.Input('jobid-filter', "value"),
-     dash.dependencies.Input('pilecode-filter', "value"),
-     dash.dependencies.Input('pilestatus-filter', "value"),
-     dash.dependencies.Input('piletype-filter', "value"),
-     dash.dependencies.Input('productcode-filter', "value")
-     ]#,prevent_initial_call=True
+    [Input("date-filter", "value"),
+    Input("rigid-filter", "value"),
+    Input("pileid-filter", "value"),
+     Input('jobid-filter', "value"),
+     Input('pilecode-filter', "value"),
+     Input('pilestatus-filter', "value"),
+     Input('piletype-filter', "value"),
+     Input('productcode-filter', "value")
+     ],prevent_initial_call=False
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
+    # Check if this is the initial call or no job selected
+    # ctx = dash.callback_context
     if selected_jobid is None:
-        raise PreventUpdate
+        my_jobs = get_data_MWD('my_jobs')
+        markers =[]
+        lon =[]
+        lat =[]
+        for key,job in my_jobs.jobs.items():
+            markers.append(dl.Marker(
+                position=(job.latitude, job.longitude),
+                children=[
+                dl.Tooltip(f"{key}-{job.job_name}",
+                           permanent=True,  # 👈 always visible
+                           direction="top"),  # Tooltip on hover
 
+            ]))
+            lon.append(job.latitude)
+            lat.append(job.longitude)
+        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lon, lat)
+        # zoom_level = 15
+        # center = (lon[0], lat[0])
+        return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
+        # raise PreventUpdate
+    result_MWD = get_data_MWD()
     # filtered_df = properties_df.copy()
     filtered_df = result_MWD[selected_jobid][0].copy()
     # center = [np.nanmean(list(filter_none(properties_df["latitude"]))), np.nanmean(list(filter_none(properties_df["longitude"])))]
@@ -631,6 +662,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_date):
     if selected_jobid is None:
         raise PreventUpdate
+    result_MWD = get_data_MWD()
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id == "pileid-filter":
@@ -639,6 +671,7 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), go.Figure(
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True  # Dark background even if empty
         # tmp = properties_df.copy()
+
         tmp = result_MWD[selected_jobid][0].copy()
         tmp = tmp[tmp['PileID'] == selected_pileid]
         tmp = tmp[tmp['date'] == selected_date]
@@ -669,7 +702,10 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
     jobid_pile_data = result_MWD[selected_jobid][1]
     pile_data = jobid_pile_data[selected_jobid].copy()
     pile_info = pile_data[selected_pileid][selected_date]
-
+    # job = my_jobs.jobs[selected_jobid]
+    # pile = job.piles[selected_pileid]
+    # fig = pile.create_time_chart()
+    # fig1 = pile.create_depth_chart()
     fig = create_time_chart(pile_info)
     fig1 = create_depth_chart(pile_info,diameter)
 
@@ -695,6 +731,7 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
 def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_date):
     if selected_jobid is None:
         raise PreventUpdate
+    result_MWD = get_data_MWD()
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id =="pileid-filter":
@@ -758,7 +795,7 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
 def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selected_pilecode, selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:
         return html.Div("Select a JobID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
-
+    result_MWD = get_data_MWD()
     # Filter data for the selected PileID
     properties_df = result_MWD[selected_jobid][0].copy()
     # filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
@@ -949,6 +986,7 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
         selected_row = selected_rows[0]
     else:
         # selected_jobid =
+        result_MWD = get_data_MWD()
         properties_df = result_MWD[selected_jobid][0].copy()
         tmp = properties_df[(properties_df['PileID']==selected_pileid)&(properties_df['date']==selected_date)]
         tmp.rename(columns={'date':'Date'},inplace=True)

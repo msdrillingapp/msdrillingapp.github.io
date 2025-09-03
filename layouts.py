@@ -4,6 +4,7 @@ from datetime import datetime as dt
 import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import os
+from data_loader import get_data, ensure_data_loaded
 ####################################################################################################
 # 000 - DEFINE REUSABLE COMPONENTS AS FUNCTIONS
 ####################################################################################################
@@ -34,7 +35,13 @@ def get_header():
 
 #####################
 
-def get_filters(results_MWD):
+def get_filters(): #results_MWD
+
+    # Load data only when needed in callbacks
+    data = get_data()
+    # if not data['result_MWD']:  # Data not loaded yet
+    #     data = ensure_data_loaded()  # Load it now
+    results_MWD = data['result_MWD']
     filters = html.Div([
         dbc.Row([
             dbc.Col(dcc.Dropdown(
@@ -130,9 +137,10 @@ def get_pilelist():
                         {"headerName": "Date", "field": "Date", "sortable": True, "filter": True,"hide": True},
                         {"headerName": "Time", "field": "Time", "sortable": True, "filter": True},
                         {"headerName": "JobNumber", "field": "JobNumber", "sortable": True, "filter": True, "hide": True},
+                        {"headerName": "JobName", "field": "JobName", "sortable": True, "filter": True,"hide": True},
                         {"headerName": "LocationID", "field": "LocationID", "sortable": True, "filter": True,"headerClass": "header-red" },
                         {"headerName": "MinDepth", "field": "MinDepth", "sortable": True, "filter": True,"editable": True,"headerClass": "header-red"},
-                        {"headerName": "MaxStrokes", "field": "MaxStrokes", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
+                        {"headerName": "MaxStroke", "field": "MaxStrokes", "sortable": True, "filter": True, "editable": True,"headerClass": "header-red"},
                         {"headerName": "OverBreak", "field": "OverBreak", "sortable": True, "filter": True,"editable": False},
                         {"headerName": "PileStatus", "field": "PileStatus", "sortable": True, "filter": True, "editable": True,"cellEditor": "agSelectCellEditor",
                         "cellEditorParams": {"values": ["Complete", "Abandoned"]},"headerClass": "header-red"},

@@ -1,12 +1,7 @@
 import numpy as np
 import pandas as pd
-import dash_leaflet as dl
-# import dash_extensions.javascript as dj
 import json
 import os
-import logging
-# from flask_caching import Cache
-# from dash import Dash
 import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import timedelta,datetime
@@ -16,17 +11,21 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                Table, TableStyle, Frame, PageTemplate,Image)
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,Table, TableStyle, Frame, PageTemplate,Image)
 import plotly.graph_objects as go
 import math
-import naming_conventions as nc
-
-
-# from celery_config import celery_app
 from celery.utils.log import get_task_logger
 import re
+from pyproj import Transformer
+# =========================================
+# from celery_config import celery_app
+from get_data_from_PileMetrics_API import get_estimate
+import naming_conventions as nc
+from Job import JobManager
+from cache_manager import ChartDataCache
 from celery import shared_task
+# =========================================
+
 logger = get_task_logger(__name__)
 
 assets_path = os.path.join(os.getcwd(), "assets")
@@ -41,7 +40,9 @@ filtered_columns = ["PileID", "Group", "Field", "Value", "latitude", "longitude"
 groups_df = pd.read_csv(os.path.join(assets_path,'Groups.csv'))
 groups_df = groups_df.explode("Group").reset_index(drop=True)
 
-from pyproj import Transformer
+
+
+
 def convert_easting_northing_to_lonlat(reference_lon, reference_lat, eastings, northings):
     """
     Convert Easting/Northing coordinates to longitude/latitude using a reference point.
@@ -92,7 +93,7 @@ def extract_trailing_numbers(s):
 
 # Function to load all GeoJSON files dynamically
 # Cache expensive operations
-# @cache.memoize(timeout=3600)
+
 def load_geojson_data(jobs=[],reload:bool=False):
     result_MWD ={}
     results_CPT = {}
@@ -826,11 +827,12 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     jobid = selected_row.get('JobNumber', '').lower()
     # if len(jobid)>0:
     #     jobid = selected_row.get('JobNumber', '').lower()
-    jobname = selected_row.get('JobNumber', '').lower()
+    jobname = selected_row.get('JobName', '').lower()
+    client = selected_row.get('Client', '').lower()
     job_data = [
         ["JOB #:",jobid],
-        ["JOB NAME", jobname],
-        ["CLIENT:", "Morris Shea Bridge"],#selected_row.get('Client', '')
+        ["JOBNAME", jobname],
+        ["CLIENT:", client],#selected_row.get('Client', '')
         ["CONTRACTOR:", "Morris Shea Bridge"],
         ["DATE:", date_drill],
 
@@ -841,19 +843,24 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         ["PILE No:", f"{selected_row.get('PileID', '')}"],
         ["START TIME:", selected_row.get('DrillStartTime', '')],
         ["END TIME:", selected_row.get('DrillEndTime', '')],
-        ["TOTAL TIME:", selected_row.get('Totaltime', '')],
+        ["INSTALL TIME:", selected_row.get('InstallTime', '')],
         ["RIG:", selected_row.get('RigID', '')],
         # ["OPERATOR:", selected_row.get('OPERATOR', '')],
 
     ]
-    covertFeet2inch=12
+
+    diameter = float(selected_row.get('PileDiameter', ''))
+    if diameter<3:
+        covertFeet2inch = 12
+    else:
+        covertFeet2inch = 1
     try:
         diameter = str(round(float(selected_row.get('PileDiameter', ''))*covertFeet2inch,2))
     except:
         diameter = str(selected_row.get('PileDiameter', ''))
     pile_data_2 = [["PILE LENGTH:", str(selected_row.get('PileLength', ''))+' [ft]'],
         ["PILE DIAMETER:", diameter +' [in]'],
-        ["STROKES:", selected_row.get('MaxStrokes', '')],
+        ["MAXSTROKE:", selected_row.get('MaxStrokes', '')],
         ["PUMP CALIB.:", str(selected_row.get('Calibration', ''))+' [cy/str]'],
         ["OVER BREAK:", selected_row.get('OverBreak', '')]]
 
@@ -929,7 +936,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     story.append(charts_table)
 
     # Build PDF
-    file_name = 'JobID_' + str(selected_row.get('JobID', '')) + '_PileID_' + str(
+    file_name = 'JobID_' + str(selected_row.get('JobNumber', '')) + '_PileID_' + str(
         selected_row.get('PileID', '')) + '_Time_' + str(selected_row.get('Date', '')) + '.pdf'
     doc.build(story)
     buffer.seek(0)
@@ -1082,9 +1089,26 @@ def get_last_updated(job_number):
 # (properties_df, jobid_pile_data,merged_df),(cpt_header,jobid_cpt_data) = load_geojson_data_()
 #
 # if __name__ == "__main__":
-#     result_MWD,results_CPT = load_geojson_data(['1633','1640','1642'],reload=True)
-from cache_manager import ChartDataCache
-result_MWD,results_CPT = load_geojson_data(['1633','1640','1604','1642'])
-cache_manager = ChartDataCache(result_MWD)
+#     result_MWD,results_CPT = load_geojson_data(['1633','1640','1640','1642','1641','1648'],reload=True)
+
+if __name__ == "__main__":
+    result_MWD,results_CPT = load_geojson_data(['1633'])#,'1640','1604','1642','1641','1648'
+    my_jobs = JobManager()
+    for jobID,v in result_MWD.items():
+        estimates, location = get_estimate(jobID)
+        my_job = my_jobs.add_job(location)
+        my_job.add_estimates(estimates)
+        # my_job.add_pile_schedule()
+        # df_properties = result_MWD[jobID][0].copy()
+        # jobid_pile_data = result_MWD[jobID][1][jobID].copy()
+        # for row in df_properties.itertuples():
+        #     pileid = row.PileID
+        #     pile_data = jobid_pile_data[pileid]
+        #     key = list(pile_data.keys())[-1]
+        #     my_job.add_pile(pileid,row,pile_data[key])
+
+
+    cache_manager = ChartDataCache(result_MWD)
+
 
 

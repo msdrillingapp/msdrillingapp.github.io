@@ -1,6 +1,7 @@
 import dash
 from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update,ctx
-from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none,results_CPT #cpt_header,jobid_cpt_data,
+from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none#,results_CPT #cpt_header,jobid_cpt_data,
+# from load_data import results_CPT,my_jobs
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate
@@ -16,6 +17,7 @@ import json
 from datetime import datetime
 import dash_leaflet as dl
 import dash_ag_grid as dag
+from data_loader import get_data,ensure_data_loaded
 #---------------------------------------------------------------
 from report_template import PileReportHeader
 #---------------------------------------------------------------
@@ -66,13 +68,16 @@ os.makedirs(SETTINGS_DIR, exist_ok=True)
 # =================================================================
 # ========== FUNCTIONS =============================================
 # =================================================================
+def get_cpt_data():
+    data = ensure_data_loaded()
+    return data['results_CPT']
 
 # Helper function to find closest x value and create annotation
 def get_closest_x(y_series, x_series, target_y):
     idx = (y_series - target_y).abs().idxmin()
     return x_series.iloc[idx]#, idx
-def get_filters_cpt(results_CPT):
-    # cpt_header = cpt_header.copy()
+def get_filters_cpt():
+    results_CPT = get_cpt_data()
     jobs = [x for x in results_CPT.keys() if len(results_CPT[x][0])>0]
     filters = html.Div([
         dbc.Row([
@@ -606,7 +611,7 @@ def get_pilelist_cpt():
 # =================================================================
 # =================================================================
 # =================================================================
-flts = get_filters_cpt(results_CPT)
+flts = get_filters_cpt()
 map = add_map()
 table = get_pilelist_cpt()
 charts = add_cpt_charts()
@@ -690,6 +695,7 @@ def update_slider_range(n_clicks,selected_pileid, selected_row, selected_jobid, 
     if not selected_pileid and not selected_row:
         raise PreventUpdate
     # get the pile_info
+    results_CPT = get_cpt_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     if selected_row:
         selected_pileid = selected_row[0].get('HoleID')
@@ -739,6 +745,7 @@ def update_cpt_graph(n_clicks,slider_value, current_y_value,
         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True
 
     # get pile_info
+    results_CPT = get_cpt_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     if selected_row:
         selected_pileid = selected_row[0].get('HoleID')
@@ -783,6 +790,7 @@ def toggle_plots(n_clicks, is_open):
 def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id,selected_row, cpt_fig): #selected_date,
     if not n_clicks or (not selected_pile_id and not selected_row):
         return no_update
+    results_CPT = get_cpt_data()
     cpt_header = results_CPT[selected_job_id][0]
     try:
         if not selected_row is None:
@@ -928,6 +936,7 @@ def update_pileid_options(selected_jobid):
         return [], None
     # cpt_header = data.get('cpt_header')
     # Safely get the DataFrame or an empty one
+    results_CPT = get_cpt_data()
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1031,6 +1040,7 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
     zoom_level = 8
 
     # Apply filters
+    results_CPT = get_cpt_data()
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1097,6 +1107,7 @@ def update_table(selected_jobid):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
         # return []  # Return an empty table before selection
+    results_CPT = get_cpt_data()
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1226,6 +1237,7 @@ def combined_callback(
             )
 
         # Get current pile data to populate ranges
+        results_CPT = get_cpt_data()
         jobid_cpt_data = results_CPT[selected_jobid][-1]
         pile_info = jobid_cpt_data[selected_jobid]
 
@@ -1265,6 +1277,7 @@ def combined_callback(
         raise PreventUpdate
 
     # Get pile data
+    results_CPT = get_cpt_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     pile_info = jobid_cpt_data[selected_jobid]
 
