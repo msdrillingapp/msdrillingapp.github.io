@@ -68,16 +68,16 @@ os.makedirs(SETTINGS_DIR, exist_ok=True)
 # =================================================================
 # ========== FUNCTIONS =============================================
 # =================================================================
-def get_cpt_data():
+def get_data(value:str= 'results_CPT'):
     data = ensure_data_loaded()
-    return data['results_CPT']
+    return data[value]
 
 # Helper function to find closest x value and create annotation
 def get_closest_x(y_series, x_series, target_y):
     idx = (y_series - target_y).abs().idxmin()
     return x_series.iloc[idx]#, idx
 def get_filters_cpt():
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     jobs = [x for x in results_CPT.keys() if len(results_CPT[x][0])>0]
     filters = html.Div([
         dbc.Row([
@@ -695,7 +695,7 @@ def update_slider_range(n_clicks,selected_pileid, selected_row, selected_jobid, 
     if not selected_pileid and not selected_row:
         raise PreventUpdate
     # get the pile_info
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     if selected_row:
         selected_pileid = selected_row[0].get('HoleID')
@@ -745,7 +745,7 @@ def update_cpt_graph(n_clicks,slider_value, current_y_value,
         return go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True
 
     # get pile_info
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     if selected_row:
         selected_pileid = selected_row[0].get('HoleID')
@@ -790,7 +790,7 @@ def toggle_plots(n_clicks, is_open):
 def generate_pdf_callback(n_clicks, selected_job_id,selected_pile_id,selected_row, cpt_fig): #selected_date,
     if not n_clicks or (not selected_pile_id and not selected_row):
         return no_update
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     cpt_header = results_CPT[selected_job_id][0]
     try:
         if not selected_row is None:
@@ -936,7 +936,7 @@ def update_pileid_options(selected_jobid):
         return [], None
     # cpt_header = data.get('cpt_header')
     # Safely get the DataFrame or an empty one
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1034,13 +1034,37 @@ def update_profile_dropdown(_):
 )
 def update_map_markers(selected_jobid,selected_pileid,selected_row):
 
-    if not selected_jobid:
-        return no_update, no_update,no_update, no_update
-
+    # if not selected_jobid:
+    #   return no_update, no_update,no_update, no_update
     zoom_level = 8
+    if selected_jobid is None:
+        results_CPT = get_data('results_CPT')
+        my_jobs = get_data('my_jobs')
+        markers = []
+        lon = []
+        lat = []
+        for key, job in my_jobs.jobs.items():
+            if len(results_CPT[key][0])>0:
+
+                markers.append(dl.Marker(
+                    position=(job.latitude, job.longitude),
+                    children=[
+                        dl.Tooltip(f"{key}-{job.job_name}",
+                                   permanent=True,  # 👈 always visible
+                                   direction="top"),  # Tooltip on hover
+                        dl.Popup(position=[job.latitude + 0.01, job.longitude], children=f"{job.description}"),
+
+                    ]))
+                lon.append(job.latitude)
+                lat.append(job.longitude)
+        if len(lon)==0:
+            return no_update, no_update, no_update, no_update
+        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lon, lat)
+        return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
+
 
     # Apply filters
-    results_CPT = get_cpt_data()
+    results_CPT = get_data('results_CPT')
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1056,7 +1080,7 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
 
     markers = []
     lat_col = "Latitude (deg)"
-    lon_col =  "Longitude (deg)"
+    lon_col = "Longitude (deg)"
     if len(filtered_df)>0:
         zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df[lon_col])),list(filter_none(filtered_df[lat_col])))
         for _, row in filtered_df.iterrows():
@@ -1107,7 +1131,7 @@ def update_table(selected_jobid):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
         # return []  # Return an empty table before selection
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     cpt_header = results_CPT[selected_jobid][0]
     if len(cpt_header)==0:
         raise PreventUpdate
@@ -1237,7 +1261,7 @@ def combined_callback(
             )
 
         # Get current pile data to populate ranges
-        results_CPT = get_cpt_data()
+        results_CPT = get_data()
         jobid_cpt_data = results_CPT[selected_jobid][-1]
         pile_info = jobid_cpt_data[selected_jobid]
 
@@ -1277,7 +1301,7 @@ def combined_callback(
         raise PreventUpdate
 
     # Get pile data
-    results_CPT = get_cpt_data()
+    results_CPT = get_data()
     jobid_cpt_data = results_CPT[selected_jobid][-1]
     pile_info = jobid_cpt_data[selected_jobid]
 

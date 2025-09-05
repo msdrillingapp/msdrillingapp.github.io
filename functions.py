@@ -42,7 +42,6 @@ groups_df = groups_df.explode("Group").reset_index(drop=True)
 
 
 
-
 def convert_easting_northing_to_lonlat(reference_lon, reference_lat, eastings, northings):
     """
     Convert Easting/Northing coordinates to longitude/latitude using a reference point.
@@ -115,7 +114,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
                 get_data = False
 
         if get_data:
-            pileid_list_wrong=[]
+            pileid_list_wrong = []
             all_data = []
             jobid_pile_data ={}
             jobid_cpt_data = {}
@@ -479,8 +478,8 @@ def create_depth_chart(pile_info,diameter=None):
     increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(pile_info["PenetrationRate"][1:],pile_info["Depth"][1:])
     # increasing_PR = [-x for x in increasing_PR]
     decreasing_PR = [-x for x in decreasing_PR]
-    fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='UP'), row=1,col=1)
-    fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='DOWN'), row=1, col=1)
+    fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='DOWN'), row=1,col=1)
+    fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='UP'), row=1, col=1)
     # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
     increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(pile_info["RotaryHeadPressure"][1:],pile_info["Depth"][1:])
     fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=2)

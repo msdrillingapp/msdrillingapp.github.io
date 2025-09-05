@@ -541,6 +541,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                 dl.Tooltip(f"{key}-{job.job_name}",
                            permanent=True,  # 👈 always visible
                            direction="top"),  # Tooltip on hover
+                dl.Popup(position=[job.latitude+0.01, job.longitude], children=f"{job.description}"),
 
             ]))
             lon.append(job.latitude)

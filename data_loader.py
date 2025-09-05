@@ -22,7 +22,7 @@ class DataManager:
         if not self._is_loaded:
             print("Loading data for the first time...")
             try:
-                ALL_JOBS = ['1640', '1633',  '1641','1642','1604'] #, '1648''1604',
+                ALL_JOBS = ['1640', '1633',  '1641','1642','1604'] #, '1648'
                 # Call your data loading function
                 result_MWD, results_CPT = load_geojson_data(ALL_JOBS, reload=False)
                 my_jobs = JobManager()

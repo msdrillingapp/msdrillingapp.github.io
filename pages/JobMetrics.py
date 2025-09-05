@@ -1,7 +1,5 @@
 
 from dash import dcc, html, Output, Input, State, callback,no_update,ctx, MATCH, ALL
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import plotly.express as px
 from dash.exceptions import PreventUpdate
 import pandas as pd
@@ -10,8 +8,9 @@ import dash
 import dash_ag_grid as dag
 from datetime import date,timedelta
 from collections import defaultdict
+import holidays
 import dash_bootstrap_components as dbc
-from data_loader import get_data,ensure_data_loaded
+from data_loader import ensure_data_loaded
 
 dash.register_page(
     __name__,
@@ -22,6 +21,17 @@ dash.register_page(
 assets_path = os.path.join(os.getcwd(), "assets")
 summary_folder = os.path.join(assets_path, 'data','Summary')
 
+# Create US holidays object
+us_holidays = holidays.US()
+# Calculate working days
+def is_working_day(date):
+    # Check if weekend (Saturday=5, Sunday=6)
+    if date.weekday() >= 5:
+        return False
+    # Check if holiday
+    if date in us_holidays:
+        return False
+    return True
 # Get data from cache
 def get_data_summary(value:str):
     data = ensure_data_loaded()
@@ -106,9 +116,9 @@ def load_data_metrics_():
 def load_data_metrics():
     summary_dict_to_date = {}
     summary_dict_daily = {}
-    summary_design = {}
+    # summary_design = {}
     summary_metrics ={}
-    summary_metrics_daily = {}
+    # summary_metrics_daily = {}
     jobs = []
     result_MWD = get_data_summary('result_MWD')
     for f in os.listdir(summary_folder):
@@ -136,7 +146,7 @@ def load_data_metrics():
         job = my_jobs.jobs[str(jb)]
         df_todate = summary_dict_to_date[jb]
         df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
-        time_interval = pd.to_datetime(df_todate_tot.index)
+        # time_interval = pd.to_datetime(df_todate_tot.index)
         df_todate_tot['Piles%'] = df_todate_tot['Piles']/job.estimate_piles
         df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/job.estimate_concrete
         df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/job.estimate_rig_days
@@ -1967,8 +1977,8 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
         # Determine if this pile should be highlighted
         is_highlighted = (selected_pile_id == pile_id)
         line_width = 4 if is_highlighted else 2
-        line_color = HIGHLIGHT_COLOR if is_highlighted else DEPTH_COLOR
-
+        # line_color = HIGHLIGHT_COLOR if is_highlighted else DEPTH_COLOR
+        depth_color = DEPTH_COLOR
         # Depth trace
         fig.add_trace(
             go.Scatter(
@@ -1976,9 +1986,9 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
                 y=-pile_df['Depth'],
                 mode='lines',
                 name='Depth',
-                line=dict(color=line_color, width=line_width),
+                line=dict(color=depth_color, width=line_width),
                 hoverinfo='text +y',
-                hovertext=f'Pile {pile_id}: Depth',
+                hovertext=f'Depth', #Pile {pile_id}:
                 legendgroup='Depth',
                 showlegend=(pile_idx == 0),
                 opacity=0.8 if not is_highlighted else 1.0,
@@ -1988,7 +1998,8 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
         )
 
         # Strokes trace (with appropriate color for highlighting)
-        strokes_color = HIGHLIGHT_COLOR if is_highlighted else STROKES_COLOR
+        # strokes_color = HIGHLIGHT_COLOR if is_highlighted else STROKES_COLOR
+        strokes_color = STROKES_COLOR
         fig.add_trace(
             go.Scatter(
                 x=pile_df['Time'],
@@ -1997,7 +2008,7 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
                 name='Strokes',
                 line=dict(color=strokes_color, width=line_width),
                 hoverinfo='x+y+text',
-                hovertext=f'Pile {pile_id}: Strokes',
+                hovertext=f'Strokes', #Pile {pile_id}:
                 legendgroup='Strokes',
                 showlegend=(pile_idx == 0),
                 opacity=0.8 if not is_highlighted else 1.0,
@@ -2007,7 +2018,8 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
         )
 
         # Torque trace (with appropriate color for highlighting)
-        torque_color = HIGHLIGHT_COLOR if is_highlighted else TORQUE_COLOR
+        # torque_color = HIGHLIGHT_COLOR if is_highlighted else TORQUE_COLOR
+        torque_color = TORQUE_COLOR
         fig.add_trace(
             go.Scatter(
                 x=pile_df['Time'],
@@ -2016,7 +2028,7 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
                 name='Torque',
                 line=dict(color=torque_color, width=line_width),
                 hoverinfo='x+y+text',
-                hovertext=f'Pile {pile_id}: Torque',
+                hovertext=f'Torque', #Pile {pile_id}:
                 legendgroup='Torque [ton*meters]',
                 showlegend=(pile_idx == 0),
                 opacity=0.8 if not is_highlighted else 1.0,
@@ -2142,10 +2154,7 @@ def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, s
         textposition="top center",
         name=f"Rig {rig_id}",
         hovertemplate=(
-            '<b>PileID: %{customdata[0]}<br>'
-            'Order: %{text}<br>'
-            'Lat: %{x:.6f}<br>'
-            'Lon: %{y:.6f}<extra></extra>'
+            '<b>PileID: %{customdata[0]}<br><extra></extra>'
         ),
         customdata=[[pid] for pid in pile_ids_list]
     ))

@@ -369,12 +369,16 @@ class Job:
         self.location = job_data.get('locality', '')
         self.longitude = job_data.get('longitude', '')
         self.latitude = job_data.get('latitude', '')
+        self.description = job_data.get('description', '')
         self.piles = {}
         self.cpt_piles = {}
         self.estimate_labourHours = 0
         self.estimate_rig_days = 0
         self.estimate_piles = 0
         self.estimate_concrete = 0
+        self.estimate_piles_per_day = 0
+        self.estimate_concrete_per_day = 0
+        self.estimate_manhours_per_day = 0
         self.piles_per_date ={}
 
     def add_estimates(self,job_data):
@@ -382,16 +386,18 @@ class Job:
             self.estimate_labourHours += v.get('manHoursNeeded', 0)
             self.estimate_rig_days += v.get('rigDays', 0)
             self.estimate_piles += v.get('contract', 0)
+            self.estimate_piles_per_day += v.get('pilesPerDay',0)
+            self.estimate_manhours_per_day += v.get('manHoursPerPile',0)*v.get('pilesPerDay',0)
 
+            diameter = v.get('diameter', 0)
+            length = v.get('averageLength', 0)
+            volume = cylinder_volume_cy(diameter, length)
+            pile_waste = v.get('pileWaste', 0)
             estimate_concrete = v.get('totalConcreteVolume',0)
             if estimate_concrete is None:
-                diameter = v.get('diameter', 0)
-                length = v.get('averageLength', 0)
-                volume = cylinder_volume_cy(diameter, length)
-                pile_waste = v.get('pileWaste', 0)
                 estimate_concrete = v.get('contract', 0)*volume*(1+pile_waste)
-
             self.estimate_concrete += estimate_concrete
+            self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
 
     def add_pile(self, pileid:str, data, pile_data):
         # if pileid not in self.piles:

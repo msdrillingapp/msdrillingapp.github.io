@@ -28,6 +28,7 @@ def get_estimate(job:str):
         location['client'] = project_data['data'][0]['client']
         location['title'] = project_data['data'][0]['title']
         location['startDate'] = project_data['data'][0]['startDate']
+        location['description'] = project_data['data'][0]['description']
 
         for p in pileTypes:
             piletype = p.get('title','')
