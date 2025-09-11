@@ -85,7 +85,15 @@ class ChartDataCache:
                         date_pile_times[date] = {}
 
                     # Convert to DataFrame and process time
-                    df = pd.DataFrame(day_data)
+                    try:
+                        df = pd.DataFrame(day_data)
+                    except:
+                        continue
+                        # for k,v in days_data.items():
+                        #     for n,item in v.items():
+                        #         if len
+
+
                     df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
 
                     # Get the start time (minimum time) for this pile on this date

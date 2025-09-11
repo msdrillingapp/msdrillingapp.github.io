@@ -24,7 +24,7 @@ class DataManager:
         if not self._is_loaded:
             print("Loading data for the first time...")
             try:
-                ALL_JOBS =['1640', '1633', '1642','1641','1604','1650'] #, '1648',,'1640', '1633', '1642','1641','1604',
+                ALL_JOBS =['1640', '1633', '1642','1650'] #, '1648',,'1640', '1633', '1642','1641','1604',
                 # Call your data loading function
                 result_MWD, results_CPT,results_pileMetrics = load_geojson_data(ALL_JOBS, reload=reload)
                 my_jobs = JobManager()
@@ -254,15 +254,16 @@ def load_geojson_data(jobs=[],reload:bool=False):
 
                         volume = [calibration*float(x) for x in strokes]
                         if pile_id and "Data" in properties:
+                            time = properties["Data"].get("Time", [])
                             pile_data[pile_id] = {properties['date']: {
                                 "Time": properties["Data"].get("Time", []),
-                                "Strokes": properties["Data"].get("Strokes", []),
-                                "Depth": properties["Data"].get("Depth", []),
-                                'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', []),
-                                'Rotation': properties['Data'].get('Rotation', []),
-                                'PenetrationRate': properties['Data'].get('PenetrationRate', []),
-                                'Pulldown': properties['Data'].get('Pulldown', []),
-                                'Torque': properties['Data'].get('Torque', []),
+                                "Strokes": properties["Data"].get("Strokes", [0]*len(time)),
+                                "Depth": properties["Data"].get("Depth", [0]*len(time)),
+                                'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', [0]*len(time)),
+                                'Rotation': properties['Data'].get('Rotation', [0]*len(time)),
+                                'PenetrationRate': properties['Data'].get('PenetrationRate', [0]*len(time)),
+                                'Pulldown': properties['Data'].get('Pulldown', [0]*len(time)),
+                                'Torque': properties['Data'].get('Torque', [0]*len(time)),
                                 'Volume': volume}}
 
                         all_data.append(properties)
