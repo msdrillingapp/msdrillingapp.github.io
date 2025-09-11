@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-from convert_locala_coordinates_to_global import convert_easting_northing_to_lonlat_unit
+# from convert_locala_coordinates_to_global import convert_easting_northing_to_lonlat_unit
 
 jwt_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwiaWF0IjoxNzU1Njc1MTA3LCJleHAiOjE3ODcyMTExMDd9.mPayiVpvTOjkaUwHe04_a6-CrXuTWIg0gchId2iUlHM'
 
