@@ -128,6 +128,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
             # =========================================================
             df_design = None
             try:
+                estimates, location, df_design = get_estimate(jobID)
                 df_design = pd.read_csv(os.path.join(data_folder,jobID+nc.designOutput_file))
                 df_design.dropna(subset=nc.ds_north,inplace=True)
                 col_keep = [nc.ds_pileid,nc.ds_status,nc.ds_date,nc.ds_rigid,nc.ds_lat,nc.ds_lon,nc.ds_pilecode,nc.ds_piletype]

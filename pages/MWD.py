@@ -7,6 +7,8 @@ import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import pandas as pd
 
+
+import naming_conventions as nc
 from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,remove_min
 from data_loader import get_data,ensure_data_loaded
 
@@ -35,7 +37,7 @@ map_center = [30.2991535, -87.6300472]
 zoom_level = 4
 markers = []
 
-def get_data_MWD(value:str='result_MWD'):
+def get_data_loaded(value:str='result_MWD'):
     data = ensure_data_loaded()
     return data[value]
 # flts = get_filters(properties_df)
@@ -183,9 +185,12 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
             selected_pileid = selected_row['PileID']
             selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded('result_MWD')
+
     # filtered_df = merged_df.copy()
     filtered_df = result_MWD[selected_jobid][-1].copy()
+    if len(filtered_df)==0:
+        return []
     # Filter DataFrame based on selected PileID and Date
     filtered_df = filtered_df[(filtered_df["PileID"] == selected_pileid) & (filtered_df["date"] == selected_date)]
 
@@ -233,8 +238,10 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
 def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:# and not selected_date:
         raise PreventUpdate
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded()
     filtered_df = result_MWD[selected_jobid][0].copy()
+    if len(filtered_df)==0:
+        raise PreventUpdate
     # Filter DataFrame based on selected PileID and Date
     if not selected_date is None:
         filtered_df = filtered_df[(filtered_df["date"] == selected_date)]
@@ -390,7 +397,6 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
         Output("pilestatus-filter", "options"),
         Output("piletype-filter", "options"),
         Output("productcode-filter", "options"),
-
         Output("date-filter", "value"),
         Output("rigid-filter", "value"),
         Output("pileid-filter", "value"),
@@ -432,41 +438,67 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
     if selected_jobid is None:
         raise PreventUpdate
     # Start with full dataset
-    # filtered_df = properties_df.copy()
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded()
     properties_df = result_MWD[selected_jobid][0]
-    filtered_df = properties_df.copy()
+    my_jobs = get_data_loaded('my_jobs')
+    df_design = my_jobs.jobs[selected_jobid].pile_schedule
+    date_options = []
+    rigid_options = []
+    pileid_options = []
+    pilecode_options = []
+    pilestatus_options = []
+    piletype_options = []
+    productcode_options = []
 
-    # Apply filtering based on selected values
-    if selected_date:
-        filtered_df = filtered_df[filtered_df["date"] == selected_date]
-    if selected_rigid:
-        filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
-    # if selected_pileid or selected_pileid_top:  # Sync both PileID filters
-    #     selected_pileid = selected_pileid or selected_pileid_top
-    #     filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
-    if selected_pilecode:
-        filtered_df = filtered_df[filtered_df["PileCode"] == selected_pilecode]
-    if selected_pilestatus:
-        filtered_df = filtered_df[filtered_df["PileStatus"] == selected_pilestatus]
-    if selected_piletype:
-        filtered_df = filtered_df[filtered_df["PileType"] == selected_piletype]
-    if selected_productcode:
-        filtered_df = filtered_df[filtered_df["ProductCode"] == selected_productcode]
+    if not properties_df.empty:
+        filtered_df = properties_df.copy()
+        # Apply filtering based on selected values
+        if selected_date:
+            filtered_df = filtered_df[filtered_df["date"] == selected_date]
+        if selected_rigid:
+            filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
+        # if selected_pileid or selected_pileid_top:  # Sync both PileID filters
+        #     selected_pileid = selected_pileid or selected_pileid_top
+        #     filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
+        if selected_pilecode:
+            filtered_df = filtered_df[filtered_df["PileCode"] == selected_pilecode]
+        if selected_pilestatus:
+            filtered_df = filtered_df[filtered_df["PileStatus"] == selected_pilestatus]
+        if selected_piletype:
+            filtered_df = filtered_df[filtered_df["PileType"] == selected_piletype]
+        if selected_productcode:
+            filtered_df = filtered_df[filtered_df["ProductCode"] == selected_productcode]
 
-    # Generate new options based on filtered data
-    out = list(filtered_df["date"].dropna().unique())
-    out = [pd.to_datetime(x).date() for x in out]
-    out.sort()
-    out = [x.strftime(format='%Y-%m-%d') for x in out]
-    date_options = [{"label": d, "value": d} for d in out]
-    rigid_options = [{"label": r, "value": r} for r in filtered_df["RigID"].unique() if r == r]
-    pileid_options = [{"label": p, "value": p} for p in filtered_df["PileID"].unique() if p == p]
-    pilecode_options = [{"label": p, "value": p} for p in filtered_df["PileCode"].unique() if p == p]
-    pilestatus_options = [{"label": p, "value": p} for p in filtered_df["PileStatus"].unique() if p == p]
-    piletype_options = [{"label": p, "value": p} for p in filtered_df["PileType"].unique() if (p!='nan')]
-    productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
+        # Generate new options based on filtered data
+        out = list(filtered_df["date"].dropna().unique())
+        out = [pd.to_datetime(x).date() for x in out]
+        out.sort()
+        out = [x.strftime(format='%Y-%m-%d') for x in out]
+        date_options = [{"label": d, "value": d} for d in out]
+        rigid_options = [{"label": r, "value": r} for r in filtered_df["RigID"].unique() if r == r]
+        pileid_options = [{"label": p, "value": p} for p in filtered_df["PileID"].unique() if p == p]
+        pilecode_options = [{"label": p, "value": p} for p in filtered_df["PileCode"].unique() if p == p]
+        pilestatus_options = [{"label": p, "value": p} for p in filtered_df["PileStatus"].unique() if p == p]
+        piletype_options = [{"label": p, "value": p} for p in filtered_df["PileType"].unique() if (p!='nan')]
+        productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
 
+    if not df_design.empty:
+        pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
+        if len(pilecode_options)==0:
+            pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
+        if len(productcode_options)==0:
+            productcode_options.append({"label": 'DWP', "value": 'DWP'})
+        piletype = df_design[nc.ds_piletype].unique()
+        piles = df_design[nc.ds_pileid].unique()
+        if not properties_df.empty:
+            if not filtered_df.empty:
+                piletype_d = filtered_df["PileStatus"].unique()
+                piletype =[x for x in piletype if x not in piletype_d]
+                piles_d =filtered_df["PileID"].unique()
+                piles = [x for x in piles if x not in piles_d]
+
+        piletype_options.extend([{"label": p, "value": p} for p in piletype if (p!='nan')])
+        pileid_options.extend([{"label": p, "value": p} for p in piles if (p!='nan')])
 
     # Reset values **ONLY IF JobID was changed**
     if triggered_id == "jobid-filter":
@@ -493,21 +525,29 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
             prev_date, prev_rigid, prev_pileid,  prev_pilecode, prev_pilestatus, prev_piletype, prev_productcode)
 
 
-def get_color_marker(piletype):
-    if piletype in ['1','14T1','24T1'] :
+def get_color_marker(coloCode):
+    # 22c55e	ef4444	f97316	d946ef	3b82f6	eab308
+    # green 	red	orange	magenta	blue	yellow
+    # 0456fb	ffea00
+    # 14	14
+    #
+    # blue	yellow
+    if coloCode in ['3b82f6','0456fb'] :
         return 'blue'
-    elif piletype in ['2','14T2','24T2'] :
+    elif coloCode in ['eab308','ffea00'] :
         return 'yellow'
-    elif piletype in ['3','14T3','24T3'] :
+    elif coloCode=='22c55e' :
         return 'green'
-    elif piletype == '4':
+    elif coloCode == 'ef4444':
         return 'red'
-    elif piletype == '5':
+    elif coloCode == 'f97316':
         return 'orange'
-    elif piletype == '5B':
+    elif coloCode == 'd946ef':
         return 'purple'
+    elif coloCode =='None':
+        return 'brown'
     else:
-        return 'grey'
+        return 'blue' #'grey'
 
 # ==================================================================================================
 # Callback to update map markers and recenter the map
@@ -529,8 +569,8 @@ def get_color_marker(piletype):
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     # Check if this is the initial call or no job selected
     # ctx = dash.callback_context
+    my_jobs = get_data_loaded('my_jobs')
     if selected_jobid is None:
-        my_jobs = get_data_MWD('my_jobs')
         markers =[]
         lon =[]
         lat =[]
@@ -551,31 +591,29 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
         # center = (lon[0], lat[0])
         return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
         # raise PreventUpdate
-    result_MWD = get_data_MWD()
-    # filtered_df = properties_df.copy()
+    result_MWD = get_data_loaded('result_MWD')
     filtered_df = result_MWD[selected_jobid][0].copy()
-    # center = [np.nanmean(list(filter_none(properties_df["latitude"]))), np.nanmean(list(filter_none(properties_df["longitude"])))]
+    colorCodes = my_jobs.jobs[selected_jobid].colorCodes
     zoom_level = 8
-    # Apply filters
-    if not selected_date is None:
-        filtered_df = filtered_df[filtered_df["date"] == selected_date]
-    if not selected_rigid is None:
-        filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
-        zoom_level = 20
-    if not selected_pileid is None:
-        filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
-        zoom_level = 45
-    # if not selected_jobid is None:
-    #     filtered_df = filtered_df[filtered_df['JobNumber'] == selected_jobid]
-    #     zoom_level = 20
-    if not selected_pilecode is None:
-        filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
-    if not selected_pilestatus is None:
-        filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
-    if not selected_piletype is None:
-        filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
-    if not selected_productcode is None:
-        filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
+    center = None
+    if len(filtered_df) > 0:
+        # Apply filters
+        if not selected_date is None:
+            filtered_df = filtered_df[filtered_df["date"] == selected_date]
+        if not selected_rigid is None:
+            filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
+            zoom_level = 20
+        if not selected_pileid is None:
+            filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
+            zoom_level = 45
+        if not selected_pilecode is None:
+            filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
+        if not selected_pilestatus is None:
+            filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
+        if not selected_piletype is None:
+            filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
+        if not selected_productcode is None:
+            filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
 
     markers = []
     if len(filtered_df)>0:
@@ -587,9 +625,12 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                 pile_code = row.get("PileCode", "")
                 piletype = row.get("PileType", "")
                 pile_status = row.get("PileStatus", "")
+                colorCode = None
+                if piletype in colorCodes:
+                    colorCode = colorCodes[piletype]
                 # Assign different marker styles
                 if pile_code.lower() == "Production Pile".lower():  # Circle
-                    color_text = get_color_marker(piletype)
+                    color_text = get_color_marker(colorCode)
                     if pile_status=='Complete':
                         donut = "/assets/icons/"+color_text+"-donut_fill.png"
                     else:
@@ -634,7 +675,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                     else:
                         icon = "/assets/icons/red-triangle.png"
                     marker = dl.Marker(
-                        position=(row["latitude"], row["longitude"]),
+                        position=(row["longitude"], row["latitude"]),
                         icon=dict(
                             iconUrl=icon,  # Path to your image in assets folder
                             iconSize=[10, 10]  # Size of the icon in pixels
@@ -643,7 +684,35 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                     )
                 center = [row["latitude"], row["longitude"]]
                 markers.append(marker)
+    # ==============================================
+    #  Add pile schedules
+    # ==============================================
+    if True:
+        if not selected_jobid is None:
+            if selected_pilestatus=='Scheduled' or selected_pilestatus is None:
+                filtered_df = my_jobs.jobs[selected_jobid].pile_schedule
+                if len(filtered_df)>0:
+                    if len(list(filter_none(filtered_df["longitude"])))> 0:
+                        # if center is None:
+                        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(
+                            list(filter_none(filtered_df["latitude"])), list(filter_none(filtered_df["longitude"])))
+                        for _, row in filtered_df.iterrows():
+                            if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
+                                piletype = row.get(nc.ds_piletype, "")
+                                colorCage = row.get(nc.ds_cage_color,"")
+                                color_text = get_color_marker(colorCage)
+                                donut = "/assets/icons/" + color_text + "-donut.png"
+                                marker = dl.Marker(
+                                    position=(row["latitude"], row["longitude"]),
+                                    icon=dict(
+                                        iconUrl=donut,  # Path to your image in assets folder
+                                        iconSize=[10, 10]  # Size of the icon in pixels
+                                    ),
+                                    children=[dl.Tooltip(f"PileID: {row[nc.ds_pileid]}")]
+                                )
 
+                                # center = [row["latitude"], row["longitude"]]
+                                markers.append(marker)
 
     return markers, center,zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
 
@@ -663,7 +732,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
 def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_date):
     if selected_jobid is None:
         raise PreventUpdate
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded()
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id == "pileid-filter":
@@ -674,6 +743,11 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
         # tmp = properties_df.copy()
 
         tmp = result_MWD[selected_jobid][0].copy()
+        if len(tmp)==0:
+            return go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), go.Figure(
+                layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}), True  # Dark background even if empty
+
         tmp = tmp[tmp['PileID'] == selected_pileid]
         tmp = tmp[tmp['date'] == selected_date]
         try:
@@ -732,7 +806,8 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
 def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_date):
     if selected_jobid is None:
         raise PreventUpdate
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded('result_MWD')
+
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id =="pileid-filter":
@@ -740,6 +815,9 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
             return html.Div("Select a Date and PileID or Table Raw to view statistics.", style={'color': 'white', 'textAlign': 'center'})
         # tmp = properties_df.copy()
         tmp = result_MWD[selected_jobid][0].copy()
+        if len(tmp)==0:
+            return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
+
         tmp = tmp[(tmp['PileID']==selected_pileid)&(tmp['date']==selected_date)]
         # selected_row = tmp.to_dict(orient='records')
     elif triggered_id =="pilelist-table":
@@ -752,6 +830,8 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
 
     # Filter data for the selected PileID
     properties_df = result_MWD[selected_jobid][0].copy()
+    if len(properties_df)==0:
+        return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
     filtered_df = properties_df[properties_df["PileID"] == selected_pileid]
 
     # Extract statistics
@@ -796,11 +876,15 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
 def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selected_pilecode, selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:
         return html.Div("Select a JobID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
-    result_MWD = get_data_MWD()
+    result_MWD = get_data_loaded()
+    my_jobs = get_data_loaded('my_jobs')
     # Filter data for the selected PileID
     properties_df = result_MWD[selected_jobid][0].copy()
+    piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles
+    if len(properties_df)==0:
+        return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
     # filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
-    filtered_df = properties_df
+    filtered_df = properties_df.copy()
     if not selected_date is None:
         filtered_df=filtered_df[filtered_df['date']==selected_date]
     if not selected_rigid is None:
@@ -813,43 +897,113 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
         filtered_df = filtered_df[filtered_df['PileStatus'] == selected_pilestatus]
     if not selected_piletype is None:
         filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
+        try:
+            piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles_per_piletype[selected_piletype]
+        except:
+            pass
     if not selected_productcode is None:
         filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
+
+
 
     # Extract statistics
     unique_pile_count = properties_df["PileID"].nunique()
     unique_pile_count_filters = filtered_df['PileID'].nunique()
-
+    if selected_piletype is None:
+        text_schedule = "📅 Schedule:"
+    else:
+        text_schedule = "📅 Schedule by PileType:"
     # Create info cards
     return [
-        dbc.Row([
-            dbc.Col(
-                dbc.Card(
-                    dbc.CardBody([
-                        html.P("🔢 # Piles: " + str(unique_pile_count),
-                               className="card-title",
-                               style={"display": "flex", "alignItems": "center",
-                                      "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
-                    ]),
-                    className="mb-3" # Reduced bottom margin
-                ),
-                xs=12, sm=6, md=6, lg=6, xl=6
+    dbc.Row([
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.Div(text_schedule,
+                            className="card-title",
+                            style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(str(piles_schedule),
+                            className="card-text",
+                            style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
             ),
-            dbc.Col(
-                dbc.Card(
-                    dbc.CardBody([
-                        html.P("🔢 # Piles filtered: " + str(unique_pile_count_filters),
-                               className="card-title",
-                               style={"display": "flex", "alignItems": "center",
-                                      "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
-                    ]),
-                    className="mb-3"  # Reduced bottom margin
-                ),
-                xs=12, sm=6, md=6, lg=6, xl=6,
-                className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
-            )
-        ])  # , className="g-2" Small gutter between columns when side-by-side
-        ]
+            xs=12, sm=6, md=6, lg=4, xl=4
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.Div("# Drilled Piles",
+                            className="card-title",
+                            style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(str(unique_pile_count),
+                            className="card-text",
+                            style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
+            ),
+            xs=12, sm=6, md=6, lg=4, xl=4,
+            className="mt-2 mt-sm-0"
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.Div("# Drilled Piles filtered",
+                            className="card-title",
+                            style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(str(unique_pile_count_filters),
+                            className="card-text",
+                            style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
+            ),
+            xs=12, sm=6, md=6, lg=4, xl=4,
+            className="mt-2 mt-sm-0"
+        )
+    ])
+]
+    # [
+    #     dbc.Row([
+    #         dbc.Col(
+    #             dbc.Card(
+    #                 dbc.CardBody([
+    #                     html.P(text_schedule,
+    #                            className="card-title",
+    #                            style={"display": "flex", "alignItems": "center",
+    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
+    #                 ]),
+    #                 className="mb-3"  # Reduced bottom margin
+    #             ),
+    #             xs=12, sm=6, md=6, lg=4, xl=4
+    #         ),
+    #         dbc.Col(
+    #             dbc.Card(
+    #                 dbc.CardBody([
+    #                     html.P("🔢 # Piles: " + str(unique_pile_count),
+    #                            className="card-title",
+    #                            style={"display": "flex", "alignItems": "center",
+    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
+    #                 ]),
+    #                 className="mb-3" # Reduced bottom margin
+    #             ),
+    #             xs=12, sm=6, md=6, lg=4, xl=4,
+    #             className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
+    #         ),
+    #         dbc.Col(
+    #             dbc.Card(
+    #                 dbc.CardBody([
+    #                     html.P("🔢 # Piles filtered: " + str(unique_pile_count_filters),
+    #                            className="card-title",
+    #                            style={"display": "flex", "alignItems": "center",
+    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
+    #                 ]),
+    #                 className="mb-3"  # Reduced bottom margin
+    #             ),
+    #             xs=12, sm=6, md=6, lg=4, xl=4,
+    #             className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
+    #         )
+    #     ])  # , className="g-2" Small gutter between columns when side-by-side
+    #     ]
 
 
 # @app.callback(
@@ -987,8 +1141,10 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
         selected_row = selected_rows[0]
     else:
         # selected_jobid =
-        result_MWD = get_data_MWD()
+        result_MWD = get_data_loaded()
         properties_df = result_MWD[selected_jobid][0].copy()
+        if len(properties_df)==0:
+            raise PreventUpdate
         tmp = properties_df[(properties_df['PileID']==selected_pileid)&(properties_df['date']==selected_date)]
         tmp.rename(columns={'date':'Date'},inplace=True)
         selected_row = tmp.to_dict(orient='records')[0]

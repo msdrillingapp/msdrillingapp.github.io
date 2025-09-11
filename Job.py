@@ -365,7 +365,7 @@ class CPT_Pile():
 class Job:
     def __init__(self, job_data: Dict):
         self.job_id = job_data.get('JobID', '')
-        self.job_name = job_data.get('title', '')
+        self.job_name = job_data.get('jobName', '')
         self.location = job_data.get('locality', '')
         self.longitude = job_data.get('longitude', '')
         self.latitude = job_data.get('latitude', '')
@@ -379,29 +379,41 @@ class Job:
         self.estimate_piles_per_day = 0
         self.estimate_concrete_per_day = 0
         self.estimate_manhours_per_day = 0
+        self.estimate_piles_per_piletype = {}
         self.piles_per_date ={}
+        self.pile_schedule =pd.DataFrame()
+        self.colorCodes ={}
+
+    def add_colorCodes(self,job_data):
+        for k, v in job_data.items():
+            if not v is None:
+                self.colorCodes[k] = v.get('colorCode','')
 
     def add_estimates(self,job_data):
         for k, v in job_data.items():
-            self.estimate_labourHours += v.get('manHoursNeeded', 0)
-            self.estimate_rig_days += v.get('rigDays', 0)
-            self.estimate_piles += v.get('contract', 0)
-            self.estimate_piles_per_day += v.get('pilesPerDay',0)
-            self.estimate_manhours_per_day += v.get('manHoursPerPile',0)*v.get('pilesPerDay',0)
-
-            diameter = v.get('diameter', 0)
-            length = v.get('averageLength', 0)
-            volume = cylinder_volume_cy(diameter, length)
-            pile_waste = v.get('pileWaste', 0)
-            estimate_concrete = v.get('totalConcreteVolume',0)
-            if estimate_concrete is None:
-                estimate_concrete = v.get('contract', 0)*volume*(1+pile_waste)
-            self.estimate_concrete += estimate_concrete
-            self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
+            if not v is None:
+                self.estimate_labourHours += v.get('manHoursNeeded', 0)
+                self.estimate_rig_days += v.get('rigDays', 0)
+                self.estimate_piles += v.get('contract', 0)
+                self.estimate_piles_per_day += v.get('pilesPerDay',0)
+                self.estimate_manhours_per_day += v.get('manHoursPerPile',0)*v.get('pilesPerDay',0)
+                self.estimate_piles_per_piletype[k] = v.get('contract', 0)
+                diameter = v.get('diameter', 0)
+                length = v.get('averageLength', 0)
+                volume = cylinder_volume_cy(diameter, length)
+                pile_waste = v.get('pileWaste', 0)
+                estimate_concrete = v.get('totalConcreteVolume',0)
+                if estimate_concrete is None:
+                    estimate_concrete = v.get('contract', 0)*volume*(1+pile_waste)
+                self.estimate_concrete += estimate_concrete
+                self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
 
     def add_pile(self, pileid:str, data, pile_data):
         # if pileid not in self.piles:
         self.piles[pileid] = Pile(data, pile_data)
+
+    def add_pile_schedule(self,df:pd.DataFrame):
+        self.pile_schedule = df
 
     def add_cpt_pile(self,pileid,header_data:Dict,data):
         self.cpt_piles[pileid] = CPT_Pile(header_data,data)
