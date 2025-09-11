@@ -689,8 +689,11 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     # ==============================================
     if True:
         if not selected_jobid is None:
-            if selected_pilestatus=='Scheduled' or selected_pilestatus is None:
+            if selected_pilestatus == 'Scheduled' or selected_pilestatus is None:
                 filtered_df = my_jobs.jobs[selected_jobid].pile_schedule
+                if len(filtered_df)>0:
+                    if not selected_piletype is None:
+                        filtered_df = filtered_df[filtered_df[nc.ds_piletype]==selected_piletype]
                 if len(filtered_df)>0:
                     if len(list(filter_none(filtered_df["longitude"])))> 0:
                         # if center is None:
@@ -880,7 +883,8 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     my_jobs = get_data_loaded('my_jobs')
     # Filter data for the selected PileID
     properties_df = result_MWD[selected_jobid][0].copy()
-    piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles
+    # piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles
+    piles_schedule = my_jobs.jobs[selected_jobid].pile_schedule
     if len(properties_df)==0:
         return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
     # filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
@@ -898,12 +902,12 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     if not selected_piletype is None:
         filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
         try:
-            piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles_per_piletype[selected_piletype]
+            # piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles_per_piletype[selected_piletype]
+            piles_schedule = piles_schedule[piles_schedule[nc.ds_piletype]==selected_piletype]
         except:
             pass
     if not selected_productcode is None:
         filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
-
 
 
     # Extract statistics
@@ -922,7 +926,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                     html.Div(text_schedule,
                             className="card-title",
                             style={"textAlign": "center", "fontWeight": "bold"}),
-                    html.Div(str(piles_schedule),
+                    html.Div(str(len(piles_schedule)),
                             className="card-text",
                             style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
                 ]),
