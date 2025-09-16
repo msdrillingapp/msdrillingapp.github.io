@@ -869,7 +869,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         ["PILE No:", f"{selected_row.get('PileID', '')}"],
         ["START TIME:", selected_row.get('DrillStartTime', '')],
         ["END TIME:", selected_row.get('DrillEndTime', '')],
-        ["INSTALL TIME:", "f{selected_row.get('InstallTime', '')}  min"],
+        ["INSTALL TIME:", f"{selected_row.get('InstallTime', '')}  min"],
         ["RIG:", selected_row.get('RigID', '')],
         # ["OPERATOR:", selected_row.get('OPERATOR', '')],
 
