@@ -188,7 +188,7 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
     result_MWD = get_data_loaded('result_MWD')
 
     # filtered_df = merged_df.copy()
-    filtered_df = result_MWD[selected_jobid][-1].copy()
+    filtered_df = result_MWD[selected_jobid][2].copy()
     if len(filtered_df)==0:
         return []
     # Filter DataFrame based on selected PileID and Date
@@ -335,16 +335,16 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
                 if pile_id in pile_data and use_date in pile_data[pile_id]:
                     depth_values = pile_data[pile_id][use_date]["Depth"]
                     strokes_values = pile_data[pile_id][use_date]["Strokes"]
-                    min_depth = min(depth_values) if depth_values else None
-                    max_strokes = max(strokes_values) if strokes_values else None
+                    min_depth = round(min(depth_values),0) if depth_values else None
+                    max_strokes = round(max(strokes_values),0) if strokes_values else None
                 else:
                     min_depth = None
                     max_strokes = None
             else:
                 if pile_id in pile_data:
                     for k,v in pile_data[pile_id].items():
-                        min_depth = min(v['Depth'])
-                        max_strokes = max(v['Strokes'])
+                        min_depth = round(min(v['Depth']),0)
+                        max_strokes = round(max(v['Strokes']),0)
                 else:
                     min_depth = None
                     max_strokes = None
@@ -457,9 +457,6 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
             filtered_df = filtered_df[filtered_df["date"] == selected_date]
         if selected_rigid:
             filtered_df = filtered_df[filtered_df["RigID"] == selected_rigid]
-        # if selected_pileid or selected_pileid_top:  # Sync both PileID filters
-        #     selected_pileid = selected_pileid or selected_pileid_top
-        #     filtered_df = filtered_df[filtered_df["PileID"] == selected_pileid]
         if selected_pilecode:
             filtered_df = filtered_df[filtered_df["PileCode"] == selected_pilecode]
         if selected_pilestatus:
@@ -483,22 +480,23 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
         productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
 
     if not df_design.empty:
-        pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
-        if len(pilecode_options)==0:
-            pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
-        if len(productcode_options)==0:
-            productcode_options.append({"label": 'DWP', "value": 'DWP'})
-        piletype = df_design[nc.ds_piletype].unique()
-        piles = df_design[nc.ds_pileid].unique()
-        if not properties_df.empty:
-            if not filtered_df.empty:
-                piletype_d = filtered_df["PileStatus"].unique()
-                piletype =[x for x in piletype if x not in piletype_d]
-                piles_d =filtered_df["PileID"].unique()
-                piles = [x for x in piles if x not in piles_d]
+        if not selected_rigid and not selected_date:
+            pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
+            if len(pilecode_options)==0:
+                pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
+            if len(productcode_options)==0:
+                productcode_options.append({"label": 'DWP', "value": 'DWP'})
+            piletype = df_design[nc.ds_piletype].unique()
+            piles = df_design[nc.ds_pileid].unique()
+            if not properties_df.empty:
+                if not filtered_df.empty:
+                    piletype_d = filtered_df["PileStatus"].unique()
+                    piletype =[x for x in piletype if x not in piletype_d]
+                    piles_d =filtered_df["PileID"].unique()
+                    piles = [x for x in piles if x not in piles_d]
 
-        piletype_options.extend([{"label": p, "value": p} for p in piletype if (p!='nan')])
-        pileid_options.extend([{"label": p, "value": p} for p in piles if (p!='nan')])
+            piletype_options.extend([{"label": p, "value": p} for p in piletype if (p!='nan')])
+            pileid_options.extend([{"label": p, "value": p} for p in piles if (p!='nan')])
 
     # Reset values **ONLY IF JobID was changed**
     if triggered_id == "jobid-filter":
@@ -568,7 +566,6 @@ def get_color_marker(coloCode):
 )
 def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_jobid,selected_pilecode,selected_pilestatus,selected_piletype,selected_productcode):
     # Check if this is the initial call or no job selected
-    # ctx = dash.callback_context
     my_jobs = get_data_loaded('my_jobs')
     if selected_jobid is None:
         markers =[]
@@ -586,14 +583,15 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
             ]))
             lon.append(job.latitude)
             lat.append(job.longitude)
-        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lon, lat)
-        # zoom_level = 15
-        # center = (lon[0], lat[0])
+        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lat,lon)
         return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
         # raise PreventUpdate
     result_MWD = get_data_loaded('result_MWD')
     filtered_df = result_MWD[selected_jobid][0].copy()
-    colorCodes = my_jobs.jobs[selected_jobid].colorCodes
+    markers_all = result_MWD[selected_jobid][3].copy()
+    # colorCodes = my_jobs.jobs[selected_jobid].colorCodes
+    markers_design = my_jobs.jobs[selected_jobid].design_markers
+
     zoom_level = 8
     center = None
     if len(filtered_df) > 0:
@@ -614,110 +612,119 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
             filtered_df = filtered_df[filtered_df['PileType'] == selected_piletype]
         if not selected_productcode is None:
             filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
-
+    # job = my_jobs.jobs[selected_jobid]
     markers = []
     if len(filtered_df)>0:
-        if len(list(filter_none(filtered_df["longitude"])))==0:
+        if len(list(filter_none(filtered_df["longitude"]))) == 0:
             raise PreventUpdate
         zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df["longitude"])),list(filter_none(filtered_df["latitude"])))
-        for _, row in filtered_df.iterrows():
-            if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
-                pile_code = row.get("PileCode", "")
-                piletype = row.get("PileType", "")
-                pile_status = row.get("PileStatus", "")
-                colorCode = None
-                if piletype in colorCodes:
-                    colorCode = colorCodes[piletype]
-                # Assign different marker styles
-                if pile_code.lower() == "Production Pile".lower():  # Circle
-                    color_text = get_color_marker(colorCode)
-                    if pile_status=='Complete':
-                        donut = "/assets/icons/"+color_text+"-donut_fill.png"
-                    else:
-                        donut = "/assets/icons/"+color_text+"-donut.png"
-
-                    marker = dl.Marker(
-                        position=(row["latitude"], row["longitude"]),
-                        icon=dict(
-                            iconUrl=donut,  # Path to your image in assets folder
-                            iconSize=[10, 10]  # Size of the icon in pixels
-                        ),
-                        children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-                    )
-
-                elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
-                    if pile_status == 'Complete':
-                        icon = 'assets/icons/yellow-square_fill.png'
-                    else:
-                        icon = 'assets/icons/yellow-square.png'
-                    marker = dl.Marker(
-                        position=(row["latitude"], row["longitude"]),
-                        icon=dict(
-                            iconUrl=icon,  # Path to your image in assets folder
-                            iconSize=[10, 10]  # Size of the icon in pixels
-                        ),
-                        children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-                    )
-
-                elif pile_code.lower() == "REACTION PILE".lower():  # Octagon (Using a custom SVG marker)
-                    marker = dl.Marker(
-                        position=(row["latitude"], row["longitude"]),
-                        icon=dict(
-                            iconUrl='assets/icons/blue-target.png',  # Path to your image in assets folder
-                            iconSize=[10, 10]  # Size of the icon in pixels
-                        ),
-                        children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-                    )
-
-                else:  # Default marker for other PileCodes Probe
-                    if pile_status == 'Complete':
-                        icon = "/assets/icons/red-triangle_fill.png"
-                    else:
-                        icon = "/assets/icons/red-triangle.png"
-                    marker = dl.Marker(
-                        position=(row["longitude"], row["latitude"]),
-                        icon=dict(
-                            iconUrl=icon,  # Path to your image in assets folder
-                            iconSize=[10, 10]  # Size of the icon in pixels
-                        ),
-                        children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-                    )
-                center = [row["latitude"], row["longitude"]]
-                markers.append(marker)
+        # center = (job.latitude, job.longitude)
+        piles_list = list(filtered_df['PileID'].unique())
+        values_list = [markers_all.get(key) for key in piles_list]
+        markers.extend(values_list)
+        # for _, row in filtered_df.iterrows():
+        #     if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
+        #         pile_code = row.get("PileCode", "")
+        #         piletype = row.get("PileType", "")
+        #         pile_status = row.get("PileStatus", "")
+        #         colorCode = None
+        #         if piletype in colorCodes:
+        #             colorCode = colorCodes[piletype]
+        #         # Assign different marker styles
+        #         if pile_code.lower() == "Production Pile".lower():  # Circle
+        #             color_text = get_color_marker(colorCode)
+        #             if pile_status=='Complete':
+        #                 donut = "/assets/icons/"+color_text+"-donut_fill.png"
+        #             else:
+        #                 donut = "/assets/icons/"+color_text+"-donut.png"
+        #
+        #             marker = dl.Marker(
+        #                 position=(row["latitude"], row["longitude"]),
+        #                 icon=dict(
+        #                     iconUrl=donut,  # Path to your image in assets folder
+        #                     iconSize=[10, 10]  # Size of the icon in pixels
+        #                 ),
+        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
+        #             )
+        #
+        #         elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
+        #             if pile_status == 'Complete':
+        #                 icon = 'assets/icons/yellow-square_fill.png'
+        #             else:
+        #                 icon = 'assets/icons/yellow-square.png'
+        #             marker = dl.Marker(
+        #                 position=(row["latitude"], row["longitude"]),
+        #                 icon=dict(
+        #                     iconUrl=icon,  # Path to your image in assets folder
+        #                     iconSize=[10, 10]  # Size of the icon in pixels
+        #                 ),
+        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
+        #             )
+        #
+        #         elif pile_code.lower() == "REACTION PILE".lower():  # Octagon (Using a custom SVG marker)
+        #             marker = dl.Marker(
+        #                 position=(row["latitude"], row["longitude"]),
+        #                 icon=dict(
+        #                     iconUrl='assets/icons/blue-target.png',  # Path to your image in assets folder
+        #                     iconSize=[10, 10]  # Size of the icon in pixels
+        #                 ),
+        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
+        #             )
+        #
+        #         else:  # Default marker for other PileCodes Probe
+        #             if pile_status == 'Complete':
+        #                 icon = "/assets/icons/red-triangle_fill.png"
+        #             else:
+        #                 icon = "/assets/icons/red-triangle.png"
+        #             marker = dl.Marker(
+        #                 position=(row["longitude"], row["latitude"]),
+        #                 icon=dict(
+        #                     iconUrl=icon,  # Path to your image in assets folder
+        #                     iconSize=[10, 10]  # Size of the icon in pixels
+        #                 ),
+        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
+        #             )
+        #         center = [row["latitude"], row["longitude"]]
+        #         markers.append(marker)
     # ==============================================
     #  Add pile schedules
     # ==============================================
-    if True:
-        if not selected_jobid is None:
-            if selected_pilestatus == 'Scheduled' or selected_pilestatus is None:
+    if not selected_jobid is None:
+        if selected_date is None and selected_productcode is None and selected_rigid is None and  selected_pilecode is None and selected_pileid is None:
+            if selected_pilestatus == 'Scheduled':
                 filtered_df = my_jobs.jobs[selected_jobid].pile_schedule
-                if len(filtered_df)>0:
+                filtered_df = filtered_df[~filtered_df['latitude'].isna()]
+                if len(filtered_df) > 0:
                     if not selected_piletype is None:
-                        filtered_df = filtered_df[filtered_df[nc.ds_piletype]==selected_piletype]
-                if len(filtered_df)>0:
+                        filtered_df = filtered_df[filtered_df[nc.ds_piletype] == selected_piletype]
+                if len(filtered_df) > 0:
                     if len(list(filter_none(filtered_df["longitude"])))> 0:
                         # if center is None:
                         zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(
-                            list(filter_none(filtered_df["latitude"])), list(filter_none(filtered_df["longitude"])))
-                        for _, row in filtered_df.iterrows():
-                            if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
-                                piletype = row.get(nc.ds_piletype, "")
-                                colorCage = row.get(nc.ds_cage_color,"")
-                                color_text = get_color_marker(colorCage)
-                                donut = "/assets/icons/" + color_text + "-donut.png"
-                                marker = dl.Marker(
-                                    position=(row["latitude"], row["longitude"]),
-                                    icon=dict(
-                                        iconUrl=donut,  # Path to your image in assets folder
-                                        iconSize=[10, 10]  # Size of the icon in pixels
-                                    ),
-                                    children=[dl.Tooltip(f"PileID: {row[nc.ds_pileid]}")]
-                                )
+                            list(filter_none(filtered_df["longitude"])),list(filter_none(filtered_df["latitude"])))
+                        # center = (job.latitude, job.longitude)
+                        piles_list = list(filtered_df[nc.ds_pileid].unique())
+                        values_list = [markers_design.get(key) for key in piles_list]
+                        markers.extend(values_list)
+                        # for _, row in filtered_df.iterrows():
+                        #     if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
+                        #         piletype = row.get(nc.ds_piletype, "")
+                        #         colorCage = row.get(nc.ds_cage_color,"")
+                        #         color_text = get_color_marker(colorCage)
+                        #         donut = "/assets/icons/" + color_text + "-donut.png"
+                        #         marker = dl.Marker(
+                        #             position=(row["latitude"], row["longitude"]),
+                        #             icon=dict(
+                        #                 iconUrl=donut,  # Path to your image in assets folder
+                        #                 iconSize=[10, 10]  # Size of the icon in pixels
+                        #             ),
+                        #             children=[dl.Tooltip(f"PileID: {row[nc.ds_pileid]}")]
+                        #         )
+                        #
+                        #         # center = [row["latitude"], row["longitude"]]
+                        #         markers.append(marker)
 
-                                # center = [row["latitude"], row["longitude"]]
-                                markers.append(marker)
-
-    return markers, center,zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
+    return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
 
 
 @callback(
@@ -1144,21 +1151,20 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
     if selected_rows:
         selected_row = selected_rows[0]
     else:
-        # selected_jobid =
         result_MWD = get_data_loaded()
         properties_df = result_MWD[selected_jobid][0].copy()
-        if len(properties_df)==0:
+        if len(properties_df) == 0:
             raise PreventUpdate
-        tmp = properties_df[(properties_df['PileID']==selected_pileid)&(properties_df['date']==selected_date)]
-        tmp.rename(columns={'date':'Date'},inplace=True)
+        tmp = properties_df[(properties_df['PileID'] == selected_pileid) & (properties_df['date'] == selected_date)]
+        tmp.rename(columns={'date':'Date'}, inplace=True)
         selected_row = tmp.to_dict(orient='records')[0]
         # adjust overbreak
         overbreak = float(selected_row['OverBreak'])
         overbreak = overbreak * 100 - 100.0
         selected_row['OverBreak'] = f"{overbreak :.0f}%"
-        selected_row['Calibration'] = selected_row['PumpCalibration']
+        selected_row['Calibration'] = f"{selected_row['PumpCalibration'] :.0f}"
         selected_row['MaxStrokes'] = selected_row['MaxStroke']
-
+        selected_row['PileLength'] = f"{selected_row['PileLength'] :.1f}"
     try:
         return generate_mwd_pdf(selected_row, time_fig, depth_fig)
     except Exception as e:

@@ -12,6 +12,10 @@ import holidays
 import dash_bootstrap_components as dbc
 from data_loader import ensure_data_loaded
 
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
 dash.register_page(
     __name__,
     path_template="/Metrics",
@@ -36,9 +40,6 @@ def is_working_day(date):
 def get_data_summary(value:str):
     data = ensure_data_loaded()
     return data[value]
-    # result_MWD = data['result_MWD']
-    # my_jobs = data['my_jobs']
-    # cache_manager = data['cache_manager']
 
 def count_piles_for_date(data, target_date):
     return sum(1 for pile_data in data.values() if target_date in pile_data)
@@ -59,49 +60,14 @@ def count_piles_per_date(data):
     return dict(date_counts)  # Convert to a regular dict for cleaner output
 
 def load_data_metrics():
-    summary_dict_to_date = {}
+    # summary_dict_to_date = {}
     summary_dict_daily = {}
     summary_metrics ={}
-    jobs = []
-    result_MWD = get_data_summary('result_MWD')
-    for f in os.listdir(summary_folder):
-        jobnumber = None
-        if 'SiteProgression' in f:
-            jobnumber = int(f.split('-')[0])
 
-        else:
-            continue
-
-        if not jobnumber is None:
-            if not str(jobnumber) in result_MWD.keys():
-                continue
-            jobs.append(jobnumber)
-            df_todate = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Job To Date')
-            df_daily = pd.read_excel(os.path.join(summary_folder, f), sheet_name='Daily')
-            df_todate['Time'] = pd.to_datetime(df_todate['Time'])
-            df_daily['Time'] = pd.to_datetime(df_daily['Time'])
-            summary_dict_to_date[jobnumber] = df_todate
-            summary_dict_daily[jobnumber] = df_daily
     my_jobs = get_data_summary('my_jobs')
-    for jb in jobs:
-        if not str(jb) in my_jobs.jobs:
-            continue
-        job = my_jobs.jobs[str(jb)]
-        df_todate = summary_dict_to_date[jb]
-        df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
-        # time_interval = pd.to_datetime(df_todate_tot.index)
-        df_todate_tot['Piles%'] = df_todate_tot['Piles']/job.estimate_piles
-        df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered']/job.estimate_concrete
-        df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled']/job.estimate_rig_days
-        df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours']/job.estimate_labourHours
-        df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%']-df_todate_tot['Concrete%']
-        df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
-        df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
-        df_todate_tot['Delta_Piles_vs_Concrete_prev'] = df_todate_tot['Delta_Piles_vs_Concrete'].shift(1)
-        df_todate_tot['Delta_Piles_vs_RigDays_prev'] = df_todate_tot['Delta_Piles_vs_RigDays'].shift(1)
-        df_todate_tot['Delta_Piles_vs_Labor Hours_prev'] = df_todate_tot['Delta_Piles_vs_Labor Hours'].shift(1)
-
-        summary_metrics[jb] = df_todate_tot.reset_index()
+    for jb,job in my_jobs.jobs.items():
+         summary_metrics[jb] = job.job2data_stats
+         summary_dict_daily[jb] = job.daily_stats
 
     return summary_metrics,summary_dict_daily
 
@@ -204,33 +170,26 @@ def prepare_table_data_daily(summary_metrics, selected_date):
 
     return rows
 
-def prepare_time_spent_stats(summary_dict_daily):
-
-    # cols = ['Time','RigID','Piles','sum_MoveTime','mean_MoveTime','sum_DrillTime','mean_DrillTime','sum_GroutTime','mean_GroutTime',
-    #         'sum_InstallTime','mean_InstallTime','sum_DelayTime','mean_DelayTime','sum_CycleTime'	,'mean_CycleTime',
-    #         'sum_PileLength','mean_PileLength','mean_OverBreak','sum_GroutVolume','sum_PileVolume',	'TurnTime'	,
-    #         'PileWaste'	,'ConcreteDelivered','LaborHours','TurnStartTime','TurnEndTime','ShiftStartTime'	,
-    #         'ShiftEndTime',	'ShiftTime','RigWaste','ShiftTime','RigWaste']
-    # time_cols = ['sum_MoveTime','mean_MoveTime','sum_DrillTime','mean_DrillTime','sum_GroutTime','mean_GroutTime',
-    #         'sum_InstallTime','mean_InstallTime','sum_DelayTime','mean_DelayTime','sum_CycleTime','mean_CycleTime']
+def prepare_time_spent_stats(summary_dict_daily,jobID):
 
     out_df = pd.DataFrame()
-    for job, df in summary_dict_daily.items():
-        tmp = df[['Time','RigID','Piles']]
-        tmp['JobID'] = job
-        for name in df.columns:
-            if name.startswith('mean_') and name.endswith('Time'):
-                name_=name.split('_')[1]
-                tmp[name_] = df[name].str.split('min',expand=True)[0]
-                tmp[name_] = pd.to_numeric(tmp[name_],errors= 'coerce')
+    df = summary_dict_daily[jobID]
+    # for job, df in summary_dict_daily.items():
+    tmp = df[['Time','RigID','Piles']]
+    tmp['JobID'] = jobID
+    for name in df.columns:
+        if name.startswith('mean_') and name.endswith('Time'):
+            name_= name.split('_')[1]
+            tmp[name_] = df[name].str.split('min',expand=True)[0]
+            # tmp[name_] = pd.to_datetime(tmp[name_],format = '%H:%M:%S')
+            # tmp[name_] = pd.to_numeric(tmp[name_],errors= 'coerce')
 
-        out_df = pd.concat([out_df,tmp],ignore_index=True)
+    out_df = pd.concat([out_df,tmp],ignore_index=True)
 
     return out_df
 
 
 summary_metrics,summary_dic_daily = load_data_metrics()
-# table_rows = prepare_table_data(summary_metrics,selected_date)
 
 # ======================
 # Dash AG Grid
@@ -585,6 +544,20 @@ def update_job_bar_chart(selected_date, metric_type):
     return fig
 
 
+from datetime import timedelta
+
+
+def sum_timestamps(time_strings):
+    total_seconds = 0
+    for time_str in time_strings:
+        if str(time_str)!='nan':
+            h, m, s = map(int, time_str.split(':'))
+            total_seconds += h * 3600 + m * 60 + s
+
+    # Convert back to time format
+    # total_time = timedelta(seconds=total_seconds)
+
+    return total_seconds/60 # returns minutes
 @callback(
     Output("job-pie", "figure"),
     Input("job-table", "selectedRows"),
@@ -599,7 +572,7 @@ def update_pie(selected_rows,selected_date):
     row = selected_rows[0]
 
     # # Get the selected row's data
-    df_daily = prepare_time_spent_stats(summary_dic_daily)
+    df_daily = prepare_time_spent_stats(summary_dic_daily,row['JobNumber'])
     # # Filter by JobID and date
     df = df_daily[
         (df_daily['JobID'] == row['JobNumber']) &
@@ -626,11 +599,16 @@ def update_pie(selected_rows,selected_date):
         rig_data = df[df['RigID'] == rig]
         piles = str(rig_data['Piles'].values[0])
         values = [
-            rig_data['MoveTime'].sum(),
-            rig_data['DrillTime'].sum(),
-            rig_data['GroutTime'].sum(),
-            rig_data['InstallTime'].sum(),
-            rig_data['DelayTime'].sum(),
+            sum_timestamps(rig_data['MoveTime']),
+            sum_timestamps(rig_data['DrillTime']),
+            sum_timestamps(rig_data['GroutTime']),
+            sum_timestamps(rig_data['InstallTime']),
+            sum_timestamps(rig_data['DelayTime']),
+            # rig_data['MoveTime'].sum(),
+            # rig_data['DrillTime'].sum(),
+            # rig_data['GroutTime'].sum(),
+            # rig_data['InstallTime'].sum(),
+            # rig_data['DelayTime'].sum(),
         ]
         labels = ["Avg MoveTime", "Avg DrillTime", "Avg GroutTime", "Avg InstallTime", "Avg DelayTime"]
 
@@ -983,355 +961,7 @@ def toggle_views(n_clicks, is_open):
     return is_open
 
 
-from dash import callback, Input, Output, State, no_update
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dash.exceptions import PreventUpdate
 
-
-# @callback(
-#     [Output("time-chart", "figure"),
-#      Output("pile-location-chart", "figure")],
-#     [Input("job-table", "selectedRows"),
-#      Input("date-picker", "date"),
-#      Input("pile-location-chart", "clickData")],
-#     [State("time-chart", "figure"),
-#      State("pile-location-chart", "figure")]
-# )
-# def update_combined_charts(selected_rows, selected_date, click_data, current_time_fig, current_location_fig):
-#     ctx = dash.callback_context
-#     triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
-#
-#     # Handle initial load or no selection
-#     if not selected_rows:
-#         empty_fig = go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
-#         return empty_fig, empty_fig
-#
-#     row = selected_rows[0]
-#     job = row['JobNumber']
-#
-#     # Fast check using cache manager
-#     cache_manager = get_data_summary('cache_manager')
-#     if not cache_manager.is_date_available(job, selected_date):
-#         empty_fig = go.Figure(layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"})
-#         return empty_fig, empty_fig
-#
-#     # GET PRECOMPUTED DATA
-#     precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
-#
-#     if not precomputed_data or not precomputed_data['rig_pile_dataframes']:
-#         raise PreventUpdate
-#
-#     piles_by_rig = precomputed_data['piles_by_rig']
-#     rig_pile_dataframes = precomputed_data['rig_pile_dataframes']
-#     result_MWD = get_data_summary('result_MWD')
-#     df_prop = result_MWD[str(job)][0]
-#
-#     # Create both figures
-#     time_fig = create_time_chart(piles_by_rig, rig_pile_dataframes)
-#     location_fig = create_location_chart(piles_by_rig, rig_pile_dataframes, df_prop)
-#
-#     # Handle pile selection from click
-#     selected_pile_id = None
-#     if triggered_id == "pile-location-chart" and click_data:
-#         selected_pile_id = click_data['points'][0]['customdata'][0]
-#         highlight_pile_in_time_chart(time_fig, selected_pile_id, rig_pile_dataframes)
-#         highlight_pile_in_location_chart(location_fig, selected_pile_id)
-#
-#     return time_fig, location_fig
-#
-#
-# def create_time_chart(piles_by_rig, rig_pile_dataframes):
-#     # Create subplots with secondary y-axis
-#     fig = make_subplots(
-#         rows=len(piles_by_rig),
-#         cols=1,
-#         shared_xaxes=True,
-#         subplot_titles=[f"Rig {r}" for r in piles_by_rig.keys()],
-#         vertical_spacing=0.12,
-#         specs=[[{"secondary_y": True}]] * len(piles_by_rig)
-#     )
-#
-#     # Consistent colors
-#     DEPTH_COLOR = '#1E90FF'  # Bright blue
-#     STROKES_COLOR = 'green'  # Dark green
-#     TORQUE_COLOR = '#FFD700'  # Gold/yellow
-#     HIGHLIGHT_COLOR = '#FF1493'  # Bright pink for highlighting
-#
-#     annotations = []
-#
-#     # Loop rigs
-#     for i, (rig_id, pile_ids) in enumerate(piles_by_rig.items(), start=1):
-#         if rig_id not in rig_pile_dataframes:
-#             continue
-#
-#         pile_data_dict = rig_pile_dataframes[rig_id]
-#
-#         for pile_idx, mdict in enumerate(pile_data_dict):
-#             pile_id = list(mdict.keys())[0]
-#             pile_df = mdict[pile_id]
-#
-#             # Depth trace
-#             fig.add_trace(
-#                 go.Scatter(
-#                     x=pile_df['Time'],
-#                     y=-pile_df['Depth'],
-#                     mode='lines',
-#                     name='Depth',
-#                     line=dict(color=DEPTH_COLOR, width=2),
-#                     hoverinfo='text +y',
-#                     hovertext='Depth',
-#                     legendgroup='Depth',
-#                     showlegend=(i == 1 and pile_idx == 0),
-#                     opacity=0.8,
-#                     customdata=[pile_id] * len(pile_df)
-#                 ),
-#                 row=i, col=1, secondary_y=False
-#             )
-#
-#             # Strokes trace
-#             fig.add_trace(
-#                 go.Scatter(
-#                     x=pile_df['Time'],
-#                     y=pile_df['Strokes'].round(0),
-#                     mode='lines',
-#                     name='Strokes',
-#                     line=dict(color=STROKES_COLOR, width=2),
-#                     hoverinfo='x+y+text',
-#                     hovertext='Strokes',
-#                     legendgroup='Strokes',
-#                     showlegend=(i == 1 and pile_idx == 0),
-#                     opacity=0.8,
-#                     customdata=[pile_id] * len(pile_df)
-#                 ),
-#                 row=i, col=1, secondary_y=False
-#             )
-#
-#             # Torque trace
-#             fig.add_trace(
-#                 go.Scatter(
-#                     x=pile_df['Time'],
-#                     y=pile_df['Torque'].round(2),
-#                     mode='lines',
-#                     name='Torque',
-#                     line=dict(color=TORQUE_COLOR, width=2),
-#                     hoverinfo='x+y+text',
-#                     hovertext='Torque',
-#                     legendgroup='Torque [ton*meters]',
-#                     showlegend=(i == 1 and pile_idx == 0),
-#                     opacity=0.8,
-#                     customdata=[pile_id] * len(pile_df)
-#                 ),
-#                 row=i, col=1, secondary_y=True
-#             )
-#
-#             # Add annotation for this pile
-#             if not pile_df.empty:
-#                 mid_idx = len(pile_df) // 2
-#                 annotation_time = pile_df['Time'].iloc[mid_idx]
-#                 annotation_depth = -pile_df['Depth'].min() * 0.95 + (pile_idx * 0.5)
-#
-#                 xref = "x" if i == 1 else f"x{i}"
-#                 yref = "y" if i == 1 else f"y{2 * i - 1}"
-#
-#                 annotations.append(dict(
-#                     x=annotation_time,
-#                     y=annotation_depth,
-#                     xref=xref,
-#                     yref=yref,
-#                     text=f"P{pile_id}",
-#                     showarrow=False,
-#                     font=dict(size=10, color="white"),
-#                     bgcolor="rgba(0,0,0,0.5)",
-#                     bordercolor="rgba(255, 255, 255, 0.3)",
-#                     borderwidth=1,
-#                     borderpad=2,
-#                     opacity=0.8
-#                 ))
-#
-#     # Layout
-#     fig.update_layout(
-#         height=350 * len(piles_by_rig),
-#         plot_bgcolor="#193153",
-#         paper_bgcolor="#193153",
-#         font_color="white",
-#         showlegend=True,
-#         margin=dict(l=50, r=80, t=50, b=50),
-#         hovermode='x unified',
-#         legend=dict(
-#             orientation="h",
-#             yanchor="bottom",
-#             y=1.02,
-#             xanchor="center",
-#             x=0.1,
-#             font=dict(size=11),
-#             bgcolor='rgba(25, 49, 83, 0.9)',
-#             bordercolor='rgba(255, 255, 255, 0.3)',
-#             borderwidth=1
-#         ),
-#         annotations=annotations
-#     )
-#
-#     # Axes config
-#     for i in range(1, len(piles_by_rig) + 1):
-#         fig.update_yaxes(
-#             title_text="Depth/Strokes",
-#             row=i, col=1,
-#             secondary_y=False,
-#             showgrid=True,
-#             gridcolor='rgba(255, 255, 255, 0.1)',
-#             zeroline=False
-#         )
-#         fig.update_yaxes(
-#             title_text="Torque",
-#             row=i, col=1,
-#             secondary_y=True,
-#             showgrid=False,
-#             zeroline=False
-#         )
-#         fig.update_xaxes(
-#             title_text="Time" if i == len(piles_by_rig) else None,
-#             row=i, col=1,
-#             showgrid=True,
-#             showticklabels=True,
-#             gridcolor='rgba(255, 255, 255, 0.1)',
-#             title_standoff=5
-#         )
-#         fig.update_xaxes(showspikes=False)
-#         fig.update_yaxes(showspikes=False)
-#
-#     return fig
-#
-#
-# def create_location_chart(piles_by_rig, rig_pile_dataframes, df_prop):
-#     fig = go.Figure()
-#
-#     # Different colors for different rigs
-#     rig_colors = ['#1E90FF', '#FF6B6B', '#32CD32', '#FFD700', '#9370DB', '#FF6347']
-#
-#     # Loop rigs
-#     for i, (rig_id, pile_ids) in enumerate(piles_by_rig.items(), start=1):
-#         if rig_id not in rig_pile_dataframes:
-#             continue
-#
-#         color = rig_colors[i % len(rig_colors)]
-#         pile_data_dict = rig_pile_dataframes[rig_id]
-#         x_coords = []
-#         y_coords = []
-#         pile_ids_list = []
-#         position = []
-#
-#         for order_num, mdict in enumerate(pile_data_dict, start=1):
-#             pile_id = list(mdict.keys())[0]
-#             tmp = df_prop[df_prop['PileID'] == pile_id][['latitude', 'longitude']]
-#             if not tmp.empty:
-#                 x_coords.append(tmp['latitude'].values[0])
-#                 y_coords.append(tmp['longitude'].values[0])
-#                 pile_ids_list.append(pile_id)
-#                 position.append(order_num)
-#
-#         # Add trace for this rig with all points
-#         fig.add_trace(go.Scatter(
-#             x=x_coords,
-#             y=y_coords,
-#             mode='markers+text',
-#             marker=dict(size=12, color=color),
-#             text=[str(n) for n in position],
-#             textposition="top center",
-#             name=f"Rig {rig_id}",
-#             hovertemplate=(
-#                 '<b>PileID: %{customdata[0]}<br>'
-#                 'Order: %{text}<br>'
-#                 'Lat: %{x:.6f}<br>'
-#                 'Lon: %{y:.6f}<extra></extra>'
-#             ),
-#             customdata=[[pid] for pid in pile_ids_list]
-#         ))
-#
-#         # Add arrows for drilling order
-#         for j in range(len(pile_ids_list) - 1):
-#             fig.add_annotation(
-#                 x=x_coords[j + 1],
-#                 y=y_coords[j + 1],
-#                 ax=x_coords[j],
-#                 ay=y_coords[j],
-#                 xref="x", yref="y",
-#                 axref="x", ayref="y",
-#                 showarrow=True,
-#                 arrowhead=2,
-#                 arrowsize=1,
-#                 arrowwidth=2,
-#                 arrowcolor=color,
-#                 opacity=0.7
-#             )
-#
-#     fig.update_yaxes(showgrid=True, gridcolor="grey")
-#     fig.update_xaxes(showgrid=True, gridcolor="grey")
-#
-#     fig.update_layout(
-#         title="Pile Locations with Drilling Order (Click on a pile to highlight)",
-#         plot_bgcolor="#193153",
-#         paper_bgcolor="#193153",
-#         font_color="white",
-#         showlegend=True,
-#         xaxis_title="Latitude",
-#         yaxis_title="Longitude",
-#         height=500
-#     )
-#
-#     return fig
-#
-#
-# def highlight_pile_in_time_chart(fig, pile_id, rig_pile_dataframes):
-#     """Highlight the selected pile in the time chart"""
-#     HIGHLIGHT_COLOR = '#FF1493'
-#     HIGHLIGHT_WIDTH = 4
-#
-#     # Reset all traces to normal appearance first
-#     for trace in fig.data:
-#         if 'line' in trace and 'width' in trace.line:
-#             if trace.line.width == HIGHLIGHT_WIDTH:
-#                 # Reset to original colors based on trace name
-#                 if trace.name == 'Depth':
-#                     trace.line.color = '#1E90FF'
-#                 elif trace.name == 'Strokes':
-#                     trace.line.color = 'green'
-#                 elif trace.name == 'Torque':
-#                     trace.line.color = '#FFD700'
-#                 trace.line.width = 2
-#
-#     # Find and highlight the selected pile
-#     for trace in fig.data:
-#         if hasattr(trace, 'customdata') and trace.customdata is not None:
-#             if len(trace.customdata) > 0 and trace.customdata[0] == pile_id:
-#                 trace.line.color = HIGHLIGHT_COLOR
-#                 trace.line.width = HIGHLIGHT_WIDTH
-#
-#
-# def highlight_pile_in_location_chart(fig, pile_id):
-#     """Highlight the selected pile in the location chart"""
-#     HIGHLIGHT_COLOR = '#FF1493'
-#     HIGHLIGHT_SIZE = 20
-#
-#     # Reset all markers to normal appearance first
-#     for trace in fig.data:
-#         if 'marker' in trace:
-#             trace.marker.size = 12
-#             # You might want to store original colors and restore them here
-#
-#     # Find and highlight the selected pile
-#     for trace in fig.data:
-#         if hasattr(trace, 'customdata') and trace.customdata is not None:
-#             for i, custom_data in enumerate(trace.customdata):
-#                 if custom_data[0] == pile_id:
-#                     trace.marker.size = [HIGHLIGHT_SIZE if cd[0] == pile_id else 12 for cd in trace.customdata]
-#                     # Change color for the selected pile
-#                     if hasattr(trace.marker, 'color'):
-#                         # For simplicity, just change the whole trace color
-#                         # For more precise control, you'd need to use marker.color as an array
-#                         trace.marker.color = HIGHLIGHT_COLOR
-#                     break
-#
 
 
 # =======================================
@@ -1656,6 +1286,21 @@ def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, s
         xaxis_title="XEasting",
         yaxis_title="YNorthing",
         height=400
+    )
+    fig.update_layout(
+        xaxis=dict(
+            # title='X Axis (10^6 units)',
+            tickformat='.1e',
+            exponentformat='power',
+            showgrid=True
+        ),
+        yaxis=dict(
+            # title='Y Axis (10^6 units)',
+            tickformat='.1e',
+            exponentformat='power',
+            showgrid=True
+        ),
+
     )
 
     return fig

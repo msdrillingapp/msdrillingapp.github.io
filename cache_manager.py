@@ -5,8 +5,9 @@ import os
 from collections import OrderedDict
 
 class ChartDataCache:
-    def __init__(self, result_MWD_data):
+    def __init__(self, result_MWD_data,reload:bool=False):
         self.result_MWD = result_MWD_data
+        self.reload = reload
         self.date_availability = self._load_or_compute_dates()
         self.preprocessed_data = self._precompute_resampled_data()
 
@@ -42,118 +43,102 @@ class ChartDataCache:
     def _precompute_resampled_data(self):
         """Precompute 1-minute resampled data for all jobs"""
         cache_file = 'data/preprocessed_chart_data.pkl'
+        if not self.reload:
+            try:
+                if os.path.exists(cache_file):
+                    with open(cache_file, 'rb') as f:
+                        print("Loading precomputed resampled data from cache...")
+                        return pickle.load(f)
+            except:
+                self.reload = True
+        if self.reload:
+            print("Precomputing resampled data...")
+            preprocessed_data = {}
 
-        try:
-            if os.path.exists(cache_file):
-                with open(cache_file, 'rb') as f:
-                    print("Loading precomputed resampled data from cache...")
-                    return pickle.load(f)
-        except:
-            pass
+            for job in self.result_MWD.keys():
+                properties_df = self.result_MWD[job][0].copy()
+                pile_data = self.result_MWD[job][1].copy()
+                pile_data = pile_data[job]
+                # Pre-filter properties
+                filtered_props = properties_df[
+                    (properties_df['PileCode'] == 'Production Pile') &
+                    (properties_df['PileStatus'] == 'Complete')
+                    ].copy()
 
-        print("Precomputing resampled data...")
-        preprocessed_data = {}
+                # Precompute piles by rig
+                piles_by_rig = {
+                    r: list(filtered_props[filtered_props['RigID'] == r]['PileID'].values)
+                    for r in filtered_props['RigID'].unique()
+                }
 
-        for job in self.result_MWD.keys():
-            properties_df = self.result_MWD[job][0].copy()
-            pile_data = self.result_MWD[job][1].copy()
-            pile_data = pile_data[job]
-            # Pre-filter properties
-            filtered_props = properties_df[
-                (properties_df['PileCode'] == 'Production Pile') &
-                (properties_df['PileStatus'] == 'Complete')
-                ].copy()
+                # Preprocess and resample all pile data for this job
+                job_preprocessed = {
+                    'piles_by_rig': piles_by_rig,
+                    'precomputed_days': {}
+                }
 
-            # Precompute piles by rig
-            piles_by_rig = {
-                r: list(filtered_props[filtered_props['RigID'] == r]['PileID'].values)
-                for r in filtered_props['RigID'].unique()
-            }
+                # First pass: collect all pile data and their start times
+                date_pile_times = {}  # {date: {pile_id: start_time}}
 
-            # Preprocess and resample all pile data for this job
-            job_preprocessed = {
-                'piles_by_rig': piles_by_rig,
-                'precomputed_days': {}
-            }
+                for pile_id, days_data in pile_data.items():
+                    for date, day_data in days_data.items():
+                        if date not in date_pile_times:
+                            date_pile_times[date] = {}
 
-            # First pass: collect all pile data and their start times
-            date_pile_times = {}  # {date: {pile_id: start_time}}
+                        # Convert to DataFrame and process time
+                        try:
+                            df = pd.DataFrame(day_data)
+                        except:
+                            continue
 
-            for pile_id, days_data in pile_data.items():
-                for date, day_data in days_data.items():
-                    if date not in date_pile_times:
-                        date_pile_times[date] = {}
 
-                    # Convert to DataFrame and process time
-                    try:
+                        df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+
+                        # Get the start time (minimum time) for this pile on this date
+                        start_time = df['Time'].min()
+                        date_pile_times[date][pile_id] = start_time
+
+                # Second pass: process and store data, then sort by start time
+                for pile_id, days_data in pile_data.items():
+                    for date, day_data in days_data.items():
+                        if date not in job_preprocessed['precomputed_days']:
+                            job_preprocessed['precomputed_days'][date] = {}
+
+                        # Convert to DataFrame and process time
                         df = pd.DataFrame(day_data)
-                    except:
-                        continue
-                        # for k,v in days_data.items():
-                        #     for n,item in v.items():
-                        #         if len
+                        df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                        df.sort_values('Time', inplace=True)
+                        df['PileID'] = pile_id
+
+                        # RESAMPLE TO 1-MINUTE INTERVALS
+                        resampled_df = self._resample(df, resample_unit='30s')
+                        job_preprocessed['precomputed_days'][date][pile_id] = resampled_df
 
 
-                    df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                # Sort each date's piles by their start time using OrderedDict
+                for date in job_preprocessed['precomputed_days']:
+                    # Get piles for this date and sort them by start time
+                    piles = job_preprocessed['precomputed_days'][date]
+                    sorted_pile_ids = sorted(
+                        piles.keys(),
+                        key=lambda pid: date_pile_times[date].get(pid, pd.Timestamp.max)
+                    )
 
-                    # Get the start time (minimum time) for this pile on this date
-                    start_time = df['Time'].min()
-                    date_pile_times[date][pile_id] = start_time
+                    # Create an ordered dictionary
+                    sorted_piles = OrderedDict()
+                    for pile_id in sorted_pile_ids:
+                        sorted_piles[pile_id] = piles[pile_id]
 
-            # Second pass: process and store data, then sort by start time
-            for pile_id, days_data in pile_data.items():
-                for date, day_data in days_data.items():
-                    if date not in job_preprocessed['precomputed_days']:
-                        job_preprocessed['precomputed_days'][date] = {}
+                    job_preprocessed['precomputed_days'][date] = sorted_piles
 
-                    # Convert to DataFrame and process time
-                    df = pd.DataFrame(day_data)
-                    df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
-                    df.sort_values('Time', inplace=True)
-                    df['PileID'] = pile_id
+                preprocessed_data[job] = job_preprocessed
+            # Save to cache
+            os.makedirs('data', exist_ok=True)
+            with open(cache_file, 'wb') as f:
+                pickle.dump(preprocessed_data, f)
 
-                    # RESAMPLE TO 1-MINUTE INTERVALS
-                    resampled_df = self._resample(df, resample_unit='30s')
-                    job_preprocessed['precomputed_days'][date][pile_id] = resampled_df
-
-            # # Sort each date's piles by their start time
-            # for date in job_preprocessed['precomputed_days']:
-            #     # Get piles for this date and sort them by start time
-            #     piles = job_preprocessed['precomputed_days'][date]
-            #     sorted_pile_ids = sorted(
-            #         piles.keys(),
-            #         key=lambda pid: date_pile_times[date].get(pid, pd.Timestamp.max)
-            #     )
-            #
-            #     # Create a new ordered dictionary
-            #     sorted_piles = {pile_id: piles[pile_id] for pile_id in sorted_pile_ids}
-            #     job_preprocessed['precomputed_days'][date] = sorted_piles
-            #
-            # preprocessed_data[job] = job_preprocessed
-            # Sort each date's piles by their start time using OrderedDict
-            for date in job_preprocessed['precomputed_days']:
-                # Get piles for this date and sort them by start time
-                piles = job_preprocessed['precomputed_days'][date]
-                sorted_pile_ids = sorted(
-                    piles.keys(),
-                    key=lambda pid: date_pile_times[date].get(pid, pd.Timestamp.max)
-                )
-
-                # Create an ordered dictionary
-                sorted_piles = OrderedDict()
-                for pile_id in sorted_pile_ids:
-                    sorted_piles[pile_id] = piles[pile_id]
-
-                job_preprocessed['precomputed_days'][date] = sorted_piles
-
-            preprocessed_data[job] = job_preprocessed
-        # Save to cache
-        os.makedirs('data', exist_ok=True)
-        with open(cache_file, 'wb') as f:
-            pickle.dump(preprocessed_data, f)
-
-        print("Resampled data precomputation complete!")
-        return preprocessed_data
+            print("Resampled data precomputation complete!")
+            return preprocessed_data
 
     def _precompute_all_data(self):
         """Precompute and cache all data processing for lightning-fast access"""
@@ -247,11 +232,14 @@ class ChartDataCache:
         return date_availability
 
     def _load_or_compute_dates(self):
-        try:
-            with open('data/date_availability.pkl', 'rb') as f:
-                return pickle.load(f)
-        except FileNotFoundError:
-            return self._precompute_date_availability()
+        if self.reload:
+            self._precompute_date_availability()
+        else:
+            try:
+                with open('data/date_availability.pkl', 'rb') as f:
+                    return pickle.load(f)
+            except FileNotFoundError:
+                return self._precompute_date_availability()
 
     def is_date_available(self, job, date):
         return date in self.date_availability.get(str(job), set())

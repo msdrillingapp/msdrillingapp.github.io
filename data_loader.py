@@ -5,9 +5,28 @@ from get_data_from_PileMetrics_API import get_estimate
 from cache_manager import ChartDataCache
 import naming_conventions as nc
 import json
+import dash_leaflet as dl
 from datetime import datetime
+# from database.DatabaseStorage import Databasestorage
 
+properties_cols_2keep = ['JobNumber','JobName',	'PileID','date','RigID',	'LocationID','PileCode',
+                           'PileStatus','PileType',	'ProductCode','PileDiameter','PileLength',
+                           'latitude','longitude','MinDepth',	'MaxStroke','Time_Start',
+                           	'Comments',	'DelayReason','DrillEndTime','DrillNotes','DrillStartTime',
+                           'Elevation',	'GroutEndTime',	'GroutStartTime','Operator','PumpCalibration',
+                           'PumpID','InstallEndTime','InstallStartTime','GroutVolume','PileArea',	'PileVolume',
+                           'Area',	'DesignJobNumber','DesignNotes','DesignPileID',	'XEasting',	'YNorthing',
+                           'InstallTime','OverBreak','DrillTime', 'GroutTime',	'DelayTime',	'MoveTime',	'CycleTime'	,'MoveDistance','MoveVelocity',	'Time'
+]
 
+# Precompute once and reuse
+color_map = {
+    '3b82f6': 'blue', '0456fb': 'blue',
+    'eab308': 'yellow', 'ffea00': 'yellow',
+    '22c55e': 'green', 'ef4444': 'red',
+    'f97316': 'orange', 'd946ef': 'purple',
+    'None': 'brown'
+}
 # Simple singleton implementation
 class DataManager:
     _instance = None
@@ -24,7 +43,7 @@ class DataManager:
         if not self._is_loaded:
             print("Loading data for the first time...")
             try:
-                ALL_JOBS =['1640', '1633', '1642','1650'] #, '1648',,'1640', '1633', '1642','1641','1604',#'1640', '1633', '1642',
+                ALL_JOBS =['1642','1650'] #'1640', '1633',
                 # Call your data loading function
                 result_MWD, results_CPT,results_pileMetrics = load_geojson_data(ALL_JOBS, reload=reload)
                 my_jobs = JobManager()
@@ -33,8 +52,10 @@ class DataManager:
                     my_job.add_estimates(v[0])
                     my_job.add_pile_schedule(v[2])
                     my_job.add_colorCodes(v[0])
+                    my_job.add_design_markers(v[3])
+                    my_job.add_stats_files(v[4])
 
-                cache_manager = ChartDataCache(result_MWD)
+                cache_manager = ChartDataCache(result_MWD, reload=reload)
 
                 self._data = {
                     'result_MWD': result_MWD,
@@ -46,7 +67,7 @@ class DataManager:
                 self._is_loaded = True
                 print(f"Data loaded successfully: {len(result_MWD)} jobs")
             except Exception as e:
-                print(f"Error loading data for job:{jobID} error: {e}")
+                print(f"Error : {e}")
                 self._data = {'result_MWD': {}, 'results_CPT': {}, 'my_jobs': None,'cache_manager':None}
                 self._is_loaded = True
         return self._data
@@ -106,6 +127,7 @@ groups_df = pd.read_csv(os.path.join(assets_path,'Groups.csv'))
 groups_df = groups_df.explode("Group").reset_index(drop=True)
 # ========================================================================
 DATA_DIR = 'assets//pkl'
+summary_folder = os.path.join(geojson_folder,'Summary')
 
 def _get_filepath(job_number):
     return os.path.join(DATA_DIR, f"{job_number}.pkl")
@@ -115,15 +137,20 @@ def load_geojson_data(jobs=[],reload:bool=False):
     results_CPT = {}
     results_pileMetrics ={}
 
+    # config_file = os.path.join(os.getcwd(),'database','database.ini')
+    # data_storage = Databasestorage()
+    # data_storage.configure_from_config(config_file)
+
     for jobID in jobs:
+        print(jobID)
         get_data = True
         if not reload:
             cache_file = _get_filepath(jobID)
             if os.path.exists(cache_file):
-                (properties_df, jobid_pile_data,merged_df,cpt_header, jobid_cpt_data,estimates,location,df_design) = pd.read_pickle(cache_file)
-                result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df)
+                (properties_df, jobid_pile_data,merged_df,markers,cpt_header, jobid_cpt_data,estimates,location,df_design,markers_design,stats_file) = pd.read_pickle(cache_file)
+                result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df,markers)
                 results_CPT[jobID] = (cpt_header, jobid_cpt_data)
-                results_pileMetrics[jobID] = (estimates,location,df_design)
+                results_pileMetrics[jobID] = (estimates,location,df_design,markers_design,stats_file)
                 print('Loaded pickle data for jobNumber: '+ jobID)
                 get_data = False
 
@@ -138,6 +165,8 @@ def load_geojson_data(jobs=[],reload:bool=False):
             cpt_data = {}
             data_folder = os.path.join(geojson_folder,jobID)
             merged_df = pd.DataFrame()
+            markers = {}
+            markers_design = {}
             # =========================================================
             # Process Pile Design
             # =========================================================
@@ -150,8 +179,34 @@ def load_geojson_data(jobs=[],reload:bool=False):
                     df_design_merge = df_design[col_keep]
                     df_design[nc.ds_pileid] = df_design[nc.ds_pileid].astype(str)
                     df_design_merge['JobNumber'] = jobID
+                    df_design['color'] = df_design[nc.ds_cage_color].map(color_map).fillna('blue')
+                    # Create the dictionary
+                    markers_design = {}
+                    for _, row in df_design.iterrows():
+                        markers_design[row[nc.ds_pileid]] = dl.Marker(
+                            position=(row[nc.ds_lat], row[nc.ds_lon]),
+                            icon=dict(
+                                iconUrl=f"/assets/icons/{row['color']}-donut.png",
+                                iconSize=[10, 10]
+                            ),
+                            children=[dl.Tooltip(f"PileID: {row[nc.ds_pileid]}")]
+                        )
             except :
                 pass
+            # =========================================================
+            # Read stats file
+            # =========================================================
+            stats_files = os.listdir(summary_folder)
+            stats_file = {}
+            try:
+                for f in stats_files:
+                    if f.startswith(jobID) and f.endswith("Statistics.json"):
+                        file_path = os.path.join(summary_folder, f)
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            stats_file = json.load(f)
+                            break
+            except:
+                print('Warning! No stats file was found')
             # =========================================================
             # Process CPT data
             # =========================================================
@@ -179,7 +234,6 @@ def load_geojson_data(jobs=[],reload:bool=False):
             for filename in os.listdir(data_folder):
                 if filename.endswith(".json"):
                     file_path = os.path.join(data_folder, filename)
-
                     with open(file_path, "r", encoding="utf-8") as f:
                         geojson_data = json.load(f)
 
@@ -190,6 +244,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
                         geometry = feature.get("geometry", {})
                         coords = geometry.get("coordinates", [])
                         pile_id = properties['PileID']
+                        print(pile_id)
                         lon = None
                         lat = None
                         if coords and len(coords) >= 2:
@@ -209,6 +264,23 @@ def load_geojson_data(jobs=[],reload:bool=False):
                         properties["latitude"] = lat
                         properties["longitude"] = lon
                         # ================================================
+                        DelayTime = properties["DelayTime"] if not properties["DelayTime"] is None else 0
+                        properties["DelayTime"] = round(float(str(DelayTime).split(' ')[0]),1)
+                        MoveTime = properties["MoveTime"] if not properties["MoveTime"] is None else 0
+                        properties["MoveTime"] = round(float(str(MoveTime).split(' ')[0]),1)
+                        DrillTime = properties["DrillTime"] if not properties["DrillTime"] is None else 0
+                        properties["DrillTime"] = round(float(str(DrillTime).split(' ')[0]),1)
+                        InstallTime = properties["InstallTime"] if not properties["InstallTime"] is None else 0
+                        properties["InstallTime"] = round(float(str(InstallTime).split(' ')[0]),1)
+                        GroutTime = properties["GroutTime"] if not properties["GroutTime"] is None else 0
+                        properties["GroutTime"] = round(float(str(GroutTime).split(' ')[0]),1)
+                        MoveDistance = properties.get("MoveDistance",0)  if not properties.get("MoveDistance",0)  is None else 0
+                        properties["MoveDistance"] = round(float(MoveDistance),1)
+                        MoveVelocity = properties.get("MoveVelocity", 0) if not properties.get("MoveVelocity",                                                                   0) is None else 0
+                        properties["MoveVelocity"] = round(float(MoveVelocity), 1)
+                        properties['PileLength'] = round(float(properties.get('PileLength',0)), 1)
+                        properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
+                        # ================================================
                         # Remove the pile from the design piles list to avoid duplicates
                         # if len(piles_list)>0:
                         #     if pile_id in piles_list:
@@ -219,6 +291,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
                         if (pileStatus =='Incomplete') and not (pile_id.upper().startswith('RP') or pile_id.upper().startswith('PB') or pile_id.upper().startswith('TP')):
                             print('Pile: ' + pile_id +' is incomplete.')
                             continue
+
                         properties['PileType'] = str(properties['PileType'])
                         if (properties['PileType'] is None) or (properties['PileType']=='nan') :
                             properties['PileType'] = 'None'
@@ -228,13 +301,22 @@ def load_geojson_data(jobs=[],reload:bool=False):
 
 
                         pile_id = properties['PileID']
+                        if len(estimates) > 0:
+                            try:
+                                colorCode  = estimates[properties['PileType']]['colorCode']
+                            except:
+                                colorCode = None
+                        else:
+                            colorCode = None
+                        properties['colorCode'] = colorCode
+
                         job_id = properties.get("JobNumber")
                         if str(job_id)!=jobID:
                             print('Error '+str(job_id))
                             pileid_list_wrong.append(pile_id)
                             properties['JobNumber'] = jobID
 
-                        calibration = float(properties.get("PumpCalibration"))
+                        calibration = properties["PumpCalibration"]
                         strokes = properties["Data"].get("Strokes", [])
                         depths = properties["Data"].get("Depth", [])
                         time_start = properties["Data"].get("Time", [])
@@ -246,13 +328,20 @@ def load_geojson_data(jobs=[],reload:bool=False):
                         properties["date"] = date  # Store the date from the filename
 
                         properties['MaxStroke'] = max(strokes)
-                        properties['MinDepth'] = min(depths)
+                        properties['MinDepth'] = round(min(depths),1)
                         properties['Time_Start'] = time_start
 
                         if float(properties['PileDiameter']) > 3:
                             print('For PileID:' + pile_id + ' diameter is  ' + str(properties['PileDiameter']))
 
                         volume = [calibration*float(x) for x in strokes]
+                        data_names= list(properties['Data'].keys())
+                        if 'Penetration' not in data_names:
+                            if 'Speed' in data_names:
+                                properties['Data']['Penetration'] = properties['Data']['Speed']
+                        if 'Pulldown' not in data_names:
+                            if 'WinchLoad' in data_names:
+                                properties['Data']['Pulldown'] = properties['Data']['WinchLoad']
                         if pile_id and "Data" in properties:
                             time = properties["Data"].get("Time", [])
                             pile_data[pile_id] = {properties['date']: {
@@ -267,6 +356,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
                                 'Volume': volume}}
 
                         all_data.append(properties)
+
             jobid_pile_data[jobID] = pile_data.copy()
             # Cache the result for next time
             properties_df = pd.DataFrame(all_data)
@@ -282,6 +372,20 @@ def load_geojson_data(jobs=[],reload:bool=False):
                 properties_df['Time'].fillna(datetime.today())
                 properties_df['JobNumber'] = properties_df['JobNumber'].astype(str)
 
+                properties_df['color'] = properties_df['colorCode'].map(color_map).fillna('blue')
+                properties_df['shape'] = properties_df.apply(lambda row: get_shape_marker(row['PileCode'], row['PileStatus']),
+                                                       axis=1)
+                markers = {}
+                for _, row in properties_df.iterrows():
+                    markers[row['PileID']] = dl.Marker(
+                        position=(row['latitude'], row['longitude']),
+                        icon=dict(
+                            iconUrl=f"/assets/icons/{row['color']}-{row['shape']}.png",
+                            iconSize=[10, 10]
+                        ),
+                        children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row['PileStatus']}")]
+                    )
+
                 # Melt the dataframe so each property is mapped to a Field and PileID
                 melted_df = properties_df.melt(id_vars=["PileID", "latitude", "longitude", "date"], var_name="Field",
                                                value_name="Value")
@@ -292,10 +396,11 @@ def load_geojson_data(jobs=[],reload:bool=False):
                 merged_df["Group"].fillna("Undefined", inplace=True)  # Ensure Group is always a string
                 merged_df = merged_df[filtered_columns]
 
-            result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df)
+            # data_storage.write_to_storage(properties_df[properties_cols_2keep])
+            result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df,markers)
             results_CPT[jobID] = (cpt_header,jobid_cpt_data)
-            results_pileMetrics[jobID] = (estimates,location,df_design)
-            result = (properties_df, jobid_pile_data,merged_df,cpt_header,jobid_cpt_data,estimates,location,df_design)
+            results_pileMetrics[jobID] = (estimates,location,df_design,markers_design,stats_file)
+            result = (properties_df, jobid_pile_data,merged_df,markers,cpt_header,jobid_cpt_data,estimates,location,df_design,markers_design,stats_file)
 
             save_pickle(jobID,result)
 
@@ -306,7 +411,54 @@ def save_pickle(job_number, data):
     os.makedirs(DATA_DIR, exist_ok=True)
     pd.to_pickle(data, _get_filepath(job_number))
 
+def get_color_marker(coloCode):
+    if coloCode in ['3b82f6','0456fb']:
+        return 'blue'
+    elif coloCode in ['eab308','ffea00']:
+        return 'yellow'
+    elif coloCode=='22c55e' :
+        return 'green'
+    elif coloCode == 'ef4444':
+        return 'red'
+    elif coloCode == 'f97316':
+        return 'orange'
+    elif coloCode == 'd946ef':
+        return 'purple'
+    elif coloCode =='None':
+        return 'brown'
+    else:
+        return 'blue' #'grey'
 
+def get_shape_marker(pile_code,pile_status):
+    if pile_code.lower() == "Production Pile".lower():  # Circle
+        shape='donut'
+    elif pile_code.lower() == "TEST PILE".lower():  # Square
+        shape = 'square'
+    elif pile_code.lower() == "REACTION PILE".lower():  # Octagon
+        shape = 'target'
+    else:
+        shape ='triangle'
+    if pile_status == 'Complete':
+        shape += '_fill'
+
+    return shape
+
+
+
+# def get_markers(pileid,pile_code,colorCode,pile_status,lon,lat):
+#     shape = get_shape_marker(pile_code,pile_status)
+#     color_text = get_color_marker(colorCode)
+#     icon = "/assets/icons/" + color_text + "-" + shape +"png"
+#     marker = dl.Marker(
+#         position=(lat, lon),
+#         icon=dict(
+#             iconUrl=icon,  # Path to your image in assets folder
+#             iconSize=[10, 10]  # Size of the icon in pixels
+#         ),
+#         children=[dl.Tooltip(f"PileID: {pileid}, Status: {pile_status}")]
+#     )
+#
+#     return marker
 
 if __name__ == "__main__":
     data_manager = DataManager()

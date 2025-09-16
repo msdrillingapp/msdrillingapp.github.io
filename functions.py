@@ -313,23 +313,49 @@ def load_geojson_data(jobs=[],reload:bool=False):
 
 
 
+# def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes=None, latitudes=None):
+#     if ((latitudes is None or longitudes is None)
+#             or (len(latitudes) != len(longitudes))):
+#         return 0, (0, 0)
+#
+#     height = max(latitudes) - min(latitudes)
+#     width = max(longitudes) - min(longitudes)
+#     # center = (np.mean(longitudes), np.mean(latitudes))
+#     center = (np.nanmean(latitudes), np.nanmean(longitudes))
+#
+#     # Compute area in degrees²
+#     area = height * width
+#
+#     # Update interpolation to realistic bounding box areas
+#     zoom = np.interp(
+#         x=area,
+#         xp=[0, 1**-5,0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
+#         fp=[17, 16, 15, 13, 10, 9,8, 6, 3]
+#     )
+#
+#     return zoom, center
+
 def get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(longitudes=None, latitudes=None):
     if ((latitudes is None or longitudes is None)
             or (len(latitudes) != len(longitudes))):
         return 0, (0, 0)
 
-    height = max(latitudes) - min(latitudes)
-    width = max(longitudes) - min(longitudes)
-    center = (np.mean(longitudes), np.mean(latitudes))
+    lat_min, lat_max = min(latitudes), max(latitudes)
+    lon_min, lon_max = min(longitudes), max(longitudes)
 
-    # Compute area in degrees²
-    area = height * width
+    # center as (lat, lon)
+    center = (np.nanmean(latitudes), np.nanmean(longitudes))
 
-    # Update interpolation to realistic bounding box areas
+    # Max span in degrees
+    lat_span = lat_max - lat_min
+    lon_span = lon_max - lon_min
+    max_span = max(lat_span, lon_span)
+
+    # Interpolate zoom level from span
     zoom = np.interp(
-        x=area,
-        xp=[0, 1**-5,0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
-        fp=[18, 16, 15, 13, 10, 9,8, 6, 3]
+        x=max_span,
+        xp=[0, 0.0005, 0.005, 0.05, 0.5, 1, 5, 10, 30, 90, 180],
+        fp=[18,   17,    15,   12,   10, 9, 7, 6, 4, 2, 1]
     )
 
     return zoom, center
@@ -843,7 +869,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         ["PILE No:", f"{selected_row.get('PileID', '')}"],
         ["START TIME:", selected_row.get('DrillStartTime', '')],
         ["END TIME:", selected_row.get('DrillEndTime', '')],
-        ["INSTALL TIME:", selected_row.get('InstallTime', '')],
+        ["INSTALL TIME:", "f{selected_row.get('InstallTime', '')}  min"],
         ["RIG:", selected_row.get('RigID', '')],
         # ["OPERATOR:", selected_row.get('OPERATOR', '')],
 
@@ -858,13 +884,13 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
         diameter = str(round(float(selected_row.get('PileDiameter', ''))*covertFeet2inch,2))
     except:
         diameter = str(selected_row.get('PileDiameter', ''))
-    pile_data_2 = [["PILE LENGTH:", str(selected_row.get('PileLength', ''))+' [ft]'],
+    pile_data_2 = [["PILE LENGTH:", str(round(float(selected_row.get('PileLength', '')),1))+' [ft]'],
         ["PILE DIAMETER:", diameter +' [in]'],
         ["MAXSTROKE:", selected_row.get('MaxStrokes', '')],
-        ["PUMP CALIB.:", str(selected_row.get('Calibration', ''))+' [cy/str]'],
+        ["PUMP CALIB.:", str(round(float(selected_row.get('Calibration', '')),2))+' [cy/str]'],
         ["OVER BREAK:", selected_row.get('OverBreak', '')]]
 
-    maxdepth = str(selected_row.get('MinDepth',''))
+    maxdepth = str(round(float(selected_row.get('MinDepth','')),0))
     # Combine tables horizontally
     # Make sub-tables
     # Width for each column = total header width / 3

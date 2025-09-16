@@ -42,4 +42,8 @@ job_site_progression_file = '-SiteProgression.xlsx'
 site_prog_daily_tab = 'DAILY'
 site_prog_to_date_tab = 'Job To Date'
 
+# database Piles
+pile_id = 'PileID'
+
+
 
