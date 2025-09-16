@@ -350,7 +350,7 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
                     max_strokes = None
 
         diameter = round(float(row['PileDiameter'])*feet2inch,2)
-        calibration = round(float(row['PumpCalibration'],2))
+        calibration = round(float(row['PumpCalibration']),2)
 
         dict_data = {
             "PileID": pile_id,
