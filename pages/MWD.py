@@ -380,6 +380,8 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
             "DrillEndTime": row['DrillEndTime'],
             "PileLength": row['PileLength'],
             "PileDiameter": diameter,
+            "DesignNotes": row['DesignNotes'],
+            # "TargeDepth": row['TargeDepth'],
         }
         summary_data.append(dict_data)
 

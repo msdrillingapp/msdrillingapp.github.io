@@ -828,11 +828,20 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     # Create content
     story = []
     LOGO_PATH = assets_path + '/MSB.logo.JPG'
-
+    # Morris Shea Bridge Company
+    # 1655-CCLNG
+    # DeWaal Pile Drill Log
+    jobid = selected_row.get('JobNumber', '')
+    jobname = selected_row.get('JobName', '')
     header_table = Table(
         [
-            [
-                Paragraph("Morris Shea Pile Drill Log", title_style),
+            [Paragraph(
+                "Morris Shea Bridge Company<br/>"+
+                str(jobid)+"-" +str(jobname)+"<br/>"
+                "DeWaal Pile Drill Log",
+                title_style
+            ),
+                # Paragraph("Morris Shea Pile Drill Log", title_style),
                 Image(LOGO_PATH, width=1 * inch, height=0.75 * inch) if os.path.exists(LOGO_PATH) else Spacer(1, 1)
             ]
         ],
@@ -850,7 +859,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 
     # Job Site Data
     date_drill = pd.to_datetime(selected_row.get('Date', '')).date().strftime(format='%Y-%m-%d')
-    jobid = selected_row.get('JobNumber', '').lower()
+
     # if len(jobid)>0:
     #     jobid = selected_row.get('JobNumber', '').lower()
     jobname = selected_row.get('JobName', '').lower()
@@ -887,7 +896,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     pile_data_2 = [["PILE LENGTH:", str(round(float(selected_row.get('PileLength', '')),1))+' [ft]'],
         ["PILE DIAMETER:", diameter +' [in]'],
         ["MAXSTROKE:", selected_row.get('MaxStrokes', '')],
-        ["PUMP CALIB.:", str(round(float(selected_row.get('Calibration', '')),2))+' [cy/str]'],
+        ["PUMP CALIB.:", str(round(float(selected_row.get('Calibration', '')),3))+' [cy/str]'],
         ["OVER BREAK:", selected_row.get('OverBreak', '')]]
 
     maxdepth = str(round(float(selected_row.get('MinDepth','')),0))

@@ -165,6 +165,8 @@ def get_pilelist():
                         {"headerName": "DrillEndTime", "field": "DrillEndTime", "sortable": True, "filter": True, "hide": True},
                         {"headerName": "PileLength", "field": "PileLength", "sortable": True, "filter": True,"hide": True},
                         {"headerName": "PileDiameter [in]", "field": "PileDiameter", "sortable": True, "filter": True, "hide": False},
+                        {"headerName": "DesignNotes", "field": "DesignNotes", "sortable": False, "filter": True,"hide": False},
+                        # {"headerName": "TargetDepth", "field": "TargetDepth", "sortable": False, "filter": True, "hide": False},
 
                     ],
                     rowData=[],  # Initially empty

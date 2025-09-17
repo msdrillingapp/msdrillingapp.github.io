@@ -45,5 +45,70 @@ site_prog_to_date_tab = 'Job To Date'
 # database Piles
 pile_id = 'PileID'
 
+type_conversions_DrillingRecords = {
+        'JobNumber': 'int64',
+        'PileID': 'str',
+        'JobName': 'str',
+        'Date': 'datetime64[ns]',
+        'RigID': 'str',
+        'LocationID': 'str',
+        'PileCode': 'str',
+        'PileStatus': 'str',
+        'PileType': 'str',
+        'ProductCode': 'str',
+        'PileDiameter': 'float64',
+        'PileLength': 'float64',
+        'Latitude': 'float64',
+        'Longitude': 'float64',
+        'MinDepth': 'float64',
+        'MaxStroke': 'float64',
+        'Time_Start': 'datetime64[ns]',
+        'Comments': 'str',
+        'DelayReason': 'str',
+        'DrillStartTime': 'datetime64[ns]',
+        'DrillEndTime': 'datetime64[ns]',
+        'DrillNotes': 'str',
+        'Elevation': 'float64',
+        'GroutStartTime': 'datetime64[ns]',
+        'GroutEndTime': 'datetime64[ns]',
+        'Operator': 'str',
+        'PumpCalibration': 'float64',
+        'PumpID': 'str',
+        'InstallStartTime': 'datetime64[ns]',
+        'InstallEndTime': 'datetime64[ns]',
+        'GroutVolume': 'float64',
+        'PileArea': 'float64',
+        'PileVolume': 'float64',
+        'Area': 'float64',
+        'DesignJobNumber': 'float64',
+        'DesignNotes': 'str',
+        'DesignPileID': 'str',
+        'XEasting': 'float64',
+        'YNorthing': 'float64',
+        'InstallTime': 'float64',
+        'OverBreak': 'float64',
+        'DrillTime': 'float64',
+        'GroutTime': 'float64',
+        'DelayTime': 'float64',
+        'MoveTime': 'float64',
+        'CycleTime': 'float64',
+        'MoveDistance': 'float64',
+        'MoveVelocity': 'float64'
+    }
+
+type_conversions_DrillingTimeSeries = {
+        'JobNumber': 'int64',
+        'PileID': 'str',
+        'Time': 'datetime64[ns]',
+        'Strokes': 'float64',
+        'Depth': 'float64',
+        'RotaryHeadPressure': 'float64',
+        'Rotation': 'float64',
+        'PenetrationRate': 'float64',
+        'Pulldown': 'float64',
+        'Torque': 'float64',
+        'Volume': 'float64'}
+
+
 
 

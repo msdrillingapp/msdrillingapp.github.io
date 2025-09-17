@@ -5,7 +5,6 @@ from dash import dcc, html,Output, Input #, CeleryManager
 # from celery_config import celery_app
 from flask import Flask
 import dash_bootstrap_components as dbc
-# from dash import Output, Input
 from flask_caching import Cache
 from data_loader import load_all_data,set_cache
 
@@ -16,7 +15,6 @@ else:
     root_path = os.getcwd()
 
 # Load data immediately when app starts
-from data_loader import load_all_data
 load_all_data()  # This will load the data once
 # if 'REDIS_URL' in os.environ:
 # if True:
@@ -33,8 +31,6 @@ app = dash.Dash(__name__, server=server, use_pages=True,
                 assets_folder=os.path.join(root_path, 'assets'),
                 external_stylesheets=[dbc.themes.BOOTSTRAP], #"/assets/style.css",
                 suppress_callback_exceptions=True,
-                # compress=True,
-                # prevent_initial_callbacks=True,
                 # background_callback_manager=background_callback_manager,
                 meta_tags=[{'name': 'viewport',
                             'content': 'width=device-width, initial-scale=1.0, maximum-scale=1.2, minimum-scale=0.5,'}]
