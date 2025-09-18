@@ -19,3 +19,4 @@ dash[diskcache]
 kaleido>=0.2.1
 plotly>=5.0.0
 flask_login
+holidays
