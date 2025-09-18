@@ -8,6 +8,7 @@ import json
 import dash_leaflet as dl
 from datetime import datetime
 # from database.DatabaseStorage import Databasestorage
+from flask_login import current_user
 
 # Precompute once and reuse
 color_map = {
@@ -28,14 +29,13 @@ class DataManager:
             cls._instance = super(DataManager, cls).__new__(cls)
         return cls._instance
 
-    def load_data(self,reload:bool=False):
+    def load_data(self,jobs,reload:bool=False):
         """Load data if not already loaded"""
         if not self._is_loaded:
             print("Loading data for the first time...")
             try:
-                ALL_JOBS =['1650'] #, '1633',,'1650''1642',
                 # Call your data loading function
-                result_MWD, results_CPT,results_pileMetrics = load_geojson_data(ALL_JOBS, reload=reload)
+                result_MWD, results_CPT,results_pileMetrics = load_geojson_data(jobs, reload=reload)
                 my_jobs = JobManager()
                 for jobID, v in results_pileMetrics.items():
                     my_job = my_jobs.add_job(v[1])
@@ -79,29 +79,38 @@ def set_cache(cache_instance):
     pass
 
 
-def load_all_data():
+def load_all_data(jobs):
     """Load data (forces load if not loaded)"""
-    return data_manager.load_data()
+    return data_manager.load_data(jobs)
 
 
 def get_data():
     """Get data without forcing load"""
     return data_manager.get_data()
 
-
+# from dash import  html
+current_user = None
 def ensure_data_loaded():
+    if not current_user == None:
+        if not current_user.is_authenticated:
+            jobs = nc.ALL_AVAILABLE_JOBS
+            # return html.Div("Please login to access this page", style={'color': 'white', 'padding': '20px'})
+
+        jobs = current_user.get_accessible_jobs()
+    else:
+        jobs = nc.ALL_AVAILABLE_JOBS
     """Ensure data is loaded, then return it"""
-    return data_manager.load_data()
+    return data_manager.load_data(jobs)
 
 
 def get_job_data(job_id):
-    data = ensure_data_loaded()
+    data = ensure_data_loaded([job_id])
     return data['result_MWD'].get(job_id, None)
 
 
-def get_all_job_ids():
-    data = ensure_data_loaded()
-    return list(data['result_MWD'].keys())
+# def get_all_job_ids():
+#     data = ensure_data_loaded()
+#     return list(data['result_MWD'].keys())
 
 # ====================================================================================
 assets_path = os.path.join(os.getcwd(), "assets")
@@ -466,9 +475,21 @@ def get_shape_marker(pile_code,pile_status):
     return shape
 
 
+# Add this function to data_loader.py
+def get_user_specific_jobs(user_permissions, all_available_jobs):
+    """
+    Return jobs that the user has access to
+    """
+    if 'all' in user_permissions:
+        return all_available_jobs
+    else:
+        # Return intersection of user permissions and available jobs
+        return [job for job in user_permissions if job in all_available_jobs]
+
 if __name__ == "__main__":
     data_manager = DataManager()
-    data_manager.load_data(reload=True)
+    jobs = nc.ALL_AVAILABLE_JOBS
+    data_manager.load_data(jobs=jobs,reload=True)
 
 
 

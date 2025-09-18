@@ -3,7 +3,10 @@ import os
 from dash import dcc, html,Output, Input #, CeleryManager
 
 # from celery_config import celery_app
-from flask import Flask
+from flask import Flask, session, request, redirect, url_for, render_template
+from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
+
 import dash_bootstrap_components as dbc
 from flask_caching import Cache
 from data_loader import load_all_data,set_cache
@@ -13,9 +16,10 @@ if '__file__' in globals():
 else:
     # Fallback for environments where __file__ isn't available
     root_path = os.getcwd()
-
+from naming_conventions import ALL_AVAILABLE_JOBS
+jobs = ALL_AVAILABLE_JOBS
 # Load data immediately when app starts
-load_all_data()  # This will load the data once
+load_all_data(jobs)  # This will load the data once
 # if 'REDIS_URL' in os.environ:
 # if True:
 #     # Use Redis & Celery if REDIS_URL set as an env variable
@@ -27,6 +31,8 @@ server = Flask(
         root_path=root_path,
         static_folder=os.path.join(root_path, 'assets')
     )
+
+
 app = dash.Dash(__name__, server=server, use_pages=True,
                 assets_folder=os.path.join(root_path, 'assets'),
                 external_stylesheets=[dbc.themes.BOOTSTRAP], #"/assets/style.css",

@@ -5,6 +5,7 @@ import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import os
 from data_loader import get_data, ensure_data_loaded
+from auth_utils import get_accessible_jobs, has_job_access
 ####################################################################################################
 # 000 - DEFINE REUSABLE COMPONENTS AS FUNCTIONS
 ####################################################################################################
@@ -48,6 +49,7 @@ def get_filters(): #results_MWD
                 id="jobid-filter",
                 # options=[{"label": str(r), "value": str(r)} for r in properties_df["JobNumber"].dropna().unique()],
                 options=[{"label": str(r), "value": str(r)} for r in results_MWD.keys()],
+                # options=[{"label": str(r), "value": str(r)} for r in accessible_jobs],
                 placeholder="Filter by JobNumber",
                 style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
                 className="dark-dropdown"

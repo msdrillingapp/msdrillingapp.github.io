@@ -1059,7 +1059,7 @@ def update_map_markers(selected_jobid,selected_pileid,selected_row):
                 lat.append(job.longitude)
         if len(lon)==0:
             return no_update, no_update, no_update, no_update
-        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lon, lat)
+        zoom_level, center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(lat,lon)
         return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
 
 

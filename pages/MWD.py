@@ -17,6 +17,7 @@ from functions import generate_mwd_pdf, filter_none, create_time_chart,create_de
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
+
 feet2inch = 12
 
 groups_list = ['Project ', 'AsBuilt', 'Undefined', 'AsBuiltTime', 'ProfileView', 'Coordinates', 'Design', 'asBuilit', 'Equipment', 'Orphans ']
