@@ -8,7 +8,7 @@ import json
 import dash_leaflet as dl
 from datetime import datetime
 # from database.DatabaseStorage import Databasestorage
-from flask_login import current_user
+# from flask_login import current_user
 
 # Precompute once and reuse
 color_map = {
