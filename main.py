@@ -4,8 +4,8 @@ from dash import dcc, html,Output, Input #, CeleryManager
 
 # from celery_config import celery_app
 from flask import Flask, session, request, redirect, url_for, render_template
-from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
-from werkzeug.security import generate_password_hash, check_password_hash
+# from flask_login import LoginManager, UserMixin, login_user, login_required, current_user, logout_user
+# from werkzeug.security import generate_password_hash, check_password_hash
 
 import dash_bootstrap_components as dbc
 from flask_caching import Cache
