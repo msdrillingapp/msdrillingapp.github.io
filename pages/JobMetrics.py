@@ -158,7 +158,7 @@ def prepare_table_data_daily(summary_metrics, selected_date):
         df['Concrete_delta'] = df['ConcreteDelivered'].diff()
         df['DaysRig_delta'] = df['DaysRigDrilled'].diff()
         df['ManHours_delta'] = df['LaborHours'].diff()
-        df_on_date = df[df['Time'] == selected_date].sort_values('Time')
+        df_on_date = df[pd.to_datetime(df['Time']) == pd.to_datetime(selected_date)].sort_values('Time')
         if len(df_on_date) == 0:
             continue
 
