@@ -816,7 +816,7 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
     # 1655-CCLNG
     # DeWaal Pile Drill Log
     jobid = selected_row.get('JobNumber', '')
-    jobname = selected_row.get('JobName', '')
+    jobname = selected_row.get('JobName', '').upper()
     header_table = Table(
         [
             [Paragraph(
@@ -846,8 +846,8 @@ def generate_mwd_pdf(selected_row, time_fig, depth_fig):
 
     # if len(jobid)>0:
     #     jobid = selected_row.get('JobNumber', '').lower()
-    jobname = selected_row.get('JobName', '').lower()
-    client = selected_row.get('Client', '').lower()
+    jobname = selected_row.get('JobName', '').upper()
+    client = selected_row.get('Client', '').upper()
     job_data = [
         ["JOB #:",jobid],
         ["JOBNAME", jobname],
