@@ -80,7 +80,7 @@ def prepare_table_data(summary_metrics, selected_date):
     for job, df in summary_metrics.items():
         if len(df)==0:
             continue
-        df_on_date = df[df['Time'] <= selected_date].sort_values('Time')
+        df_on_date = df[pd.to_datetime(df['Time']) <= selected_date].sort_values('Time')
         if len(df_on_date) < 2:
             continue
 
