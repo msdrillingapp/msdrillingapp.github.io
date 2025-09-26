@@ -659,13 +659,13 @@ class Job:
 
     def add_stats_files(self,stats):
         if isinstance(stats, list):
-            stats=stats[0]
+            stats = stats[0]
         self.daily_stats = pd.DataFrame.from_records(stats.get("DailyStatistics", {}))
         self.job2data_stats_complete = stats.get('JobToDateStatistics', {})
 
         if len(self.job2data_stats_complete)>0 and self.estimate_piles>0:
             self.job2data_stats_complete = pd.DataFrame.from_records(self.job2data_stats_complete)
-            self.job2data_stats_complete ['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
+            self.job2data_stats_complete['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
 
             df_todate = self.job2data_stats_complete.copy()
             df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
@@ -673,12 +673,12 @@ class Job:
             df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered'] / self.estimate_concrete
             df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled'] / self.estimate_rig_days
             df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours'] / self.estimate_labourHours
-            df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%'] - df_todate_tot['Concrete%']
-            df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
-            df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
-            df_todate_tot['Delta_Piles_vs_Concrete_prev'] = df_todate_tot['Delta_Piles_vs_Concrete'].shift(1)
-            df_todate_tot['Delta_Piles_vs_RigDays_prev'] = df_todate_tot['Delta_Piles_vs_RigDays'].shift(1)
-            df_todate_tot['Delta_Piles_vs_Labor Hours_prev'] = df_todate_tot['Delta_Piles_vs_Labor Hours'].shift(1)
+            # df_todate_tot['Delta_Piles_vs_Concrete'] = df_todate_tot['Piles%'] - df_todate_tot['Concrete%']
+            # df_todate_tot['Delta_Piles_vs_RigDays'] = df_todate_tot['Piles%'] - df_todate_tot['RigDays%']
+            # df_todate_tot['Delta_Piles_vs_Labor Hours'] = df_todate_tot['Piles%'] - df_todate_tot['LaborHours%']
+            # df_todate_tot['Delta_Piles_vs_Concrete_prev'] = df_todate_tot['Delta_Piles_vs_Concrete'].shift(1)
+            # df_todate_tot['Delta_Piles_vs_RigDays_prev'] = df_todate_tot['Delta_Piles_vs_RigDays'].shift(1)
+            # df_todate_tot['Delta_Piles_vs_Labor Hours_prev'] = df_todate_tot['Delta_Piles_vs_Labor Hours'].shift(1)
 
             self.job2data_stats = df_todate_tot.reset_index()
 

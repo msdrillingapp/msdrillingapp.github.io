@@ -444,7 +444,7 @@ layout = html.Div([
 def update_table(selected_date):
     selected_date = pd.to_datetime(selected_date)
     table_rows = prepare_table_data(summary_metrics, selected_date)
-    table_rows_daily =  prepare_table_data_daily(summary_metrics, selected_date)
+    table_rows_daily = prepare_table_data_daily(summary_metrics, selected_date)
 
     total_piles = table_rows_daily["Piles"]
     total_concrete = table_rows_daily["ConcreteDelivered"]
@@ -473,7 +473,7 @@ def update_job_bar_chart(selected_date, metric_type):
         if len(df)==0:
             continue
         try:
-            df_to_date = df[df['Time']<=pd.to_datetime(selected_date)]
+            df_to_date = df[pd.to_datetime(df['Time'])<=pd.to_datetime(selected_date)]
         except:
             raise PreventUpdate
         if len(df_to_date)==0:
