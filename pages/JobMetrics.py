@@ -78,49 +78,51 @@ def load_data_metrics():
 def prepare_table_data(summary_metrics, selected_date):
     rows = []
     for job, df in summary_metrics.items():
+        if len(df)==0:
+            continue
         df_on_date = df[df['Time'] <= selected_date].sort_values('Time')
         if len(df_on_date) < 2:
             continue
 
         current = df_on_date.iloc[-1]
-        previous = df_on_date.iloc[-2]
+        # previous = df_on_date.iloc[-2]
 
-        def format_delta(curr, prev):
-            if pd.isna(curr):
-                return "", "black"
-            if pd.isna(prev) or curr == prev:
-                return f"→ {curr:.1f}%", "black"
-            elif curr > prev:
-                return f"↑ {curr:.1f}%", "red"  # worse
-            else:
-                return f"↓ {curr:.1f}%", "green"  # better
+        # def format_delta(curr, prev):
+        #     if pd.isna(curr):
+        #         return "", "black"
+        #     if pd.isna(prev) or curr == prev:
+        #         return f"→ {curr:.1f}%", "black"
+        #     elif curr > prev:
+        #         return f"↑ {curr:.1f}%", "red"  # worse
+        #     else:
+        #         return f"↓ {curr:.1f}%", "green"  # better
 
-        delta_cells = {}
-        delta_colors = {}
-        for col in ['Delta_Piles_vs_Concrete', 'Delta_Piles_vs_RigDays', 'Delta_Piles_vs_Labor Hours']:
-            text, color = format_delta(current[col]*100, previous[col]*100)
-            delta_cells[col] = text
-            delta_colors[col] = color
+        # delta_cells = {}
+        # delta_colors = {}
+        # for col in ['Delta_Piles_vs_Concrete', 'Delta_Piles_vs_RigDays', 'Delta_Piles_vs_Labor Hours']:
+        #     text, color = format_delta(current[col]*100, previous[col]*100)
+        #     delta_cells[col] = text
+        #     delta_colors[col] = color
 
         # Status classification
-        max_delta = max(abs(current['Delta_Piles_vs_Concrete']),
-                        abs(current['Delta_Piles_vs_RigDays']),
-                        abs(current['Delta_Piles_vs_Labor Hours']))
-        max_delta=abs(max_delta*100)
-        if max_delta < 5:
-            status = "green"
-            status_symbol = "✅"
-        elif max_delta <= 10:
-            status = "orange"
-            status_symbol = "⚠"
-        else:
-            status = "red"
-            status_symbol = "❌"
+        # max_delta = max(abs(current['Delta_Piles_vs_Concrete']),
+        #                 abs(current['Delta_Piles_vs_RigDays']),
+        #                 abs(current['Delta_Piles_vs_Labor Hours']))
+        # max_delta=abs(max_delta*100)
+        # if max_delta < 5:
+        #     status = "green"
+        #     status_symbol = "✅"
+        # elif max_delta <= 10:
+        #     status = "orange"
+        #     status_symbol = "⚠"
+        # else:
+        #     status = "red"
+        #     status_symbol = "❌"
         piles_per_day = round(current['Piles']/current['DaysRigDrilled'],0)
         rows.append({
             "JobNumber": job,
-            "StatusSymbol": status_symbol,
-            "StatusColor": status,
+            # "StatusSymbol": status_symbol,
+            # "StatusColor": status,
             "Piles Drilled":f"{current['Piles']}",
             "Piles %": f"{current['Piles%']*100:.1f}%",
             "Concrete Delivered": f"{current['ConcreteDelivered']}",
@@ -131,10 +133,10 @@ def prepare_table_data(summary_metrics, selected_date):
             "Rig Days %": f"{current['RigDays%']*100:.1f}%",
             "Average Piles/Day":f"{piles_per_day}",
             "AveragePileLength": f"{current['AveragePileLength']:.2f}",
-            "Delta_Piles_vs_Concrete": delta_cells['Delta_Piles_vs_Concrete'],
-            "Delta_Piles_vs_RigDays": delta_cells['Delta_Piles_vs_RigDays'],
-            "Delta_Piles_vs_Labor Hours": delta_cells['Delta_Piles_vs_Labor Hours'],
-            "DeltaColors": delta_colors
+            # "Delta_Piles_vs_Concrete": delta_cells['Delta_Piles_vs_Concrete'],
+            # "Delta_Piles_vs_RigDays": delta_cells['Delta_Piles_vs_RigDays'],
+            # "Delta_Piles_vs_Labor Hours": delta_cells['Delta_Piles_vs_Labor Hours'],
+            # "DeltaColors": delta_colors
         })
 
     return rows
@@ -150,6 +152,8 @@ def prepare_table_data_daily(summary_metrics, selected_date):
     total_labor_hours = 0
 
     for job, df in summary_metrics.items():
+        if len(df)==0:
+            continue
         df['Piles_delta'] = df['Piles'].diff()
         df['Concrete_delta'] = df['ConcreteDelivered'].diff()
         df['DaysRig_delta'] = df['DaysRigDrilled'].diff()
@@ -196,52 +200,52 @@ summary_metrics,summary_dic_daily = load_data_metrics()
 # ======================
 column_defs = [
     {"headerName": "JobNumber", "field": "JobNumber"},
-    {
-        "headerName": "Status",
-        "field": "StatusSymbol",
-        "cellStyle": {
-            "function": """
-                function(params) {
-                    if (params.data.StatusColor === 'green') return {backgroundColor: '#d4edda', textAlign: 'center'};
-                    if (params.data.StatusColor === 'orange') return {backgroundColor: '#fff3cd', textAlign: 'center'};
-                    if (params.data.StatusColor === 'red') return {backgroundColor: '#f8d7da', textAlign: 'center'};
-                    return {textAlign: 'center'};
-                }
-            """
-        }
-    },
+    # {
+    #     "headerName": "Status",
+    #     "field": "StatusSymbol",
+    #     "cellStyle": {
+    #         "function": """
+    #             function(params) {
+    #                 if (params.data.StatusColor === 'green') return {backgroundColor: '#d4edda', textAlign: 'center'};
+    #                 if (params.data.StatusColor === 'orange') return {backgroundColor: '#fff3cd', textAlign: 'center'};
+    #                 if (params.data.StatusColor === 'red') return {backgroundColor: '#f8d7da', textAlign: 'center'};
+    #                 return {textAlign: 'center'};
+    #             }
+    #         """
+    #     }
+    # },
     {"headerName": "Piles Drilled", "field": "Piles Drilled"},
     {"headerName": "Piles %", "field": "Piles %"},
-    {"headerName": "Concrete Delivered", "field": "Concrete Delivered"},
+    {"headerName": "Concrete Delivered (cyd)", "field": "Concrete Delivered"},
     {"headerName": "Concrete %", "field": "Concrete %"},
     {"headerName": "Labor Hours", "field": "Labor Hours"},
-    {"headerName": "Labor Hours", "field": "Labor Hours %"},
+    {"headerName": "Labor Hours %", "field": "Labor Hours %"},
     {"headerName": "Days Rig Drilled", "field": "Days Rig Drilled"},
     {"headerName": "Rig Days %", "field": "Rig Days %"},
     {"headerName": "Average Piles/Day", "field": "Average Piles/Day"},
-    {"headerName": "AveragePileLength", "field": "AveragePileLength"},
+    {"headerName": "Average PileLength (ft)", "field": "AveragePileLength"},
 
-    {
-        "headerName": "Delta Piles vs Concrete",
-        "field": "Delta_Piles_vs_Concrete",
-        "cellStyle": {
-            "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Concrete'], textAlign: 'center'};}"
-        }
-    },
-    {
-        "headerName": "Delta Piles vs RigDays",
-        "field": "Delta_Piles_vs_RigDays",
-        "cellStyle": {
-            "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_RigDays'], textAlign: 'center'};}"
-        }
-    },
-    {
-        "headerName": "Delta Piles vs Labor Hours",
-        "field": "Delta_Piles_vs_Labor Hours",
-        "cellStyle": {
-            "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Labor Hours'], textAlign: 'center'};}"
-        }
-    }
+    # {
+    #     "headerName": "Delta Piles vs Concrete",
+    #     "field": "Delta_Piles_vs_Concrete",
+    #     "cellStyle": {
+    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Concrete'], textAlign: 'center'};}"
+    #     }
+    # },
+    # {
+    #     "headerName": "Delta Piles vs RigDays",
+    #     "field": "Delta_Piles_vs_RigDays",
+    #     "cellStyle": {
+    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_RigDays'], textAlign: 'center'};}"
+    #     }
+    # },
+    # {
+    #     "headerName": "Delta Piles vs Labor Hours",
+    #     "field": "Delta_Piles_vs_Labor Hours",
+    #     "cellStyle": {
+    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Labor Hours'], textAlign: 'center'};}"
+    #     }
+    # }
 ]
 date_picker_style = {
     "backgroundColor": "#193153",
@@ -466,6 +470,8 @@ def update_job_bar_chart(selected_date, metric_type):
     # Get filtered data from your summary_metrics
     records = []
     for job, df in summary_metrics.items():
+        if len(df)==0:
+            continue
         try:
             df_to_date = df[df['Time']<=pd.to_datetime(selected_date)]
         except:
@@ -1020,6 +1026,7 @@ def update_rig_charts(selected_rows, selected_date, click_data_list, current_chi
     # Create chart pairs for each rig
     chart_components = []
     rigs =list(piles_by_rig.keys())
+    rigs = [x for x in rigs if not x is None]
     for index, rig_id in enumerate(rigs):
         if rig_id not in rig_pile_dataframes:
             continue

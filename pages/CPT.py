@@ -1,7 +1,6 @@
 import dash
 from dash import dcc, html, Output, Input, State, ClientsideFunction, callback,no_update,ctx
-from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none#,results_CPT #cpt_header,jobid_cpt_data,
-# from load_data import results_CPT,my_jobs
+from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,filter_none
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash.exceptions import PreventUpdate

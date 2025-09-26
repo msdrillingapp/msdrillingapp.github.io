@@ -202,10 +202,11 @@ def update_table(selected_row,selected_pileid, selected_group,selected_date,sele
     out_dict = {item['Field']: item['Value'] for item in out}
 
     # Modify OverBreak if it exists
-    if 'OverBreak' in out_dict:
-        overbreak = float(out_dict['OverBreak'])
-        overbreak = overbreak* 100-100.0
-        out_dict['OverBreak'] = f"{overbreak :.0f}%"
+    # if 'OverBreak' in out_dict:
+        # overbreak = float(out_dict['OverBreak'])
+        # overbreak = overbreak* 100-100.0
+        # out_dict['OverBreak'] = f"{overbreak :.0f}%"
+        # out_dict['OverBreak'] = overbreak
 
     out_dict = check_is_none(out_dict,'MoveDistance')
 
@@ -254,6 +255,8 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
         filtered_df = filtered_df[(filtered_df["PileType"] == selected_piletype)]
     if not selected_pilestatus is None:
         filtered_df = filtered_df[(filtered_df["PileStatus"] == selected_pilestatus)]
+    if not selected_pilecode is None:
+        filtered_df = filtered_df[(filtered_df["PileCode"] == selected_pilecode)]
 
 
     summary_data = []
@@ -336,16 +339,20 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
                 if pile_id in pile_data and use_date in pile_data[pile_id]:
                     depth_values = pile_data[pile_id][use_date]["Depth"]
                     strokes_values = pile_data[pile_id][use_date]["Strokes"]
-                    min_depth = round(min(depth_values),0) if depth_values else None
-                    max_strokes = round(max(strokes_values),0) if strokes_values else None
+                    depth_values = [x if not x is None else 0 for x in depth_values]
+                    strokes_values = [x if not x is None else 0 for x in strokes_values]
+                    min_depth = round(np.nanmin(depth_values),0) if depth_values else None
+                    max_strokes = round(np.nanmax(strokes_values),0) if strokes_values else None
                 else:
                     min_depth = None
                     max_strokes = None
             else:
                 if pile_id in pile_data:
                     for k,v in pile_data[pile_id].items():
-                        min_depth = round(min(v['Depth']),0)
-                        max_strokes = round(max(v['Strokes']),0)
+                        depths_list = [x if not x is None else 0 for x in v['Depth']]
+                        strokes_list = [x if not x is None else 0 for x in v['Strokes']]
+                        min_depth = round(np.nanmin(depths_list),0)
+                        max_strokes = round(np.nanmax(strokes_list),0)
                 else:
                     min_depth = None
                     max_strokes = None
@@ -362,7 +369,8 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
             "LocationID": row['LocationID'],
             "MinDepth": min_depth,
             "MaxStrokes": max_strokes,
-            "OverBreak": f"{(row['OverBreak'] - 1) * 100:.0f}%",
+            # "OverBreak": f"{(row['OverBreak'] - 1) * 100:.0f}%",
+            "OverBreak": f"{row['OverBreak']}",
             "PileStatus": row['PileStatus'],
             "PileCode": row['PileCode'],
             "Comments": row["Comments"],
@@ -484,23 +492,25 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
         productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
 
     if not df_design.empty:
-        if not selected_rigid and not selected_date:
-            pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
-            if len(pilecode_options)==0:
-                pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
-            if len(productcode_options)==0:
-                productcode_options.append({"label": 'DWP', "value": 'DWP'})
-            piletype = df_design[nc.ds_piletype].unique()
-            piles = df_design[nc.ds_pileid].unique()
-            if not properties_df.empty:
-                if not filtered_df.empty:
-                    piletype_d = filtered_df["PileStatus"].unique()
-                    piletype =[x for x in piletype if x not in piletype_d]
-                    piles_d =filtered_df["PileID"].unique()
-                    piles = [x for x in piles if x not in piles_d]
+        if selected_pilestatus is None or selected_pilestatus=='Scheduled':
+            if not selected_rigid and not selected_date:
+                pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
+        if selected_pilestatus=='Scheduled':
+                if len(pilecode_options)==0:
+                    pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
+                if len(productcode_options)==0:
+                    productcode_options.append({"label": 'DWP', "value": 'DWP'})
+                piletype = df_design[nc.ds_piletype].unique()
+                piles = df_design[nc.ds_pileid].unique()
+                if not properties_df.empty:
+                    if not filtered_df.empty:
+                        piletype_d = filtered_df["PileStatus"].unique()
+                        piletype =[x for x in piletype if x not in piletype_d]
+                        piles_d =filtered_df["PileID"].unique()
+                        piles = [x for x in piles if x not in piles_d]
 
-            piletype_options.extend([{"label": p, "value": p} for p in piletype if (p!='nan')])
-            pileid_options.extend([{"label": p, "value": p} for p in piles if (p!='nan')])
+                piletype_options.extend([{"label": p, "value": p} for p in piletype if (p!='nan')])
+                pileid_options.extend([{"label": p, "value": p} for p in piles if (p!='nan')])
 
     # Reset values **ONLY IF JobID was changed**
     if triggered_id == "jobid-filter":
@@ -866,11 +876,12 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
     except:
         cycletime = 0
     if "OverBreak" in filtered_df.columns:
-        overbreak = float(filtered_df['OverBreak'].iloc[0])
-        overbreak = overbreak* 100 - 100.0
-        overbreak = f"{overbreak :.0f}%"
-    else:
-        "N/A"
+    #     overbreak = float(filtered_df['OverBreak'].iloc[0])
+    # #     overbreak = overbreak* 100 - 100.0
+    # #     overbreak = f"{overbreak :.0f}%"
+       overbreak = filtered_df['OverBreak'].iloc[0]
+    # else:
+    #     "N/A"
 
     title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
     details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak,installtime,cycletime)
@@ -1163,9 +1174,9 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
         tmp.rename(columns={'date':'Date'}, inplace=True)
         selected_row = tmp.to_dict(orient='records')[0]
         # adjust overbreak
-        overbreak = float(selected_row['OverBreak'])
-        overbreak = overbreak * 100 - 100.0
-        selected_row['OverBreak'] = f"{overbreak :.0f}%"
+        # overbreak = float(selected_row['OverBreak'])
+        # overbreak = overbreak * 100 - 100.0
+        # selected_row['OverBreak'] = f"{overbreak :.0f}%"
         selected_row['Calibration'] = f"{selected_row['PumpCalibration'] :.0f}"
         selected_row['MaxStrokes'] = selected_row['MaxStroke']
         selected_row['PileLength'] = f"{selected_row['PileLength'] :.1f}"

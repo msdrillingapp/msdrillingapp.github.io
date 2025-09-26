@@ -105,7 +105,10 @@ class ChartDataCache:
                             job_preprocessed['precomputed_days'][date] = {}
 
                         # Convert to DataFrame and process time
-                        df = pd.DataFrame(day_data)
+                        try:
+                            df = pd.DataFrame(day_data)
+                        except:
+                            continue
                         df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
                         df.sort_values('Time', inplace=True)
                         df['PileID'] = pile_id

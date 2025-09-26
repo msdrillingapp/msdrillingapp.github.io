@@ -1,4 +1,4 @@
-ALL_AVAILABLE_JOBS = ['1650','1640','1660']
+ALL_AVAILABLE_JOBS = ['1633','1632','1639','1640','1641','1642','1643','1650','1652','1653','1655','1660'] #,'1647''1657','1642','1640','1648'
 # PileCode": "PP",  "PileCode": "PRODUCTION PILE",
 # "PileCode": "TP",  "PileCode": "TEST PILE",
 # "PileCode": "RP", "PileCode": "REACTION PILE",

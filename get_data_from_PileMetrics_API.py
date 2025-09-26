@@ -35,7 +35,11 @@ def get_estimate(job:str):
         df_pileTypes = pd.DataFrame.from_records(pileTypes)
         df_pileTypes.drop(axis=1,columns='id',inplace=True)
         df_pileTypes.rename(columns={'title':'type'},inplace=True)
-        df_schedule = get_pile_schedule(documentID,pageSize)
+        try:
+            df_schedule = get_pile_schedule(documentID,pageSize)
+        except:
+            df_schedule =[]
+
         if len(df_schedule)>0:
             df_schedule = df_schedule.merge(df_pileTypes[['type','productCode','color_rrggbb']], on='type',how='left')
             # eastings = list(df_schedule['easting'].values)
@@ -90,11 +94,15 @@ def get_pile_schedule(documentID:str,n_pages):
             break
 
     if len(df)>0:
-        df_expanded = pd.json_normalize(df['location'])
-        df_expanded.drop('id',axis=1,inplace=True)
-        df = pd.concat([df.drop('location', axis=1), df_expanded], axis=1)
-        df = df.dropna(axis=1, how='all')
         df = df.drop('drawingMediaUID', axis=1)
+        try:
+            df_expanded = pd.json_normalize(df['location'])
+            df_expanded.drop('id',axis=1,inplace=True)
+            df = pd.concat([df.drop('location', axis=1), df_expanded], axis=1)
+            df = df.dropna(axis=1, how='all')
+        except:
+            df['longitude'] = None
+            df['latitude'] = None
 
     return df
 

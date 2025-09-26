@@ -6,10 +6,69 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-# from functions import indrease_decrease_split,cylinder_volume_cy
+
 import math
+from io import BytesIO
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,Image,PageBreak
+from reportlab.lib.units import inch
+from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+from reportlab.platypus import NextPageTemplate
+# from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER, TA_LEFT,TA_RIGHT
+
+assets_path = os.path.join(os.getcwd(),'assets')
+
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
 name_cpt_file_header = 'CPT-online-header.csv'
+
+
+def format_time_to_hours_minutes(time_str):
+    """Convert HH:MM:SS to Xh Ym format"""
+    try:
+        hours, minutes, seconds = map(int, time_str.split(':'))
+
+        # Handle cases where we might have seconds that round up minutes
+        if seconds >= 30:
+            minutes += 1
+
+        # Format as Xh Ym, omitting zero values
+        if hours == 0 and minutes == 0:
+            return "0h"  # or return "" if you want to exclude zeros completely
+        elif hours == 0:
+            return f"{minutes}m"
+        elif minutes == 0:
+            return f"{hours}h"
+        else:
+            return f"{hours}h {minutes}m"
+    except:
+        return time_str  # return original if format is invalid
+
+# Convert H:M:S to total seconds and sum
+def sum_times_to_hours_minutes(series):
+    # Convert string to timedelta
+    series = pd.to_timedelta(series)
+
+    # Sum all timedeltas
+    total_time = series.sum()
+
+    # Convert to hours and minutes
+    total_hours = total_time.total_seconds() / 3600
+    hours = int(total_hours)
+    minutes = int((total_hours - hours) * 60)
+    # Format as Xh Ym, omitting zero values
+    if hours == 0 and minutes == 0:
+        return "0h"
+    elif hours == 0:
+        return f"{minutes}m"
+    elif minutes == 0:
+        return f"{hours}h"
+    else:
+        return f"{hours}h {minutes}m"
+
+
 
 def cylinder_volume_cy(diameter_inches, height_feet):
     """
@@ -56,10 +115,11 @@ def indrease_decrease_split(x, y):
 
 class Pile:
     def __init__(self, data,pile_data):
-        # self.data = pile_data['properties']
         self.data = data
         self.pile_id = self.data.PileID
-        self.job_id = self.data.JobID
+        self.job_id = self.data.JobNumber
+        self.job_name = self.data.JobName
+        self.client = self.data.Client
 
         self.pileType = str(self.data.PileType)
         if (self.pileType is None) or (self.pileType  == 'nan'):
@@ -69,15 +129,14 @@ class Pile:
         if (self.productCode is None) or (self.productCode == ''):
             self.productCode = 'DWP'
 
-
         self.pileStatus = self.data.PileStatus
-
-
         self.pileCode = self.data.PileCode
         self.rig = self.data.RigID
         self.diameter = self.data.PileDiameter
         self.length = self.data.PileLength
         self.locationid = self.data.LocationID
+        self.drillStartTime = self.data.DrillStartTime
+        self.drillEndTime = self.data.DrillEndTime
         self.drillTime = self.data.DrillTime
         self.groutVolume = self.data.GroutVolume
         self.groutTime = self.data.GroutTime
@@ -94,9 +153,9 @@ class Pile:
 
         self.time = pile_data['Time']
         try:
-            self.datetime = [datetime.strptime(t, "%d.%m.%Y %H:%M:%S") for t in self.time]
+            self.datetime_array = [datetime.strptime(t, "%d.%m.%Y %H:%M:%S") for t in self.time]
         except:
-            self.datetime = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S") for t in self.time]
+            self.datetime_array = [datetime.strptime(t, "%Y-%m-%d %H:%M:%S") for t in self.time]
         self.depth = pile_data['Depth']
         self.pressure = pile_data['RotaryHeadPressure']
         self.rotation = pile_data['Rotation']
@@ -322,6 +381,214 @@ class Pile:
 
         return fig1
 
+    def generate_mwd_pdf(self):
+        # Get absolute path to templates/assets
+        time_fig = self.create_time_chart()
+        depth_fig = self.create_depth_chart()
+
+        styles = getSampleStyleSheet()
+
+        # Custom styles
+        title_style = ParagraphStyle(
+            'Title',
+            parent=styles['Title'],
+            fontSize=14,
+            leading=16,
+            spaceAfter=12,
+            alignment=1  # Center
+        )
+
+        header_style = ParagraphStyle(
+            'Header',
+            parent=styles['Heading2'],
+            fontSize=12,
+            leading=14,
+            spaceAfter=6,
+            textColor=colors.black
+        )
+
+        # Convert Plotly figures to images
+        # Enhance visibility for PDF export
+        for fig in [time_fig, depth_fig]:
+            fig['layout']['plot_bgcolor'] = 'white'
+            fig['layout']['paper_bgcolor'] = 'white'
+            fig['layout']['font']['color'] = 'black'
+
+            # Make gridlines more prominent in PDF
+            fig['layout']['xaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'  # Darker gray
+            fig['layout']['xaxis']['gridwidth'] = 1.2
+            fig['layout']['yaxis']['gridcolor'] = 'rgba(70, 70, 70, 0.7)'
+            fig['layout']['yaxis']['gridwidth'] = 1.2
+
+            # Increase line widths for better visibility
+            if 'data' in fig and len(fig['data']) > 0:
+                if 'line' in fig['data'][0]:
+                    fig['data'][0]['line']['width'] = 3
+
+        time_img = BytesIO()
+        go.Figure(time_fig).write_image(time_img, format='png', scale=3)  # Higher resolution
+        time_img.seek(0)
+
+        # Special handling for subplots in depth chart
+        # if 'subplots' in depth_fig.get('layout', {}):
+        for axis in depth_fig['layout']:
+            if axis.startswith(('xaxis', 'yaxis')):
+                depth_fig['layout'][axis]['gridcolor'] = 'rgba(100,100,100,0.7)'
+                depth_fig['layout'][axis]['gridwidth'] = 1.2
+                depth_fig['layout'][axis]['showgrid'] = True
+
+        depth_img = BytesIO()
+        # go.Figure(depth_fig).write_image(depth_img, format='png', scale=2)
+        # 4x resolution
+        go.Figure(depth_fig).write_image(depth_img,scale=4)
+        depth_img.seek(0)
+
+
+        # Create content
+        story = []
+        LOGO_PATH = assets_path + '/MSB.logo.JPG'
+        # Morris Shea Bridge Company
+        # DeWaal Pile Drill Log
+        jobid = self.job_id
+        jobname = self.job_name
+        header_table = Table(
+            [
+                [Paragraph(
+                    "Morris Shea Bridge Company<br/>"+
+                    str(jobid)+"-" +str(jobname)+"<br/>"
+                    "DeWaal Pile Drill Log",
+                    title_style
+                ),
+                    # Paragraph("Morris Shea Pile Drill Log", title_style),
+                    Image(LOGO_PATH, width=1 * inch, height=0.75 * inch) if os.path.exists(LOGO_PATH) else Spacer(1, 1)
+                ]
+            ],
+            colWidths=[5.5 * inch, 1.5 * inch]  # Adjust width as needed
+        )
+
+        header_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),  # Center title
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),  # Align logo to the right
+        ]))
+
+        story.append(header_table)
+
+        # Job Site Data
+        date_drill = pd.to_datetime(self.datetime_array[0]).date().strftime(format='%Y-%m-%d')
+
+        jobname = self.job_name
+        client = self.client.lower()
+        job_data = [
+            ["JOB #:",str(jobid)],
+            ["JOBNAME", jobname],
+            ["CLIENT:", client],
+            ["CONTRACTOR:", "Morris Shea Bridge"],
+            ["DATE:", date_drill],
+
+        ]
+
+        # Pile Data
+        pile_data = [
+            ["PILE No:", f"{self.pile_id}"],
+            ["START TIME:", self.drillStartTime],
+            ["END TIME:", self.drillEndTime],
+            ["INSTALL TIME:", f"{str(self.installTime)}  min"],
+            ["RIG:", str(self.rig)],
+            # ["OPERATOR:", selected_row.get('OPERATOR', '')],
+
+        ]
+
+        diameter = float(self.diameter)
+        if diameter<3:
+            covertFeet2inch = 12
+        else:
+            covertFeet2inch = 1
+        try:
+            diameter = str(round(float(self.diameter)*covertFeet2inch,2))
+        except:
+            diameter = str(self.diameter)
+        maxstrokes = str(round(float(max(self.strokes[1:])), 0))
+        pile_data_2 = [["PILE LENGTH:", str(round(float(self.length),1))+' [ft]'],
+            ["PILE DIAMETER:", diameter +' [in]'],
+            ["MAXSTROKE:", str(maxstrokes)],
+            ["PUMP CALIB.:", str(round(float(self.calibration),3))+' [cy/str]'],
+            ["OVER BREAK:", str(self.overbreak)]]
+
+        maxdepth = str(round(float(min(self.depth[1:])),0))
+        # Combine tables horizontally
+        # Make sub-tables
+        # Width for each column = total header width / 3
+        col_width = 7.0 / 3 * inch  # approx 2.33 inches
+
+        # Build job_data, pile_data, and pile_data_2 tables with matching widths
+        job_table = Table(job_data, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+            ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ])
+
+        pile_table = Table(pile_data, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+            ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ])
+
+        pile_table_2 = Table(pile_data_2, colWidths=[1.1 * inch, col_width - 1.1 * inch], style=[
+            ('BOX', (0, 0), (-1, -1), 0.8, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ])
+
+        # Combine them into one row
+        combined_tables = Table(
+            [[job_table, pile_table, pile_table_2]],
+            colWidths=[col_width] * 3
+        )
+
+        # Set consistent styling across the row
+        combined_tables.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1.2, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+
+        ]))
+
+        # Add some vertical spacing before this block
+        story.append(Spacer(1, 0))
+        story.append(combined_tables)
+
+
+        # Add charts with frames
+        # Combined charts in one box
+        charts_table = Table([
+            [Paragraph("Time Scale", header_style)],
+            [Image(time_img, width=6 * inch, height=2.5 * inch)],
+            [Paragraph("Depth ("+ maxdepth+" ft)", header_style)],
+            [Image(depth_img, width=7. * inch, height=4. * inch)]
+        ],
+            colWidths=[7 * inch],  # 👈 force total width
+            style=[
+                ('BOX', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5)
+            ])
+
+        story.append(charts_table)
+
+        return story
+
 class CPT_Pile():
 
     def __init__(self, pile_data: Dict,data):
@@ -381,19 +648,26 @@ class Job:
         self.estimate_manhours_per_day = 0
         self.estimate_piles_per_piletype = {}
         self.piles_per_date ={}
-        self.pile_schedule =pd.DataFrame()
+        self.pile_schedule = pd.DataFrame()
         self.colorCodes ={}
         self.design_markers ={}
         self.daily_stats = {}
         self.job2data_stats = {}
+        self.job2data_stats_complete = {}
+        self.piles_details = None
+        self.piles_timeseries = None
 
     def add_stats_files(self,stats):
+        if isinstance(stats, list):
+            stats=stats[0]
         self.daily_stats = pd.DataFrame.from_records(stats.get("DailyStatistics", {}))
-        self.job2data_stats = stats.get('JobToDateStatistics', {})
+        self.job2data_stats_complete = stats.get('JobToDateStatistics', {})
 
-        if len(self.job2data_stats)>0 and self.estimate_piles>0:
-            df_todate = pd.DataFrame.from_records(self.job2data_stats)
-            df_todate['Time'] = pd.to_datetime(df_todate['Time'])
+        if len(self.job2data_stats_complete)>0 and self.estimate_piles>0:
+            self.job2data_stats_complete = pd.DataFrame.from_records(self.job2data_stats_complete)
+            self.job2data_stats_complete ['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
+
+            df_todate = self.job2data_stats_complete.copy()
             df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
             df_todate_tot['Piles%'] = df_todate_tot['Piles'] / self.estimate_piles
             df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered'] / self.estimate_concrete
@@ -408,7 +682,9 @@ class Job:
 
             self.job2data_stats = df_todate_tot.reset_index()
 
-
+    def add_piles_details(self,df:pd.DataFrame,df_ts:pd.DataFrame()):
+        self.piles_details = df
+        self.piles_timeseries = df_ts
     def add_colorCodes(self,job_data):
         for k, v in job_data.items():
             if not v is None:
@@ -433,9 +709,9 @@ class Job:
                 self.estimate_concrete += estimate_concrete
                 self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
 
-    def add_pile(self, pileid:str, data, pile_data):
+    def add_pile(self, pileid:str, basedata, pile_time_data):
         # if pileid not in self.piles:
-        self.piles[pileid] = Pile(data, pile_data)
+        self.piles[pileid] = Pile(basedata, pile_time_data)
 
     def add_pile_schedule(self,df:pd.DataFrame):
         self.pile_schedule = df
@@ -455,18 +731,425 @@ class Job:
                 self.piles_per_date[date] = [id]
 
 
-    def generate_summary(self) -> Dict:
-        summary = {
-            'Job ID': self.job_id,
-            'Job Name': self.job_name,
-            'Number of Piles': len(self.piles),
-            'Total Man Hours': self.man_hours,
-            'Total Rig Days': self.rig_days,
+    def generate_daily_summary_pdf(self):
 
-        }
+        if len(self.daily_stats)>0:
+            self.daily_stats['Time'] = pd.to_datetime(self.daily_stats['Time']).dt.date
+            unique_dates = list(self.daily_stats['Time'].unique())
+            for d in unique_dates:
+                mdate = d.strftime('%Y-%m-%d')
+                filename = f"{self.job_id}_Daily_Report_{mdate}.pdf"
+                filename_path = os.path.join(assets_path, 'daily_reports', filename)
+                if not os.path.isfile(filename_path):
+                    self._create_daily_report(d,filename_path)
+
+    def _create_daily_report(self,mdate,filename):
+
+        data = self.daily_stats[self.daily_stats['Time'] == mdate]
+        data2date = self.job2data_stats_complete[self.job2data_stats_complete['Time'] == mdate]
+        pile_data_full = self.piles_details[pd.to_datetime(self.piles_details['date']).dt.date == mdate]
 
 
-        return summary
+        doc = SimpleDocTemplate(filename, pagesize=letter,
+                                leftMargin=0.5 * inch,
+                                rightMargin=0.5 * inch,
+                                topMargin=0.5 * inch,
+                                bottomMargin=0.5 * inch)
+
+        # Define portrait frame
+        portrait_frame = Frame(
+            doc.leftMargin, doc.bottomMargin,
+            doc.width, doc.height,
+            id='portrait'
+        )
+
+        # Define landscape frame
+        landscape_frame = Frame(
+            doc.leftMargin, doc.bottomMargin,
+            landscape(letter)[0] - doc.leftMargin - doc.rightMargin,
+            landscape(letter)[1] - doc.topMargin - doc.bottomMargin,
+            id='landscape'
+        )
+
+        # Add templates
+        doc.addPageTemplates([
+            PageTemplate(id='portrait', frames=[portrait_frame], pagesize=letter),
+            PageTemplate(id='landscape', frames=[landscape_frame], pagesize=landscape(letter)),
+        ])
+
+        styles = getSampleStyleSheet()
+
+        title_background_color = colors.navy
+        title_text_color = colors.white
+
+        # Custom styles
+        title_style = ParagraphStyle(
+            'Title',
+            parent=styles['Title'],
+            fontSize=14,
+            leading=16,
+            spaceAfter=12,
+            alignment=TA_LEFT,
+
+        )
+
+        # Create a style for wrapped header text
+        header_cell_style = ParagraphStyle(
+            'HeaderCell',
+            parent=styles['Normal'],
+            fontSize=7,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            textColor = title_text_color
+        )
+
+        # Create content
+        story = []
+        LOGO_PATH = assets_path + '/MSB.logo.JPG'
+        logo =Image(LOGO_PATH, width=1 * inch, height=0.75 * inch) if os.path.exists(LOGO_PATH) else Spacer(1, 1)
+        header_table = Table(
+            [
+                [Paragraph(
+                    "Daily Report: " + mdate.strftime('%Y-%m-%d') + "<br/>" +
+                    str(self.job_id) + "-" + str(self.job_name) + "<br/>" +
+                    self.location,
+                    title_style
+                ),
+                    logo
+                ]
+            ],
+            colWidths=[6.0 * inch, 1.5 * inch]  # Adjust width as needed
+        )
+
+        header_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ]))
+
+        story.append(header_table)
+
+        section_style = ParagraphStyle(
+            'CustomSection',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=12,
+            alignment=TA_LEFT
+        )
+
+        # Calculate available width for tables
+        available_width = 7.5 * inch  # Letter width (8.5") minus margins (0.5" each side)
+
+        # Add Rig Summary section
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Rig Summary", section_style))
+
+        # Create Rig Summary table with wrapped headers
+        rig_summary_headers = [
+            Paragraph('RIGID', header_cell_style),
+            Paragraph('PILES', header_cell_style),
+            Paragraph('AVG<br/>LENGTH', header_cell_style),
+            Paragraph('CONCRETE<br/>yd3', header_cell_style),
+            Paragraph('PILE<br/>WASTE', header_cell_style),
+            Paragraph('RIG<br/>WASTE', header_cell_style),
+            Paragraph('CYCLE<br/>TIME', header_cell_style),
+            Paragraph('DELAY<br/>TIME', header_cell_style),
+            Paragraph('SHIFT START<br/>TIME', header_cell_style),
+            Paragraph('SHIFT END<br/>TIME', header_cell_style),
+            Paragraph('TURN START<br/>TIME', header_cell_style),
+            Paragraph('TURN END<br/>TIME', header_cell_style),
+        ]
+        # mean_PileLength	ConcreteDelivered	PileWaste	RigWaste	sum_CycleTime	sum_DelayTime
+        rig_summary_data = [rig_summary_headers]
+        for i in range(len(data)):
+            try:
+                start_shift = pd.to_datetime(data["ShiftStartTime"].iloc[i]).time().strftime(format='%H:%M') + ' AM'
+                end_shift = pd.to_datetime(data["ShiftEndTime"].iloc[i]).time().strftime(format='%H:%M') + ' PM'
+            except:
+                start_shift = None
+                end_shift = None
+            rig_summary_data.append(
+                [data["RigID"].iloc[i],
+                 data["Piles"].iloc[i],
+                 round(float(data["mean_PileLength"].iloc[i]),0),
+                 round(float(data["ConcreteDelivered"].iloc[i]),0),
+                 round(float(data["PileWaste"].iloc[i]),1),
+                 round(float(data["RigWaste"].iloc[i]),1),
+                 format_time_to_hours_minutes(data["sum_CycleTime"].iloc[i]),
+                 format_time_to_hours_minutes(data["sum_DelayTime"].iloc[i]),
+                 start_shift,
+                 end_shift,
+                 format_time_to_hours_minutes(data["TurnStartTime"].iloc[i]),
+                 format_time_to_hours_minutes(data["TurnEndTime"].iloc[i]),
+                 ])
+
+
+        # Calculate column widths for rig summary table
+        num_cols = len(rig_summary_headers)
+        col_width = available_width / num_cols
+
+        rig_summary_table = Table(rig_summary_data,
+                                  colWidths=[col_width] * num_cols)
+
+        rig_summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), title_background_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(rig_summary_table)
+        # ==========================================================
+        # ==========================================================
+        # Add Job to Date section
+        story.append(Spacer(1, 24))
+        story.append(Paragraph("Job to Date", section_style))
+        # data2date
+
+        # Create Job to Date table with wrapped headers
+        job_to_date_headers = [
+            Paragraph('RIGID', header_cell_style),
+            Paragraph('PILES<br/>DRILLED', header_cell_style),
+            Paragraph('AVC<br/>LENGTH,<br/>(ft)', header_cell_style),
+            Paragraph('CONCRETE<br/>yd3', header_cell_style),
+            Paragraph('PILE<br/>WASTE', header_cell_style),
+            Paragraph('RIG<br/>WASTE', header_cell_style),
+            Paragraph('HOURS<br/>CYCLETIME', header_cell_style),
+            Paragraph('HOURS<br/>DELAY', header_cell_style),
+            Paragraph('DAYS<br/>DRILLED', header_cell_style),
+            Paragraph('LABOUR<br/>HOURS', header_cell_style),
+
+        ]
+        # MeanCycleTime	HoursDelayed	DaysRigDrilled	LaborHours
+        job_to_date_data = [job_to_date_headers]
+        for i in range(len(data2date)):
+            job_to_date_data.append(
+                [data2date["RigID"].iloc[i],
+                 data2date["Piles"].iloc[i],
+                 round(float(data2date["AveragePileLength"].iloc[i]),0),
+                 data2date["ConcreteDelivered"].iloc[i],
+                 round(float(data2date["AveragePileWaste"].iloc[i]),0),
+                 round(float(data2date["AverageRigWaste"].iloc[i]),0),
+                 format_time_to_hours_minutes(data2date["HoursCycle"].iloc[i]),
+                 format_time_to_hours_minutes(data2date["HoursDelayed"].iloc[i]),
+                 data2date["DaysRigDrilled"].iloc[i],
+                 data2date["LaborHours"].iloc[i]
+            ])
+
+        # Calculate column widths for job to date table
+        num_cols_jtd = len(job_to_date_headers)
+        col_width_jtd = available_width / num_cols_jtd
+
+        job_to_date_table = Table(job_to_date_data,
+                                  colWidths=[col_width_jtd] * num_cols_jtd)
+
+        job_to_date_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), title_background_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(job_to_date_table)
+        # ==========================================================
+        # Loop throughRigID
+        rig_ids = pile_data_full['RigID'].unique()
+        for rigid in rig_ids:
+            # Add page break for Daily Pile Log and switch to landscape
+            story.append(NextPageTemplate('landscape'))
+            story.append(PageBreak())
+            pile_data = pile_data_full[pile_data_full['RigID']==rigid]
+            # Calculate total piles for the day
+            total_piles = len(pile_data) if not pile_data.empty else 0
+            # Get pump ID from data
+            pump_id = str(pile_data['PumpID'].iloc[0])
+            pump_calibration = pile_data['PumpCalibration'].iloc[0]
+            pump_calibration = round(float(pump_calibration),2) if not pump_calibration is None else 0
+
+            styles = getSampleStyleSheet()
+            normal = styles["Normal"]
+
+            # Left side text
+            left_text = "<para align=left><font size=14><b>Daily Pile Report -" + mdate.strftime('%a, %m/%d/%y') + ", Rig "+ rigid + "</b></font><br/>  <font size=9>Job "+ self.job_id+"-"+ self.job_name + "<br/>" + self.location + "</font></para>"
+            left_para = Paragraph(left_text, normal)
+            # Right side text (pump + diameter above logo + pile count below)
+            rigth_text_style = ParagraphStyle(
+                'CustomSection',
+                parent=styles['Normal'],
+                fontSize=9,
+                spaceAfter=12,
+                alignment=TA_LEFT
+            )
+            right_text = "PumpID:"+ pump_id +"<br/>Calibration: "+str(pump_calibration)
+            pump_para = Paragraph(right_text, rigth_text_style)
+
+            pump_logo_table = Table([[pump_para, logo]], colWidths=[80, 100])
+            pump_logo_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (0, 0), "RIGHT"),
+                ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ]))
+            # Pile count under logo
+            pile_text = Paragraph("<para align=center><b> PILES:"+ str(total_piles)+"</b></para>", normal)
+
+            # Assemble right column vertically
+            right_table = Table([[pump_logo_table],
+                               [pile_text]],
+                              colWidths=[180])
+            right_table.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]))
+            # Calculate available width in landscape
+            landscape_width, _ = landscape(letter)
+            available_width = landscape_width - (doc.leftMargin + doc.rightMargin)
+
+            # e.g. 70% for left, 30% for right
+            left_width = 0.7 * available_width
+            right_width = 0.3 * available_width
+
+            daily_pile_header_table = Table(
+                [[left_para, right_table]],
+                colWidths=[left_width, right_width]
+            )
+            # Final header table (left + right)
+            # daily_pile_header_table = Table([[left_para, right_table]], colWidths=[350, 180])
+            daily_pile_header_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BOX", (0, 0), (-1, -1), 1, colors.black),  # only outer border
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(daily_pile_header_table)
+            story.append(Spacer(1, 24))
+
+            # Create table with wrapped headers
+            daily_piles_headers = [
+                Paragraph('RIGID', header_cell_style),
+                Paragraph('INSTALL<br/> START TIME', header_cell_style),
+                Paragraph('PILEID', header_cell_style),
+                Paragraph('PILE<br/>TYPE', header_cell_style),
+                Paragraph('MOVE<br/>TIME', header_cell_style),
+                Paragraph('INSTALL<br/>TIME', header_cell_style),
+                Paragraph('CYCLE<br/>TIME', header_cell_style),
+                Paragraph('DELAY<br/>TIME', header_cell_style),
+                Paragraph('PILE<br/>LENGTH<br/>(ft)', header_cell_style),
+                Paragraph('MAX<br/>STROKE', header_cell_style),
+                Paragraph('OVER<br/>BREAK', header_cell_style),
+                Paragraph('LON/LAT', header_cell_style),
+                Paragraph('COMMENTS', header_cell_style),
+
+            ]
+            daily_piles_data = [daily_piles_headers]
+            pile_data['InstallStartTime'] = pd.to_datetime(pile_data['InstallStartTime'])
+            pile_data.sort_values(by='InstallStartTime',inplace=True)
+            cycletime_sum = 0
+            overbreak_mean = 0
+            for i in range(len(pile_data)):
+                try:
+                    install_start = pd.to_datetime((pile_data['InstallStartTime'].iloc[i])).time().strftime(format='%H:%M')
+                except:
+                    install_start = None
+                cycletime = pile_data["CycleTime"].iloc[i] if not pile_data["CycleTime"].iloc[i]  is None else 0
+                cycletime = round(float(str(cycletime).split(' ')[0]),1)
+                cycletime_sum += cycletime
+                overbreak = pile_data["OverBreak"].iloc[i] if not pile_data["OverBreak"].iloc[i] is None else '0%'
+                overbreak_mean += float(overbreak.split('%')[0])
+                lon_lat = True if not pile_data['latitude'].iloc[i] is None else False
+                daily_piles_data.append(
+                    [pile_data["RigID"].iloc[i],
+                     install_start,
+                     pile_data["PileID"].iloc[i],
+                     pile_data["PileType"].iloc[i],
+                     format_time_to_hours_minutes(pile_data["MoveTime"].iloc[i]),
+                     format_time_to_hours_minutes(pile_data["InstallTime"].iloc[i]),
+                     cycletime,
+                     format_time_to_hours_minutes(pile_data["DelayTime"].iloc[i]),
+                     pile_data["PileLength"].iloc[i],
+                     pile_data["MaxStroke"].iloc[i],
+                     overbreak,
+                     lon_lat,
+                     pile_data["Comments"].iloc[i],
+                     ])
+            # now append the totals
+            daily_piles_data.append(['Total by Rig',
+                     '',
+                     '',
+                     '',
+                     round(pile_data["MoveTime"].sum(),0),
+                     round(pile_data["InstallTime"].sum(),0),
+                     cycletime_sum,
+                     round(pile_data["DelayTime"].sum(),0),
+                     round(pile_data["PileLength"].sum(),1),
+                     round(pile_data["MaxStroke"].mean(),0),
+                     f"{str(round(overbreak_mean/len(pile_data),1))}%",
+                     '',
+                     '',
+                     ])
+            # Calculate column widths for job to date table
+            num_cols_jtd = len(daily_piles_headers)
+            # landscape_width, _ = landscape(letter)
+            # available_width = landscape_width - (doc.leftMargin + doc.rightMargin)
+            # Let’s make comments column take ~25% of width
+            comment_col_index = num_cols_jtd - 1
+            comment_width = 0.25 * available_width
+
+            # Remaining width distributed across other columns
+            other_width = (available_width - comment_width) / (num_cols_jtd - 1)
+            col_widths = [other_width] * num_cols_jtd
+            col_widths[comment_col_index] = comment_width
+
+            daily_piles_table = Table(daily_piles_data, colWidths=col_widths)
+
+
+            daily_piles_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), title_background_color),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(daily_piles_table)
+            # ==========================================================
+            # add charts by Pile
+            for row in pile_data.itertuples():
+                # After table, switch back to portrait
+                story.append(NextPageTemplate('portrait'))
+                story.append(PageBreak())
+                pileid = row.PileID
+                try:
+                    day_data = self.piles_timeseries[pileid][mdate.strftime('%Y-%m-%d')]
+                except:
+                    continue
+                if len(day_data)>0:
+                    self.add_pile(pileid,row,self.piles_timeseries[pileid][mdate.strftime('%Y-%m-%d')])
+                    mwd_story = self.piles[pileid].generate_mwd_pdf()
+                    story.extend(mwd_story)
+                else:
+                    print('Data not available')
+
+
+        #
+
+        # Generate PDF
+        doc.build(story)
+
+
+
 
     def plot_all_piles(self, save_path: Optional[str] = None):
         for pile in self.piles:
@@ -501,14 +1184,3 @@ class JobManager:
             job = self.add_job(job_data)
             job.add_pile(feature)
 
-
-        # def generate_all_summaries(self) -> pd.DataFrame:
-        #     summaries = []
-        #     for job in self.jobs.values():
-        #         summaries.append(job.generate_summary())
-        #     return pd.DataFrame(summaries)
-        #
-        # def plot_all_jobs(self, save_dir: str):
-        #     os.makedirs(save_dir, exist_ok=True)
-        #     for job in self.jobs.values():
-        #         job.plot_all_piles(save_dir)
