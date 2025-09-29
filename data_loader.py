@@ -204,7 +204,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
             # =========================================================
             # Process Pile Design
             # =========================================================
-            df_design = None
+            df_design = pd.DataFrame()
             try:
                 estimates, location, df_design = get_estimate(jobID)
                 if len(df_design)>0:
@@ -827,6 +827,7 @@ if __name__ == "__main__":
     # '1655',
     # '1657']
     # jobs = ['1639']
+    # jobs = ['1657']
     data_manager.load_data(jobs=jobs,reload=False)
 
 

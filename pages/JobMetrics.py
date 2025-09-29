@@ -36,6 +36,36 @@ def is_working_day(date):
     if date in us_holidays:
         return False
     return True
+
+
+def next_working_day(date):
+    next_day = date + timedelta(days=1)
+    while not is_working_day(next_day):
+        next_day += timedelta(days=1)
+    return next_day
+
+
+def calculate_expected_progress_with_holidays(start_date, total_piles, piles_per_day):
+    dates = []
+    expected_piles = []
+    current_date = start_date
+    cumulative_piles = 0
+
+    # Ensure start date is a working day
+    while not is_working_day(current_date):
+        current_date = next_working_day(current_date)
+
+    while cumulative_piles < total_piles:
+        dates.append(current_date)
+        cumulative_piles = min(cumulative_piles + piles_per_day, total_piles)
+        expected_piles.append(cumulative_piles)
+
+        current_date = next_working_day(current_date)
+
+    return pd.DataFrame({
+        'Date': dates,
+        'Expected': expected_piles
+    })
 # Get data from cache
 def get_data_summary(value:str):
     data = ensure_data_loaded()
