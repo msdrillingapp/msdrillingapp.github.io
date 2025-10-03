@@ -27,6 +27,14 @@ body, html, #app {
     color: white !important;
 }
 
+/* Style the placeholder */
+.dark-dropdown .Select-placeholder {
+    font-size: 14px;  /* Smaller than regular text */
+    color: #999;      /* Lighter color */
+    /*font-style: italic;  Optional: make it italic */
+}
+
+
 
 
   Select-menu-outer {

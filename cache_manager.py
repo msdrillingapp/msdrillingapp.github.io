@@ -221,7 +221,7 @@ class ChartDataCache:
         for job in self.result_MWD.keys():
             # properties = self.result_MWD[job][0].copy()
             pile_data = self.result_MWD[job][1].copy()
-            pile_data =pile_data[job]
+            pile_data = pile_data[job]
             available_dates = set()
             for pile_id, days_data in pile_data.items():
                 available_dates.update(days_data.keys())

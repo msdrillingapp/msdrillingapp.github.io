@@ -830,15 +830,16 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
 def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_date):
     if selected_jobid is None:
         raise PreventUpdate
-    result_MWD = get_data_loaded('result_MWD')
-
+    # result_MWD = get_data_loaded('result_MWD')
+    my_jobs = get_data_loaded('my_jobs')
     ctx = dash.callback_context  # Get the trigger
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
     if triggered_id =="pileid-filter":
         if not selected_date or not selected_pileid:
             return html.Div("Select a Date and PileID or Table Raw to view statistics.", style={'color': 'white', 'textAlign': 'center'})
         # tmp = properties_df.copy()
-        tmp = result_MWD[selected_jobid][0].copy()
+        # tmp = result_MWD[selected_jobid][0].copy()
+        tmp = my_jobs.jobs[selected_jobid].piles_details
         if len(tmp)==0:
             return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
 
@@ -853,7 +854,8 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
             selected_date = pd.to_datetime(selected_row['Date']).date().strftime(format='%Y-%m-%d')
 
     # Filter data for the selected PileID
-    properties_df = result_MWD[selected_jobid][0].copy()
+    # properties_df = result_MWD[selected_jobid][0].copy()
+    properties_df = my_jobs.jobs[selected_jobid].piles_details
     if len(properties_df)==0:
         return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
     filtered_df = properties_df[properties_df["PileID"] == selected_pileid]
@@ -875,16 +877,21 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
         cycletime= filtered_df["CycleTime"].iloc[0] if "CycleTime" in filtered_df.columns else "N/A"
     except:
         cycletime = 0
+    try:
+        PileLength = round(float(filtered_df["PileLength"].iloc[0]),0)
+    except:
+        PileLength = 0
+
     if "OverBreak" in filtered_df.columns:
     #     overbreak = float(filtered_df['OverBreak'].iloc[0])
     # #     overbreak = overbreak* 100 - 100.0
     # #     overbreak = f"{overbreak :.0f}%"
-       overbreak = filtered_df['OverBreak'].iloc[0]
+        overbreak = filtered_df['OverBreak'].iloc[0]
     # else:
     #     "N/A"
 
-    title = f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}"
-    details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak,installtime,cycletime)
+    title = f"JobID {selected_jobid}-{my_jobs.jobs[selected_jobid].job_name} - PileID {selected_pileid} on {selected_date}"
+    details = get_pile_details_cards(title, move_time, move_distance, delay_time, overbreak,installtime,cycletime,PileLength)
     return details
 
 @callback(
@@ -901,20 +908,28 @@ def update_summary_cards(selected_row,selected_pileid,selected_jobid,selected_da
 def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selected_pilecode, selected_pilestatus,selected_piletype,selected_productcode):
     if not selected_jobid:
         return html.Div("Select a JobID to view statistics.", style={'color': 'white', 'textAlign': 'center'})
-    result_MWD = get_data_loaded()
+    # result_MWD = get_data_loaded()
     my_jobs = get_data_loaded('my_jobs')
     # Filter data for the selected PileID
-    properties_df = result_MWD[selected_jobid][0].copy()
-    # piles_schedule = my_jobs.jobs[selected_jobid].estimate_piles
+    # properties_df = result_MWD[selected_jobid][0].copy()
+    properties_df = my_jobs.jobs[selected_jobid].piles_details
     piles_schedule = my_jobs.jobs[selected_jobid].pile_schedule
+    start_date = my_jobs.jobs[selected_jobid].start_date
+    last_date = my_jobs.jobs[selected_jobid].last_date
+    try:
+        df_DaysRig = my_jobs.jobs[selected_jobid].job2data_stats_complete[['Time','RigID','DaysRigDrilled']]
+    except:
+        df_DaysRig = pd.DataFrame(columns=['Time','RigID','DaysRigDrilled'])
     if len(properties_df)==0:
         return html.Div("This job ID has no Drilling Piles records.", style={'color': 'white', 'textAlign': 'center'})
     # filtered_df = properties_df[properties_df["JobNumber"] == selected_jobid]
     filtered_df = properties_df.copy()
     if not selected_date is None:
         filtered_df=filtered_df[filtered_df['date']==selected_date]
+        df_DaysRig = df_DaysRig[df_DaysRig['Time'] ==selected_date]
     if not selected_rigid is None:
         filtered_df = filtered_df[filtered_df['RigID'] == selected_rigid]
+        df_DaysRig = df_DaysRig[df_DaysRig['RigID'] == selected_rigid]
     if not selected_pilecode is None:
         filtered_df = filtered_df[filtered_df['PileCode'] == selected_pilecode]
     # if not selected_pilestatus is None:
@@ -931,7 +946,10 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     if not selected_productcode is None:
         filtered_df = filtered_df[filtered_df['ProductCode'] == selected_productcode]
 
-
+    DaysRigDrilled = 0
+    rows2sum = len(df_DaysRig['RigID'].unique())
+    for i in range(rows2sum):
+        DaysRigDrilled += df_DaysRig['DaysRigDrilled'].iloc[-1-i]
     # Extract statistics
     unique_pile_count = properties_df["PileID"].nunique()
     unique_pile_count_filters = filtered_df['PileID'].nunique()
@@ -945,6 +963,20 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
         dbc.Col(
             dbc.Card(
                 dbc.CardBody([
+                    html.Div('Start date',
+                             className="card-title",
+                             style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(start_date.strftime(format='%Y-%m-%d'),
+                             className="card-text",
+                             style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
+            ),
+            xs=12, sm=6, md=6, lg=2, xl=2
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
                     html.Div(text_schedule,
                             className="card-title",
                             style={"textAlign": "center", "fontWeight": "bold"}),
@@ -954,7 +986,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                 ]),
                 className="mb-3"
             ),
-            xs=12, sm=6, md=6, lg=4, xl=4
+            xs=12, sm=6, md=6, lg=2, xl=2
         ),
         dbc.Col(
             dbc.Card(
@@ -968,7 +1000,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                 ]),
                 className="mb-3"
             ),
-            xs=12, sm=6, md=6, lg=4, xl=4,
+            xs=12, sm=6, md=6, lg=2, xl=2,
             className="mt-2 mt-sm-0"
         ),
         dbc.Col(
@@ -983,101 +1015,44 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
                 ]),
                 className="mb-3"
             ),
-            xs=12, sm=6, md=6, lg=4, xl=4,
+            xs=12, sm=6, md=6, lg=2, xl=2,
+            className="mt-2 mt-sm-0"
+        ),
+
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.Div("# Rig Days",
+                             className="card-title",
+                             style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(str(DaysRigDrilled),
+                             className="card-text",
+                             style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
+            ),
+            xs=12, sm=6, md=6, lg=2, xl=2,
+            className="mt-2 mt-sm-0"
+        ),
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                    html.Div("Last date",
+                             className="card-title",
+                             style={"textAlign": "center", "fontWeight": "bold"}),
+                    html.Div(last_date.strftime(format='%Y-%m-%d'),
+                             className="card-text",
+                             style={"textAlign": "center", "fontSize": "1.rem", "fontWeight": "bold"})
+                ]),
+                className="mb-3"
+            ),
+            xs=12, sm=6, md=6, lg=2, xl=2,
             className="mt-2 mt-sm-0"
         )
+
     ])
 ]
-    # [
-    #     dbc.Row([
-    #         dbc.Col(
-    #             dbc.Card(
-    #                 dbc.CardBody([
-    #                     html.P(text_schedule,
-    #                            className="card-title",
-    #                            style={"display": "flex", "alignItems": "center",
-    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
-    #                 ]),
-    #                 className="mb-3"  # Reduced bottom margin
-    #             ),
-    #             xs=12, sm=6, md=6, lg=4, xl=4
-    #         ),
-    #         dbc.Col(
-    #             dbc.Card(
-    #                 dbc.CardBody([
-    #                     html.P("🔢 # Piles: " + str(unique_pile_count),
-    #                            className="card-title",
-    #                            style={"display": "flex", "alignItems": "center",
-    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
-    #                 ]),
-    #                 className="mb-3" # Reduced bottom margin
-    #             ),
-    #             xs=12, sm=6, md=6, lg=4, xl=4,
-    #             className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
-    #         ),
-    #         dbc.Col(
-    #             dbc.Card(
-    #                 dbc.CardBody([
-    #                     html.P("🔢 # Piles filtered: " + str(unique_pile_count_filters),
-    #                            className="card-title",
-    #                            style={"display": "flex", "alignItems": "center",
-    #                                   "marginBottom": "0", "whiteSpace": "nowrap"}),  # Remove default margin
-    #                 ]),
-    #                 className="mb-3"  # Reduced bottom margin
-    #             ),
-    #             xs=12, sm=6, md=6, lg=4, xl=4,
-    #             className="mt-2 mt-sm-0"  # Add top margin only on xs, remove on sm+
-    #         )
-    #     ])  # , className="g-2" Small gutter between columns when side-by-side
-    #     ]
 
-
-# @app.callback(
-#     Output("save-message", "children"),
-#     Input("save-button", "n_clicks"),
-#     Input("pileid-filter", "value"),
-#     State("filtered-table", "data"),
-#     State("group-filter", "value"),
-#     prevent_initial_call=True
-# )
-# def save_changes(n_clicks, selected_pileid,table_data, selected_group):
-#     ctx = dash.callback_context  # Get the trigger
-#     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else None
-#     if triggered_id=="pileid-filter":
-#         return ""
-#     if n_clicks > 0 and selected_group == "Edit":
-#         # Convert table data to a DataFrame
-#         df_edited = pd.DataFrame(table_data)
-#
-#         # Save only if there is data
-#         if not df_edited.empty:
-#             # df_edited.to_csv(os.path.join(file_path,"edited_data.csv"), index=False)  # Save to CSV file
-#             return "Changes saved successfully!"
-#
-#     return ""
-
-# @callback(
-#     [Output("save-button", "style"),  # Show/Hide Save button
-#      Output("save-button", "disabled")],  # Disable after clicking
-#     [Input("group-filter", "value"),  # Trigger when Group changes
-#      Input("save-button", "n_clicks"),  # Track Save button clicks
-#      Input("pileid-filter", "value")],  # Reset on PileID change
-#     [State("save-button", "disabled")],  # Keep track of the disabled state
-#     prevent_initial_call=True
-# )
-# def toggle_save_button(selected_group, save_clicks, selected_pileid, is_disabled):
-#     # Show button only if "Edit" is selected
-#     button_style = {"display": "block"} if selected_group == "Edit" else {"display": "none"}
-#
-#     # If PileID changes, re-enable the button
-#     if selected_pileid:
-#         return button_style, False
-#
-#     # Disable only after clicking the button
-#     if save_clicks:
-#         return button_style, True
-#
-#     raise PreventUpdate  # Prevent unnecessary updates
 
 
 # Callbacks to toggle each collapsible section

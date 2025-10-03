@@ -7,6 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import holidays
 import math
 from io import BytesIO
 from reportlab.lib.pagesizes import letter, landscape
@@ -112,6 +113,50 @@ def indrease_decrease_split(x, y):
 
 
     return increasing_x, increasing_y, decreasing_x, decreasing_y
+
+
+
+# Create US holidays object
+us_holidays = holidays.US()
+# Calculate working days
+def is_working_day(date):
+    # Check if weekend (Saturday=5, Sunday=6)
+    if date.weekday() >= 5:
+        return False
+    # Check if holiday
+    if date in us_holidays:
+        return False
+    return True
+
+
+def next_working_day(date):
+    next_day = date + timedelta(days=1)
+    while not is_working_day(next_day):
+        next_day += timedelta(days=1)
+    return next_day
+
+
+def calculate_expected_progress_with_holidays(start_date, total_piles, piles_per_day):
+    dates = []
+    expected_piles = []
+    current_date = start_date
+    cumulative_piles = 0
+
+    # Ensure start date is a working day
+    while not is_working_day(current_date):
+        current_date = next_working_day(current_date)
+
+    while cumulative_piles < total_piles:
+        dates.append(current_date)
+        cumulative_piles = min(cumulative_piles + piles_per_day, total_piles)
+        expected_piles.append(cumulative_piles)
+
+        current_date = next_working_day(current_date)
+
+    return pd.DataFrame({
+        'Date': dates,
+        'Expected': expected_piles
+    })
 
 class Pile:
     def __init__(self, data,pile_data):
@@ -656,6 +701,8 @@ class Job:
         self.job2data_stats_complete = {}
         self.piles_details = None
         self.piles_timeseries = None
+        self.start_date = None
+        self.last_date = None
 
     def add_stats_files(self,stats):
         if isinstance(stats, list):
@@ -684,7 +731,12 @@ class Job:
 
     def add_piles_details(self,df:pd.DataFrame,df_ts:pd.DataFrame()):
         self.piles_details = df
+        self.piles_details[self.piles_details['longitude'].isnull()] == self.longitude
+        self.piles_details[self.piles_details['latitude'].isnull()] == self.latitude
         self.piles_timeseries = df_ts
+        self.piles_details['date'] = pd.to_datetime(self.piles_details['date'])
+        self.start_date = min(self.piles_details[self.piles_details['PileCode']=='Production Pile']['date'])
+        self.last_date = max(self.piles_details[self.piles_details['PileCode'] == 'Production Pile']['date'])
     def add_colorCodes(self,job_data):
         for k, v in job_data.items():
             if not v is None:
@@ -709,6 +761,8 @@ class Job:
                 self.estimate_concrete += estimate_concrete
                 self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
 
+    # def _calculate_estimates_lines(self):
+    #     calculate_expected_progress_with_holidays()
     def add_pile(self, pileid:str, basedata, pile_time_data):
         # if pileid not in self.piles:
         self.piles[pileid] = Pile(basedata, pile_time_data)

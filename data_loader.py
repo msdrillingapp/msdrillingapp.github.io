@@ -10,6 +10,8 @@ import dash_leaflet as dl
 from datetime import datetime
 # from database.DatabaseStorage import Databasestorage
 # from flask_login import current_user
+from datetime import timedelta
+# from load_data_dropbox import read_json_files
 
 # Precompute once and reuse
 color_map = {
@@ -36,7 +38,7 @@ class DataManager:
             print("Loading data for the first time...")
             try:
                 # for 1640
-                result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=reload)
+                result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=False)
                 # Call your data loading function
                 # result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=reload)
                 my_jobs = JobManager()
@@ -177,6 +179,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
 
     for jobID in jobs:
         print(jobID)
+        mdates = None
         get_data = True
         if not reload:
             cache_file = _get_filepath(jobID)
@@ -230,17 +233,17 @@ def load_geojson_data(jobs=[],reload:bool=False):
             # =========================================================
             # Read stats file
             # =========================================================
-            stats_files = os.listdir(summary_folder)
-            stats_file = {}
-            try:
-                for f in stats_files:
-                    if f.startswith(jobID) and f.endswith("Statistics.json"):
-                        file_path = os.path.join(summary_folder, f)
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            stats_file = json.load(f)
-                            break
-            except:
-                print('Warning! No stats file was found')
+            # stats_files = os.listdir(summary_folder)
+            # stats_file = {}
+            # try:
+            #     for f in stats_files:
+            #         if f.startswith(jobID) and f.endswith("Statistics.json"):
+            #             file_path = os.path.join(summary_folder, f)
+            #             with open(file_path, "r", encoding="utf-8") as f:
+            #                 stats_file = json.load(f)
+            #                 break
+            # except:
+            #     print('Warning! No stats file was found')
             # =========================================================
             # Process CPT data
             # =========================================================
@@ -268,6 +271,21 @@ def load_geojson_data(jobs=[],reload:bool=False):
             for filename in os.listdir(data_folder):
                 if filename.endswith(".json"):
                     file_path = os.path.join(data_folder, filename)
+                    if filename.startswith(jobID) and filename.endswith("Statistics.json"):
+                        if filename.split('_')[0] == jobID:
+                            fdate = filename.split('_')[1]
+                            try:
+                                fdate = pd.to_datetime(fdate).date()
+                                if mdates is None:
+                                    mdates = fdate
+                                else:
+                                    if fdate < mdates:
+                                        continue
+                            except:
+                                pass
+                            with open(file_path, "r", encoding="utf-8") as f:
+                                stats_file = json.load(f)
+                            continue
                     with open(file_path, "r", encoding="utf-8") as f:
                         geojson_data = json.load(f)
 
@@ -318,6 +336,8 @@ def load_geojson_data(jobs=[],reload:bool=False):
                         # properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
                         overbreak = properties['OverBreak'] if not properties['OverBreak'] is None else 1
                         overbreak = (float(overbreak)-1)*100
+                        if overbreak <= 0:
+                            overbreak = 0
                         properties['OverBreak'] = f"{overbreak :.0f}%"
                         # ================================================
                         # ================================================
@@ -535,6 +555,7 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #     except dropbox.exceptions.ApiError as e:
 #         print(f"Search error: {e}")
 #         return []
+
 # def load_dropbox_data(jobs=[],reload:bool=False):
 #     result_MWD ={}
 #     results_CPT = {}
@@ -683,6 +704,8 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                         # properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
 #                         overbreak = properties['OverBreak'] if not properties['OverBreak'] is None else 1
 #                         overbreak = (float(overbreak)-1)*100
+#                         if overbreak<=0:
+#                             overbreak = 0
 #                         properties['OverBreak'] = f"{overbreak :.0f}%"
 #                         # ================================================
 #                         # ================================================
@@ -815,6 +838,8 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #
 #     return result_MWD,results_CPT,results_pileMetrics
 
+
+
 if __name__ == "__main__":
     # data = pd.read_pickle('C:/Inventzia_Dennis/msdrillingapp.github.io/assets\dropbox_pkl/all_jobs.pkl')
     # stats = pd.read_pickle('C:/Inventzia_Dennis/msdrillingapp.github.io/assets\dropbox_pkl/stats_jobs.pkl')
@@ -827,7 +852,8 @@ if __name__ == "__main__":
     # '1655',
     # '1657']
     # jobs = ['1639']
-    # jobs = ['1657']
+    # jobs = ['1657']'1633', '1640',
+    jobs = [ '1633', '1640','1648', '1632', '1639', '1641', '1642', '1643', '1650', '1652', '1653','1655', '1660']  # '1657','1633','1640''1648'
     data_manager.load_data(jobs=jobs,reload=False)
 
 

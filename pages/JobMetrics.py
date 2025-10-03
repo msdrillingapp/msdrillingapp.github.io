@@ -107,6 +107,7 @@ def load_data_metrics():
 # ======================
 def prepare_table_data(summary_metrics, selected_date):
     rows = []
+    my_jobs = get_data_summary('my_jobs')
     for job, df in summary_metrics.items():
         if len(df)==0:
             continue
@@ -115,6 +116,7 @@ def prepare_table_data(summary_metrics, selected_date):
             continue
 
         current = df_on_date.iloc[-1]
+
         # previous = df_on_date.iloc[-2]
 
         # def format_delta(curr, prev):
@@ -150,7 +152,8 @@ def prepare_table_data(summary_metrics, selected_date):
         #     status_symbol = "❌"
         piles_per_day = round(current['Piles']/current['DaysRigDrilled'],0)
         rows.append({
-            "JobNumber": job,
+            "JobID": str(job) +'-'+ str(my_jobs.jobs[job].job_name),
+            "JobNumber": str(job),
             # "StatusSymbol": status_symbol,
             # "StatusColor": status,
             "Piles Drilled":f"{current['Piles']}",
@@ -229,7 +232,8 @@ summary_metrics,summary_dic_daily = load_data_metrics()
 # Dash AG Grid
 # ======================
 column_defs = [
-    {"headerName": "JobNumber", "field": "JobNumber"},
+    {"headerName": "JobID", "field": "JobID","cellStyle": {"textAlign": "left"}},
+    {"headerName": "JobNumber", "field": "JobNumber","hide": True},
     # {
     #     "headerName": "Status",
     #     "field": "StatusSymbol",
@@ -655,7 +659,7 @@ def update_pie(selected_rows,selected_date):
 
         fig.layout.annotations[i - 1].text = f"Rig {rig} — Piles: {piles}"
 
-    fig.update_layout(title_text=f"Job {row['JobNumber']} Breakdown by Rig on {selected_date}")
+    fig.update_layout(title_text=f"Job {row['JobID']} Breakdown by Rig on {selected_date}")
     fig.update_layout(
         plot_bgcolor="#193153",
         paper_bgcolor="#193153",
@@ -1074,13 +1078,13 @@ def update_rig_charts(selected_rows, selected_date, click_data_list, current_chi
             dcc.Graph(
                 id={"type": "pile-location-chart", "rig_id": rig_id},
                 figure=location_fig,
-                config={'displayModeBar': True},
+                config={'displayModeBar': True,'displaylogo': False},
                 style={'height': '400px'}
             ),
             dcc.Graph(
                 id={"type": "time-chart", "rig_id": rig_id},
                 figure=time_fig,
-                config={'displayModeBar': True},
+                config={'displayModeBar': True,'displaylogo': False},
                 style={'height': '400px'}
             ),
             html.Hr(style={'borderColor': 'rgba(255,255,255,0.2)', 'margin': '20px 0'})

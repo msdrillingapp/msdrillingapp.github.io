@@ -35,23 +35,29 @@ def get_header():
     return header
 
 #####################
+def get_data_summary(value:str):
+    data = ensure_data_loaded()
+    return data[value]
 
 def get_filters(): #results_MWD
 
     # Load data only when needed in callbacks
-    data = get_data()
+    my_jobs = get_data_summary('my_jobs')
+    job_jonname = {}
+    for jb, job in my_jobs.jobs.items():
+        job_jonname[jb] = job.job_name
     # if not data['result_MWD']:  # Data not loaded yet
     #     data = ensure_data_loaded()  # Load it now
-    results_MWD = data['result_MWD']
+    # results_MWD = data['result_MWD']
     filters = html.Div([
         dbc.Row([
             dbc.Col(dcc.Dropdown(
                 id="jobid-filter",
                 # options=[{"label": str(r), "value": str(r)} for r in properties_df["JobNumber"].dropna().unique()],
-                options=[{"label": str(r), "value": str(r)} for r in results_MWD.keys()],
+                options=[{"label": str(r)+'-'+job_jonname[r], "value": str(r)} for r in job_jonname.keys()],
                 # options=[{"label": str(r), "value": str(r)} for r in accessible_jobs],
-                placeholder="Filter by JobNumber",
-                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px'},
+                placeholder="Filter by JobName",
+                style={'width': '150px', 'marginBottom': '10px', 'marginRight': '10px', 'marginLeft': '10px','fontSize': '11px'},
                 className="dark-dropdown"
             ),xs=10, sm=5, md=8, lg=6, xl=5),
 
@@ -241,7 +247,7 @@ def get_filtered_table():
                         ),xs=12, sm=12, md=8, lg=6, xl=6)])],
     )
     return  filterd_table
-def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak,installtime,cycletime):
+def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak,installtime,cycletime,PileLength):
     details = html.Div([
         html.H5(title),
         dbc.Row([
@@ -249,39 +255,53 @@ def get_pile_details_cards(title,move_time,move_distance,delay_time,overbreak,in
                 html.Div([
                     html.Div("⏳ Move Time", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(move_time, style={"fontSize": "14px", "color": "white"})
-                ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=2, xl=2
+                ], style={"padding": "2px", "textAlign": "center"}),
+                xs=6, sm=5, md=6, lg=1, xl=1
             ),
             dbc.Col(
                 html.Div([
                     html.Div("📐 Distance", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(move_distance, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=2, xl=2
+                xs=6, sm=5, md=6, lg=1, xl=1
             ),
             dbc.Col(
                 html.Div([
                     html.Div("⏳ Install Time", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(installtime, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=2, xl=2
+                xs=6, sm=5, md=6, lg=1, xl=1
+            ),
+            dbc.Col(
+                html.Div([
+                    html.Div("⏳ Cycle Time", style={"fontWeight": "bold", "fontSize": "14px"}),
+                    html.Div(cycletime, style={"fontSize": "14px", "color": "white"})
+                ], style={"padding": "5px", "textAlign": "center"}),
+                xs=6, sm=5, md=6, lg=1, xl=1
+            ),
+            dbc.Col(
+                html.Div([
+                    html.Div("📐 Length", style={"fontWeight": "bold", "fontSize": "14px"}),
+                    html.Div(PileLength, style={"fontSize": "14px", "color": "white"})
+                ], style={"padding": "5px", "textAlign": "center"}),
+                xs=6, sm=5, md=6, lg=1, xl=1
             ),
             dbc.Col(
                 html.Div([
                     html.Div("⏰ Delay Time", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(delay_time, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center"}),
-                xs=6, sm=5, md=6, lg=2, xl=2
+                xs=6, sm=5, md=6, lg=1, xl=1
             ),
             dbc.Col(
                 html.Div([
                     html.Div("🚧 OverBreak", style={"fontWeight": "bold", "fontSize": "14px"}),
                     html.Div(overbreak, style={"fontSize": "14px", "color": "white"})
                 ], style={"padding": "5px", "textAlign": "center", }),
-                xs=6, sm=5, md=6, lg=2, xl=2
+                xs=6, sm=5, md=6, lg=1, xl=1
             ),
         ], className="g-2")
-    ], style={'padding': '10px'})
+    ], style={'padding': '5px',"textAlign": "left", })
 
     return details
 
@@ -289,10 +309,21 @@ def add_charts():
     charts = dbc.Collapse(
             html.Div([
                 # Statistics Info Cards
+                # html.Div(id="pile-summary-cards", style={
+                #     'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'left',
+                #     'backgroundColor': '#193153', 'color': 'white', 'padding': '10px',
+                #     'borderRadius': '5px', 'marginTop': '10px'
+                # }),
                 html.Div(id="pile-summary-cards", style={
-                    'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center',
-                    'backgroundColor': '#193153', 'color': 'white', 'padding': '10px',
-                    'borderRadius': '5px', 'marginTop': '10px'
+                    'display': 'flex',
+                    'justifyContent': 'flex-start',  # Changed from 'space-around' to 'flex-start'
+                    'alignItems': 'left',
+                    'backgroundColor': '#193153',
+                    'color': 'white',
+                    'padding': '10px',
+                    'borderRadius': '5px',
+                    'marginTop': '10px',
+                    'gap': '20px'  # Optional: Add spacing between cards
                 }),
 
                 html.Button("Download PDF for PileID", id='download-pdf-btn', disabled=True),
