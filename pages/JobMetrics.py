@@ -878,7 +878,7 @@ def update_line_chart(selected_rows, selected_date):
     data = summary_metrics[job]
     my_jobs = get_data_summary('my_jobs')
     df_expected = my_jobs.jobs[job].df_expected
-    data = data[data['Time']>=my_jobs.jobs[job].start_date]
+    data = data[pd.to_datetime(data['Time'])>=pd.to_datetime(my_jobs.jobs[job].start_date)]
     subplot_titles =''
     # Create subplots with secondary y-axes
     fig = make_subplots(
