@@ -10,8 +10,9 @@ import dash_leaflet as dl
 from datetime import datetime
 # from database.DatabaseStorage import Databasestorage
 # from flask_login import current_user
-from datetime import timedelta
-# from load_data_dropbox import read_json_files
+
+# from load_data_dropbox import read_json_files,read_data
+
 
 # Precompute once and reuse
 color_map = {
@@ -113,7 +114,7 @@ def ensure_data_loaded():
 
 
 def get_job_data(job_id):
-    data = ensure_data_loaded([job_id])
+    data = ensure_data_loaded()
     return data['result_MWD'].get(job_id, None)
 
 
@@ -564,12 +565,19 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #     # config_file = os.path.join(os.getcwd(),'database','database.ini')
 #     # data_storage = Databasestorage()
 #     # data_storage.configure_from_config(config_file)
+#     drilling_data = None
 #     if reload:
-#         drilling_data,stats_data = read_json_files(base_folder='',jobs=jobs)
+#         pkl_path = 'assets//dropbox_pkl'
+#         fname_drilling = os.path.join(pkl_path, 'drilling_data.pkl')
+#         drilling_data = read_data(fname_drilling)
+#         fname_stats = os.path.join(pkl_path, 'stats_data.pkl')
+#         stats_data = read_data(fname_stats)
+#         if drilling_data is None:
+#             drilling_data,stats_data = read_json_files(base_folder='',jobs=jobs)
+#
 #         jobs = drilling_data.keys()
 #
 #     for jobID in jobs:
-#       # if jobID in drilling_data:
 #       if True:
 #         try:
 #             print(jobID)
@@ -853,8 +861,8 @@ if __name__ == "__main__":
     # '1657']
     # jobs = ['1639']
     # jobs = ['1657']'1633', '1640',
-    jobs = [ '1633', '1640','1648', '1632', '1639', '1641', '1642', '1643', '1650', '1652', '1653','1655', '1660']  # '1657','1633','1640''1648'
-    data_manager.load_data(jobs=jobs,reload=False)
+    jobs = ['1640', '1632', '1639', '1641', '1642', '1643', '1648','1650', '1652', '1653','1655', '1660']  # '1657','1633','1640''1648'
+    data_manager.load_data(jobs=jobs,reload=True)
 
 
 

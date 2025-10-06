@@ -876,6 +876,9 @@ def update_line_chart(selected_rows, selected_date):
     row = selected_rows[0]
     job = row['JobNumber']
     data = summary_metrics[job]
+    my_jobs = get_data_summary('my_jobs')
+    df_expected = my_jobs.jobs[job].df_expected
+    data = data[data['Time']>=my_jobs.jobs[job].start_date]
     subplot_titles =''
     # Create subplots with secondary y-axes
     fig = make_subplots(
@@ -890,32 +893,52 @@ def update_line_chart(selected_rows, selected_date):
     # Consistent colors for all measurements
     BLUE_COLOR = '#1E90FF'  # Bright blue
     GREEN_COLOR = '#006400'  # Dark green
-    YELLOW_COLOR = '#FFD700'  # Gold/yellow
-    RED_COLOR = '#FF4500'  # Orange-red (for secondary axes)
 
     # First row: Piles (primary)
     fig.add_trace(
         go.Scatter(
             x=data['Time'],
             y=data['Piles'],
-            name='Actual Piles',
+            name='Actual',  # Changed to generic 'Actual'
             mode='lines+markers',
-
+            line=dict(color=BLUE_COLOR, width=2),
+            showlegend=True  # Show legend for first Actual trace
         ),
         row=1, col=1,
-        # secondary_y=False
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df_expected['date'],
+            y=df_expected['expected_piles'],
+            name='Estimate',  # Changed to generic 'Estimate'
+            mode='lines+markers',
+            line=dict(color=GREEN_COLOR, width=2),
+            showlegend=True  # Show legend for first Estimate trace
+        ),
+        row=1, col=1,
     )
     # ConcreteDelivered
     fig.add_trace(
         go.Scatter(
             x=data['Time'],
             y=data['ConcreteDelivered'],
-            name='Concrete',
+            name='Actual',  # Same name as first Actual
             mode='lines+markers',
-
+            line=dict(color=BLUE_COLOR, width=2),
+            showlegend=False  # Don't show in legend (already shown)
         ),
         row=2, col=1,
-        # secondary_y=False
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df_expected['date'],
+            y=df_expected['expected_concrete'],
+            name='Estimate',  # Same name as first Estimate
+            mode='lines+markers',
+            line=dict(color=GREEN_COLOR, width=2),
+            showlegend=False  # Don't show in legend (already shown)
+        ),
+        row=2, col=1,
     )
 
     # Third row: LaborHours (primary)
@@ -923,13 +946,24 @@ def update_line_chart(selected_rows, selected_date):
         go.Scatter(
             x=data['Time'],
             y=data['LaborHours'],
-            name='Labor Hours',
+            name='Actual',  # Same name as first Actual
             mode='lines+markers',
+            line=dict(color=BLUE_COLOR, width=2),
+            showlegend=False  # Don't show in legend (already shown)
         ),
         row=3, col=1,
-        # secondary_y=False
     )
-
+    fig.add_trace(
+        go.Scatter(
+            x=df_expected['date'],
+            y=df_expected['expected_labour'],
+            name='Estimate',  # Same name as first Estimate
+            mode='lines+markers',
+            line=dict(color=GREEN_COLOR, width=2),
+            showlegend=False  # Don't show in legend (already shown)
+        ),
+        row=3, col=1,
+    )
 
     # Update layout
     fig.update_layout(
@@ -939,33 +973,109 @@ def update_line_chart(selected_rows, selected_date):
         paper_bgcolor="#193153",
         font_color="white",
         showlegend=True,
-        # margin=dict(l=50, r=80, t=80, b=50),
         hovermode='x unified',
         legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.01,
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="right",
+            x=1.02,
             font=dict(size=11),
             bgcolor='rgba(25, 49, 83, 0.9)',
-
         ),
         barmode='group'
     )
 
-    # Update y-axis titles and colors
-    # First row axes
-    fig.update_yaxes(title_text="Piles", row=1, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
-    fig.update_yaxes(title_text="Concrete Delivered", row=2, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
-    fig.update_yaxes(title_text="Labor Hours", row=3, col=1, secondary_y=False, showgrid=True, gridcolor="grey")
+    # Update y-axis titles and colors with grey grid lines and axis lines
+    # Update y-axes
+    fig.update_yaxes(
+        title_text="Piles",
+        row=1, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        linecolor="grey",
+        linewidth=1,
+        showline=True,
+        mirror=True,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=1  # Add this
+    )
+    fig.update_yaxes(
+        title_text="Concrete Delivered",
+        row=2, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        linecolor="grey",
+        linewidth=1,
+        showline=True,
+        mirror=True,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=1  # Add this
+    )
+    fig.update_yaxes(
+        title_text="Labor Hours",
+        row=3, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        linecolor="grey",
+        linewidth=1,
+        showline=True,
+        mirror=True,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=1  # Add this
+    )
 
-    # Update x-axis title for the bottom subplot
-    fig.update_xaxes(title_text="Date", row=3, col=1)
+    # For the first subplot
+    fig.update_xaxes(
+        row=1, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        showline=False,
+        linecolor="grey",
+        linewidth=1,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=1  # Add this
+    )
+
+    # For the second subplot
+    fig.update_xaxes(
+        row=2, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        showline=False,
+        linecolor="grey",
+        linewidth=1,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=1  # Add this
+    )
+
+    # For the third subplot
+    fig.update_xaxes(
+        title_text="Date",
+        row=3, col=1,
+        showgrid=True,
+        gridcolor="grey",
+        gridwidth=1,
+        showline=True,
+        linecolor="grey",
+        linewidth=1,
+        zeroline=True,  # Add this
+        zerolinecolor="grey",  # Add this
+        zerolinewidth=0.5  # Add this
+    )
 
     # Update subplot title styles
     fig.update_annotations(font_color="white", font_size=14)
-
 
     return fig
 

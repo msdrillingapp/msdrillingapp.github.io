@@ -136,27 +136,7 @@ def next_working_day(date):
     return next_day
 
 
-def calculate_expected_progress_with_holidays(start_date, total_piles, piles_per_day):
-    dates = []
-    expected_piles = []
-    current_date = start_date
-    cumulative_piles = 0
 
-    # Ensure start date is a working day
-    while not is_working_day(current_date):
-        current_date = next_working_day(current_date)
-
-    while cumulative_piles < total_piles:
-        dates.append(current_date)
-        cumulative_piles = min(cumulative_piles + piles_per_day, total_piles)
-        expected_piles.append(cumulative_piles)
-
-        current_date = next_working_day(current_date)
-
-    return pd.DataFrame({
-        'Date': dates,
-        'Expected': expected_piles
-    })
 
 class Pile:
     def __init__(self, data,pile_data):
@@ -703,6 +683,7 @@ class Job:
         self.piles_timeseries = None
         self.start_date = None
         self.last_date = None
+        self.df_expected = pd.DataFrame()
 
     def add_stats_files(self,stats):
         if isinstance(stats, list):
@@ -737,6 +718,40 @@ class Job:
         self.piles_details['date'] = pd.to_datetime(self.piles_details['date'])
         self.start_date = min(self.piles_details[self.piles_details['PileCode']=='Production Pile']['date'])
         self.last_date = max(self.piles_details[self.piles_details['PileCode'] == 'Production Pile']['date'])
+        self.df_expected = self._calculate_expected_progress_with_holidays()
+
+
+    def _calculate_expected_progress_with_holidays(self):
+        dates = []
+        expected_piles = []
+        expected_concrete = []
+        expected_labour = []
+        current_date = self.start_date
+        cumulative_piles = 0
+        cumulative_concrete = 0
+        cumulative_labour = 0
+
+        # Ensure start date is a working day
+        while not is_working_day(current_date):
+            current_date = next_working_day(current_date)
+
+        while cumulative_piles < self.estimate_piles:
+            dates.append(current_date)
+            cumulative_piles = min(cumulative_piles + self.estimate_piles_per_day, self.estimate_piles)
+            cumulative_concrete = min(cumulative_concrete+self.estimate_concrete_per_day,self.estimate_concrete)
+            cumulative_labour = min(cumulative_labour+self.estimate_manhours_per_day,self.estimate_labourHours)
+            expected_piles.append(cumulative_piles)
+            expected_concrete.append(cumulative_concrete)
+            expected_labour.append(cumulative_labour)
+            current_date = next_working_day(current_date)
+
+
+        return pd.DataFrame({
+            'date': dates,
+            'expected_piles': expected_piles,
+            'expected_concrete': expected_concrete,
+            'expected_labour': expected_labour
+        })
     def add_colorCodes(self,job_data):
         for k, v in job_data.items():
             if not v is None:
@@ -748,8 +763,8 @@ class Job:
                 self.estimate_labourHours += v.get('manHoursNeeded', 0)
                 self.estimate_rig_days += v.get('rigDays', 0)
                 self.estimate_piles += v.get('contract', 0)
-                self.estimate_piles_per_day += v.get('pilesPerDay',0)
-                self.estimate_manhours_per_day += v.get('manHoursPerPile',0)*v.get('pilesPerDay',0)
+                self.estimate_piles_per_day += v.get('pilesPerDay',0)*v.get('contract', 0)
+                self.estimate_manhours_per_day += v.get('manHoursPerPile',0)*v.get('pilesPerDay',0)*v.get('contract', 0)
                 self.estimate_piles_per_piletype[k] = v.get('contract', 0)
                 diameter = v.get('diameter', 0)
                 length = v.get('averageLength', 0)
@@ -759,10 +774,14 @@ class Job:
                 if estimate_concrete is None:
                     estimate_concrete = v.get('contract', 0)*volume*(1+pile_waste)
                 self.estimate_concrete += estimate_concrete
-                self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)
+                self.estimate_concrete_per_day += v.get('pilesPerDay',0)*volume*(1+pile_waste)*v.get('contract', 0)
 
-    # def _calculate_estimates_lines(self):
-    #     calculate_expected_progress_with_holidays()
+        if self.estimate_piles>0:
+
+            self.estimate_piles_per_day = self.estimate_piles_per_day/self.estimate_piles
+            self.estimate_concrete_per_day = self.estimate_concrete_per_day/self.estimate_piles
+            self.estimate_manhours_per_day = self.estimate_manhours_per_day//self.estimate_piles
+
     def add_pile(self, pileid:str, basedata, pile_time_data):
         # if pileid not in self.piles:
         self.piles[pileid] = Pile(basedata, pile_time_data)
