@@ -69,10 +69,18 @@ layout = html.Div([
         dbc.Button("Show Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
         dbc.Collapse(
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
+                # dl.TileLayer(
+                #     # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
+                #     # maxZoom=19,  # Higher max zoom (OSM supports up to 19)
+                #     # minZoom=2,  # Lower min zoom (adjust as needed)
+                # ),
+                # dl.TileLayer(
+                #     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                #     attribution="© OpenStreetMap & CARTO"
+                # ),
                 dl.TileLayer(
-                    # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
-                    # maxZoom=19,  # Higher max zoom (OSM supports up to 19)
-                    # minZoom=2,  # Lower min zoom (adjust as needed)
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    attribution="Tiles © Esri — Source: Esri, Earthstar Geographics, Maxar"
                 ),
                 dl.LayerGroup(markers, id="map-markers"),
 
@@ -492,10 +500,10 @@ def update_filter_options(selected_jobid, selected_date, selected_rigid, selecte
         productcode_options = [{"label": p, "value": p} for p in filtered_df["ProductCode"].unique() if p == p]
 
     if not df_design.empty:
-        if selected_pilestatus is None or selected_pilestatus=='Scheduled':
+        if selected_pilestatus is None or selected_pilestatus=='IFC':
             if not selected_rigid and not selected_date:
-                pilestatus_options.append({"label": 'Scheduled', "value": 'Scheduled'})
-        if selected_pilestatus=='Scheduled':
+                pilestatus_options.append({"label": 'IFC', "value": 'IFC'})
+        if selected_pilestatus=='IFC':
                 if len(pilecode_options)==0:
                     pilecode_options.append({"label": 'Production Pile', "value": 'Production Pile'})
                 if len(productcode_options)==0:
@@ -705,7 +713,7 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
     # ==============================================
     if not selected_jobid is None:
         if selected_date is None and selected_productcode is None and selected_rigid is None and  selected_pilecode is None and selected_pileid is None:
-            if selected_pilestatus == 'Scheduled':
+            if selected_pilestatus == 'IFC':
                 filtered_df = my_jobs.jobs[selected_jobid].pile_schedule
                 filtered_df = filtered_df[~filtered_df['latitude'].isna()]
                 if len(filtered_df) > 0:

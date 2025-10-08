@@ -41,7 +41,7 @@ class DataManager:
                 # for 1640
                 result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=False)
                 # Call your data loading function
-                # result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=reload)
+                # result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False)
                 my_jobs = JobManager()
                 for jobID, v in results_pileMetrics.items():
                     print(jobID)
@@ -568,9 +568,9 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #     drilling_data = None
 #     if reload:
 #         pkl_path = 'assets//dropbox_pkl'
-#         fname_drilling = os.path.join(pkl_path, 'drilling_data.pkl')
+#         fname_drilling = os.path.join(pkl_path, 'drilling_data_recent.pkl')
 #         drilling_data = read_data(fname_drilling)
-#         fname_stats = os.path.join(pkl_path, 'stats_data.pkl')
+#         fname_stats = os.path.join(pkl_path, 'stats_data_recent.pkl')
 #         stats_data = read_data(fname_stats)
 #         if drilling_data is None:
 #             drilling_data,stats_data = read_json_files(base_folder='',jobs=jobs)
@@ -578,7 +578,7 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #         jobs = drilling_data.keys()
 #
 #     for jobID in jobs:
-#       if True:
+#       if jobID!='1640':
 #         try:
 #             print(jobID)
 #             get_data = True
@@ -672,7 +672,7 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                         geometry = feature.get("geometry", {})
 #                         coords = geometry.get("coordinates", [])
 #                         pile_id = properties['PileID']
-#                         print(pile_id)
+#                         # print(pile_id)
 #                         lon = None
 #                         lat = None
 #                         if coords and len(coords) >= 2:
@@ -711,10 +711,13 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                         properties['PileLength'] = round(float(properties.get('PileLength',0)), 1)
 #                         # properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
 #                         overbreak = properties['OverBreak'] if not properties['OverBreak'] is None else 1
-#                         overbreak = (float(overbreak)-1)*100
-#                         if overbreak<=0:
-#                             overbreak = 0
-#                         properties['OverBreak'] = f"{overbreak :.0f}%"
+#                         try:
+#                             overbreak = (float(overbreak)-1)*100
+#                             if overbreak<=0:
+#                                 overbreak = 0
+#                             properties['OverBreak'] = f"{overbreak :.0f}%"
+#                         except:
+#                             pass
 #                         # ================================================
 #                         # ================================================
 #                         #  do not include incomplete piles
@@ -752,8 +755,13 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                         calibration = properties["PumpCalibration"]
 #                         strokes = properties["Data"].get("Strokes", [])
 #                         depths = properties["Data"].get("Depth", [])
+#                         strokes = pd.Series(strokes, dtype=object).ffill().tolist()
+#                         depths = pd.Series(depths, dtype=object).ffill().tolist()
 #                         time_start = properties["Data"].get("Time", [])
-#                         time_start = pd.to_datetime(time_start[0],format='%d.%m.%Y %H:%M:%S')
+#                         try:
+#                             time_start = pd.to_datetime(time_start[0],format='%d.%m.%Y %H:%M:%S')
+#                         except:
+#                             time_start = pd.to_datetime(time_start[0], format='%Y-%m-%d %H:%M:%S')
 #
 #                         date = time_start.date().strftime(format='%Y-%m-%d')
 #
@@ -810,6 +818,10 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                     properties_df['color'] = properties_df['colorCode'].map(color_map).fillna('blue')
 #                     properties_df['shape'] = properties_df.apply(lambda row: get_shape_marker(row['PileCode'], row['PileStatus']),
 #                                                            axis=1)
+#                     properties_df['has_lon_lat'] = properties_df['latitude'].notna()
+#
+#                     properties_df['latitude'] = properties_df['latitude'].fillna(location['latitude'])
+#                     properties_df['longitude'] = properties_df['longitude'].fillna(location['longitude'])
 #                     markers = {}
 #                     for _, row in properties_df.iterrows():
 #                         markers[row['PileID']] = dl.Marker(
@@ -834,14 +846,17 @@ def get_user_specific_jobs(user_permissions, all_available_jobs):
 #                 # data2send = prepare_dataframe_for_db(properties_df,nc.type_conversions_DrillingRecords)
 #                 # data_storage.write_to_storage(data2send)
 #                 # ========================================================
+#
+#                 df_design['latitude'] = df_design['latitude'].fillna(location['latitude'])
+#                 df_design['longitude'] = df_design['longitude'].fillna(location['longitude'])
 #                 result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df,markers)
 #                 results_CPT[jobID] = (cpt_header,jobid_cpt_data)
 #                 results_pileMetrics[jobID] = (estimates,location,df_design,markers_design,stats_file)
 #                 result = (properties_df, jobid_pile_data,merged_df,markers,cpt_header,jobid_cpt_data,estimates,location,df_design,markers_design,stats_file)
 #
 #                 save_pickle(jobID,result)
-#         except:
-#             print('Error for job:'+str(jobID))
+#         except Exception as e:
+#             print('Error for job:'+str(jobID) + str(e))
 #             continue
 #
 #     return result_MWD,results_CPT,results_pileMetrics
@@ -860,8 +875,10 @@ if __name__ == "__main__":
     # '1655',
     # '1657']
     # jobs = ['1639']
-    # jobs = ['1657']'1633', '1640',
-    jobs = ['1640', '1632', '1639', '1641', '1642', '1643', '1648','1650', '1652', '1653','1655', '1660']  # '1657','1633','1640''1648'
+    # jobs = ['1657']'1633', '1640','1640','1640',
+
+    jobs = [ '1640','1639', '1632','1641', '1642', '1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
+    # jobs = ['1650']
     data_manager.load_data(jobs=jobs,reload=True)
 
 
