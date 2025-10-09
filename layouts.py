@@ -345,6 +345,113 @@ def add_charts():
                 is_open=False
             )
     return charts
+# ======================================================================================
+# =============JOB METRICS==============================================================
+# JobNo	Time	RigID	Production Piles	Pile Count	ConcreteDelivered	LaborHours	RigDays	DaysRigDrilled	AveragePileLength	AveragePileWaste	AverageRigWaste
+def add_drilling_summary():
+    #  {"headerName": "Field", "field": "Field",
+    columnDefs = [
+        {"headerName": "JobNo","field": "JobNo", "filter": True, "enableRowGroup": True},
+        {"field": "JobName", "filter": True, "enableRowGroup": True},
+        {"field": "Time", "filter": True, "enableRowGroup": True},
+        {"field": "RigID", "filter": True, "enableRowGroup": True},
+        {"field": "Piles", "filter": "agNumberColumnFilter"},
+        {"field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
+        {"field": "LaborHours", "filter": "agNumberColumnFilter"},
+        # {"field": "RigDays", "filter": "agNumberColumnFilter"},
+        {"field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
+        {"field": "AveragePileLength", "filter": "agNumberColumnFilter"},
+        {"field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
+        {"field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
+    ]
+    return html.Div([
+        html.H4("Drilling Summary", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
+
+        # Controls Row
+        html.Div([
+            # Grouping Controls
+            html.Div([
+                html.Label("Select Grouping Level:", style={'color':'white','fontWeight': 'bold'}),
+                dcc.Dropdown(
+                    id='grouping-level',
+                    options=[
+                        {'label': 'Overall (Daily Across All Jobs/Rigs)', 'value': 'overall'},
+                        {'label': 'Daily Level', 'value': 'daily'},
+                        {'label': 'JobNo Level', 'value': 'jobno'},
+                        {'label': 'RigID Level', 'value': 'rigid'},
+                        {'label': 'No Grouping (Raw Data)', 'value': 'none'}
+                    ],
+                    value='jobno',
+                    style={'width': '100%'},
+                    className="dark-dropdown"
+                )
+            ], style={'width': '23%', 'display': 'inline-block', 'padding': '10px'}),
+
+            # # Date Range Controls
+            # html.Div([
+            #     html.Label("Date Range Filter:", style={'fontWeight': 'bold'}),
+            #     dcc.DatePickerRange(
+            #         id='date-range',
+            #         start_date=min_date,
+            #         end_date=max_date,
+            #         min_date_allowed=min_date,
+            #         max_date_allowed=max_date,
+            #         display_format='YYYY-MM-DD',
+            #         style={'width': '100%'}
+            #     )
+            # ], style={'width': '30%', 'display': 'inline-block', 'padding': '10px'}),
+
+            # Export Controls
+            # html.Div([
+            #     # html.Label("Export Rig Summary Data:", style={'fontWeight': 'bold'}),
+            #     # html.Br(),
+            #     html.Button("Export Summary to CSV", id="btn-rigsummary-export-csv", n_clicks=0,
+            #                 style={'backgroundColor': '#0074D9', 'color': 'white',
+            #                        'border': 'none', 'padding': '8px 16px',
+            #                        'borderRadius': '4px', 'cursor': 'pointer',"align":'left'}),
+            #     dcc.Download(id="download-dataframe-csv")
+            # ], style={'width': '23%', 'display': 'inline-block', 'padding': '10px', 'verticalAlign': 'top'}),
+
+            # Info Display
+            # html.Div([
+            #     html.Label("Current View:", style={'fontWeight': 'bold'}),
+            #     html.Div(id='grid-info', style={'marginTop': '5px', 'fontSize': '14px'})
+            # ], style={'width': '20%', 'display': 'inline-block', 'padding': '10px', 'verticalAlign': 'top'})
+        ], style={ 'marginBottom': '20px', 'padding': '10px'}),#'border': '1px solid #ddd', 'borderRadius': '5px',
+
+        # AG Grid
+        dag.AgGrid(
+            id="rig-summary-data-grid",
+            columnDefs=columnDefs,
+            rowData=[],
+            className="ag-theme-alpine-dark",
+            columnSize="sizeToFit",
+            defaultColDef={
+                "resizable": True,
+                "sortable": True,
+                "filter": True,
+                "minWidth": 100
+            },
+
+            dashGridOptions={
+                "rowSelection": "single",
+                "pagination": True,
+                "paginationPageSize": 20,
+                "enableRangeSelection": True,
+                "enableCharts": True,
+                "animateRows": False,
+                "enableSorting": True,
+                "enableFilter": True,
+                "enableRangeHandle": True,
+
+            },
+
+            style={"height": "600px", "width": "100%","marginTop":'5px'}
+        ),
+
+    ])
+
+
 
 # charts_details = {'cone':['Cone Resistence (tsf) ',['q_c (tsf)','q_t (tsf)']],
 #                   'friction':['Friction Ratio %',['R_f (%)']],

@@ -15,6 +15,8 @@ from data_loader import ensure_data_loaded
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from layouts import add_drilling_summary
+
 
 dash.register_page(
     __name__,
@@ -95,11 +97,16 @@ def load_data_metrics():
     summary_metrics ={}
 
     my_jobs = get_data_summary('my_jobs')
+    df_stats = pd.DataFrame()
     for jb,job in my_jobs.jobs.items():
          summary_metrics[jb] = job.job2data_stats
          summary_dict_daily[jb] = job.daily_stats
+         tmp = job.job2data_stats_complete
+         tmp['JobNo'] = job.job_id
+         tmp['JobName'] = job.job_name
+         df_stats = pd.concat([df_stats,tmp],ignore_index=True)
 
-    return summary_metrics,summary_dict_daily
+    return summary_metrics,summary_dict_daily,df_stats
 
 
 # ======================
@@ -226,7 +233,7 @@ def prepare_time_spent_stats(summary_dict_daily,jobID):
     return out_df
 
 
-summary_metrics,summary_dic_daily = load_data_metrics()
+summary_metrics,summary_dic_daily,df_stats = load_data_metrics()
 
 # ======================
 # Dash AG Grid
@@ -364,6 +371,8 @@ layout = html.Div([
             width=12
         )
     ], style={"marginTop": "20px"}),
+    html.Br(),
+    add_drilling_summary(),
 
     dbc.Button("Show Job Metrics Bar Charts", id="toggle-bar-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
 
@@ -1455,6 +1464,179 @@ def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, s
     )
 
     return fig
+
+
+def apply_custom_aggregation(df,aggregation_type):
+    """
+    Apply custom aggregation based on grouping type
+    """
+
+    if aggregation_type == 'jobno':
+        # Find the latest date for each JobNo
+        latest_dates = df.groupby('JobNo')['Time'].max().reset_index()
+
+        # Merge to get only the latest entries for each JobNo
+        latest_data = pd.merge(df, latest_dates, on=['JobNo', 'Time'], how='inner')
+
+        # Now aggregate by JobNo (summing numeric columns, taking first for others)
+        aggregation_rules = {
+            'JobName': 'first',
+            'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
+            'Time': 'last',
+            'Piles': 'sum',
+            'ConcreteDelivered': 'sum',
+            'LaborHours': 'sum',
+            'DaysRigDrilled': 'sum',
+            'AveragePileLength': 'mean',
+            'AveragePileWaste': 'mean',
+            'AverageRigWaste': 'mean'
+        }
+
+        available_columns = [col for col in aggregation_rules.keys() if col in latest_data.columns]
+        aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+
+        grouped_df = latest_data.groupby('JobNo').agg(aggregation_rules).reset_index()
+
+    elif aggregation_type == 'daily':
+        # Daily aggregation by JobNo + Date + RigID
+        aggregation_rules = {
+            'JobName': 'first',
+            'Piles': 'sum',
+            'ConcreteDelivered': 'sum',
+            'LaborHours': 'sum',
+            'DaysRigDrilled': 'sum',
+            'AveragePileLength': 'mean',
+            'AveragePileWaste': 'mean',
+            'AverageRigWaste': 'mean',
+        }
+
+        available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
+        aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+
+        grouped_df = df.groupby(['JobNo', 'Time']).agg(aggregation_rules).reset_index()
+
+    elif aggregation_type == 'rigid':
+        # For RigID: get latest entry for each RigID
+        latest_rig_entries = df.sort_values(['RigID', 'Time']).groupby('RigID').tail(1)
+
+        aggregation_rules = {
+            'JobNo': 'first',
+            'JobName': 'first',
+            'Time': 'max',
+            'Piles': 'sum',
+            'ConcreteDelivered': 'sum',
+            'LaborHours': 'sum',
+            'DaysRigDrilled': 'sum',
+            'AveragePileLength': 'mean',
+            'AveragePileWaste': 'mean',
+            'AverageRigWaste': 'mean'
+        }
+
+        available_columns = [col for col in aggregation_rules.keys() if col in latest_rig_entries.columns]
+        aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+
+        grouped_df = latest_rig_entries.groupby('RigID').agg(aggregation_rules).reset_index()
+    elif aggregation_type == 'overall':
+
+        # Overall: Aggregate by Date only (across all jobs and rigs)
+        aggregation_rules = {
+            'Piles': 'sum',
+            'ConcreteDelivered': 'sum',
+            'LaborHours': 'sum',
+            'DaysRigDrilled': 'sum',
+            'AveragePileLength': 'mean',
+            'AveragePileWaste': 'mean',
+            'AverageRigWaste': 'mean',
+            'JobCount': 'nunique',  # Count of unique jobs per day
+            'RigCount': 'nunique',  # Count of unique rigs per day
+        }
+
+        # Only use columns that exist in the dataframe
+        available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
+        aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+
+        # Add count columns if they don't exist
+        if 'JobCount' not in df.columns:
+            df['JobCount'] = df['JobNo']
+        if 'RigCount' not in df.columns:
+            df['RigCount'] = df['RigID']
+
+        grouped_df = df.groupby('Time').agg(aggregation_rules).reset_index()
+
+        # Add summary information
+        grouped_df['Summary'] = f"Daily Total"
+        grouped_df['JobNo'] = "All Jobs"
+        grouped_df['RigID'] = "All Rigs"
+        grouped_df['JobName'] = "Daily Summary"
+
+
+    else:
+        grouped_df = df.copy()
+
+    return grouped_df
+
+
+
+@callback(
+    Output("rig-summary-data-grid", "rowData"),
+    [Input("grouping-level", "value")]
+)
+def update_grid(grouping_level):
+    # Apply date range filtering
+    filtered_df = df_stats.copy()
+
+    if grouping_level == 'none':
+        # Show raw data without grouping
+        display_df = filtered_df
+    else:
+        # Determine grouping columns
+        if grouping_level == 'daily':
+            group_columns = ['Date', 'JobNo', 'RigID']
+        elif grouping_level == 'jobno':
+            group_columns = ['JobNo']
+        elif grouping_level == 'rigid':
+            group_columns = ['RigID']
+
+        # Apply custom aggregation
+        display_df = apply_custom_aggregation(filtered_df,grouping_level)
+
+    # Select and format columns properly
+    col_def = ['JobNo', 'JobName', 'Time', 'RigID', 'Piles', 'ConcreteDelivered',
+               'LaborHours', 'DaysRigDrilled',
+               'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+
+    display_df = display_df[col_def]
+
+    # Convert to records - keep numeric values as numbers, not strings
+    rows = display_df.to_dict("records")
+
+    return rows
+
+
+@callback(
+    Output("download-dataframe-csv", "data"),
+    Input("btn-rigsummary-export-csv", "n_clicks"),
+    [State("rig-summary-data-grid", "rowData"),
+     State("grouping-level", "value"),
+     # State("date-range", "start_date"),
+     # State("date-range", "end_date")
+     ],
+    prevent_initial_call=True
+)
+def export_to_csv(n_clicks, row_data, grouping_level): #, start_date, end_date
+    if n_clicks > 0 and row_data:
+        # Convert row data back to DataFrame
+        export_df = pd.DataFrame(row_data)
+
+        # Create filename with context
+        filename = f"drilling_data"
+        if grouping_level != 'none':
+            filename += f"_{grouping_level}_grouped"
+        # if start_date and end_date:
+        #     filename += f"_{start_date}_to_{end_date}"
+        filename += ".csv"
+
+        return dcc.send_data_frame(export_df.to_csv, filename, index=False)
 
 
 # Add this callback to handle clicks on individual location charts
