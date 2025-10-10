@@ -1604,7 +1604,7 @@ def update_grid(grouping_level):
     col_def = ['JobNo', 'JobName', 'Time', 'RigID', 'Piles', 'ConcreteDelivered',
                'LaborHours', 'DaysRigDrilled',
                'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
-
+    display_df[['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']] = display_df[['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']].round(1)
     display_df = display_df[col_def]
 
     # Convert to records - keep numeric values as numbers, not strings
