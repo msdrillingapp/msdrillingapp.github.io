@@ -696,6 +696,11 @@ class Job:
             self.job2data_stats_complete['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
 
             df_todate = self.job2data_stats_complete.copy()
+
+            df_todate['ConcreteDelivered'] = pd.to_numeric(df_todate['ConcreteDelivered'])
+            df_todate['LaborHours'] = pd.to_numeric(df_todate['LaborHours'])
+            df_todate['DaysRigDrilled'] = pd.to_numeric(df_todate['DaysRigDrilled'])
+
             df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
             df_todate_tot['Piles%'] = df_todate_tot['Piles'] / self.estimate_piles
             df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered'] / self.estimate_concrete

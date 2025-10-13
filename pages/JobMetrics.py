@@ -1501,6 +1501,7 @@ def apply_custom_aggregation(df,aggregation_type):
         # Daily aggregation by JobNo + Date + RigID
         aggregation_rules = {
             'JobName': 'first',
+            'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
             'Piles': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
@@ -1584,7 +1585,6 @@ def apply_custom_aggregation(df,aggregation_type):
 def update_grid(grouping_level):
     # Apply date range filtering
     filtered_df = df_stats.copy()
-
     if grouping_level == 'none':
         # Show raw data without grouping
         display_df = filtered_df

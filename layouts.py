@@ -351,21 +351,20 @@ def add_charts():
 def add_drilling_summary():
     #  {"headerName": "Field", "field": "Field",
     columnDefs = [
-        {"headerName": "JobNo","field": "JobNo", "filter": True, "enableRowGroup": True},
-        {"field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True},
+        {"field": "Job Name", "filter": True, "enableRowGroup": True},
         {"field": "Time", "filter": True, "enableRowGroup": True},
         {"field": "RigID", "filter": True, "enableRowGroup": True},
-        {"field": "Piles", "filter": "agNumberColumnFilter"},
-        {"field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
-        {"field": "LaborHours", "filter": "agNumberColumnFilter"},
-        # {"field": "RigDays", "filter": "agNumberColumnFilter"},
-        {"field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
-        {"field": "AveragePileLength", "filter": "agNumberColumnFilter"},
-        {"field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
-        {"field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
+        {"headerName": "Piles\nToDate", "field": "Piles", "filter": "agNumberColumnFilter"},
+        {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
+        {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
+        {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
+        {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
+        {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
+        {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
     ]
     return html.Div([
-        html.H4("Drilling Summary", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
+        html.H4("Drilling Summary (!Work in Progress!)", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
 
         # Controls Row
         html.Div([
@@ -375,7 +374,7 @@ def add_drilling_summary():
                 dcc.Dropdown(
                     id='grouping-level',
                     options=[
-                        {'label': 'Overall (Daily Across All Jobs/Rigs)', 'value': 'overall'},
+                        {'label': 'Overall', 'value': 'overall'},
                         {'label': 'Daily Level', 'value': 'daily'},
                         {'label': 'JobNo Level', 'value': 'jobno'},
                         {'label': 'RigID Level', 'value': 'rigid'},

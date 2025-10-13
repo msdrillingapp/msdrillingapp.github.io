@@ -39,7 +39,7 @@ class DataManager:
             print("Loading data for the first time...")
             try:
                 # for 1640
-                result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=False)
+                result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=reload)
                 # Call your data loading function
                 # result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False)
                 my_jobs = JobManager()
@@ -183,6 +183,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
         mdates = None
         get_data = True
         if not reload:
+            # cache_file = _get_filepath(jobID+'_db')
             cache_file = _get_filepath(jobID)
             if os.path.exists(cache_file):
                 (properties_df, jobid_pile_data,merged_df,markers,cpt_header, jobid_cpt_data,estimates,location,df_design,markers_design,stats_file) = pd.read_pickle(cache_file)
@@ -876,8 +877,8 @@ if __name__ == "__main__":
     # '1657']
     # jobs = ['1639']
     # jobs = ['1657']'1633', '1640','1640','1640',
-
-    jobs = [ '1640','1639', '1632','1641', '1642', '1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
+    # '1640',
+    jobs = [ '1639', '1632','1641', '1642', '1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
     # jobs = ['1650']
     data_manager.load_data(jobs=jobs,reload=True)
 
