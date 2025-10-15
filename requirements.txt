@@ -21,3 +21,5 @@ plotly>=5.0.0
 flask_login
 holidays
 dropbox
+python-dotenv
+psycopg2

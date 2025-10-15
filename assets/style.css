@@ -210,3 +210,17 @@ body, html, #app {
 
 .dash-datepicker{ background-color: #193153!important;
     color: white;}
+
+.multi-line-header .ag-header-cell-label {
+    white-space: normal !important;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.ag-theme-alpine-dark .ag-header-cell-label {
+    white-space: normal !important;  /* allow wrapping */
+    justify-content: center;         /* horizontal centering */
+    align-items: center;             /* vertical centering */
+    text-align: center;              /* align text within label */
+    line-height: 1.2;
+}

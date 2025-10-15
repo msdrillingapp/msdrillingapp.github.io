@@ -1,7 +1,8 @@
 from celery import Celery
 import os
 import logging
-
+from dotenv import load_dotenv
+load_dotenv()
 
 # Set up basic logging first
 logging.basicConfig(
@@ -10,7 +11,6 @@ logging.basicConfig(
 )
 
 redis_url = os.getenv("REDIS_URL")
-redis_url = 'redis://default:0ZA4d6uHoRJTPXeXFpgrrn9jcaF9QWnt@redis-10787.c328.europe-west3-1.gce.redns.redis-cloud.com:10787'
 # redis_url = 'redis://localhost:6379/1'
 # celery_app = Celery(
 #     'tasks',
@@ -30,8 +30,6 @@ celery_app.conf.worker_max_tasks_per_child = 1
 celery_app.conf.task_protocol = 1
 celery_app.conf.worker_send_task_events = True
 celery_app.conf.task_send_sent_event = True
-
-
 
 celery_app.conf.broker_pool_limit = 10  # Reduce connection pool size
 celery_app.conf.broker_transport_options = {

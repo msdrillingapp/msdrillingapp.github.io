@@ -97,15 +97,15 @@ def load_data_metrics():
     summary_metrics ={}
 
     my_jobs = get_data_summary('my_jobs')
-    df_stats = pd.DataFrame()
+    # df_stats = pd.DataFrame()
     for jb,job in my_jobs.jobs.items():
          summary_metrics[jb] = job.job2data_stats
          summary_dict_daily[jb] = job.daily_stats
-         tmp = job.job2data_stats_complete
-         tmp['JobNo'] = job.job_id
-         tmp['JobName'] = job.job_name
-         df_stats = pd.concat([df_stats,tmp],ignore_index=True)
-
+         # tmp = job.job2data_stats_complete
+         # tmp['JobNo'] = job.job_id
+         # tmp['JobName'] = job.job_name
+         # df_stats = pd.concat([df_stats,tmp],ignore_index=True)
+    df_stats = my_jobs.job2data_stats_all_dates
     return summary_metrics,summary_dict_daily,df_stats
 
 
@@ -157,13 +157,13 @@ def prepare_table_data(summary_metrics, selected_date):
         # else:
         #     status = "red"
         #     status_symbol = "❌"
-        piles_per_day = round(current['Piles']/current['DaysRigDrilled'],0)
+        piles_per_day = round(current['PileCount']/current['DaysRigDrilled'],0)
         rows.append({
             "JobID": str(job) +'-'+ str(my_jobs.jobs[job].job_name),
             "JobNumber": str(job),
             # "StatusSymbol": status_symbol,
             # "StatusColor": status,
-            "Piles Drilled":f"{current['Piles']}",
+            "Piles Drilled":f"{current['PileCount']}",
             "Piles %": f"{current['Piles%']*100:.1f}%",
             "Concrete Delivered": f"{current['ConcreteDelivered']}",
             "Concrete %": f"{current['Concrete%']*100:.1f}%",
@@ -194,7 +194,7 @@ def prepare_table_data_daily(summary_metrics, selected_date):
     for job, df in summary_metrics.items():
         if len(df)==0:
             continue
-        df['Piles_delta'] = df['Piles'].diff()
+        df['Piles_delta'] = df['PileCount'].diff()
         df['Concrete_delta'] = df['ConcreteDelivered'].diff()
         df['DaysRig_delta'] = df['DaysRigDrilled'].diff()
         df['ManHours_delta'] = df['LaborHours'].diff()
@@ -775,7 +775,7 @@ def update_time_chart(selected_rows, selected_date,metric_unit):
         fig.add_trace(
             go.Bar(
                 x=data['Time'],
-                y=data['Piles'].diff(),
+                y=data['PileCount'].diff(),
                 name='Piles',
                 marker_color=BLUE_COLOR,
                 opacity=0.7,
@@ -907,7 +907,7 @@ def update_line_chart(selected_rows, selected_date):
     fig.add_trace(
         go.Scatter(
             x=data['Time'],
-            y=data['Piles'],
+            y=data['PileCount'],
             name='Actual',  # Changed to generic 'Actual'
             mode='lines+markers',
             line=dict(color=BLUE_COLOR, width=2),
@@ -1473,17 +1473,17 @@ def apply_custom_aggregation(df,aggregation_type):
 
     if aggregation_type == 'jobno':
         # Find the latest date for each JobNo
-        latest_dates = df.groupby('JobNo')['Time'].max().reset_index()
+        latest_dates = df.groupby('JobNo')['Date'].max().reset_index()
 
         # Merge to get only the latest entries for each JobNo
-        latest_data = pd.merge(df, latest_dates, on=['JobNo', 'Time'], how='inner')
+        latest_data = pd.merge(df, latest_dates, on=['JobNo', 'Date'], how='inner')
 
         # Now aggregate by JobNo (summing numeric columns, taking first for others)
         aggregation_rules = {
             'JobName': 'first',
             'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
-            'Time': 'last',
-            'Piles': 'sum',
+            'Date': 'last',
+            'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
@@ -1502,7 +1502,7 @@ def apply_custom_aggregation(df,aggregation_type):
         aggregation_rules = {
             'JobName': 'first',
             'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
-            'Piles': 'sum',
+            'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
@@ -1514,17 +1514,17 @@ def apply_custom_aggregation(df,aggregation_type):
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
-        grouped_df = df.groupby(['JobNo', 'Time']).agg(aggregation_rules).reset_index()
+        grouped_df = df.groupby(['JobNo', 'Date']).agg(aggregation_rules).reset_index()
 
     elif aggregation_type == 'rigid':
         # For RigID: get latest entry for each RigID
-        latest_rig_entries = df.sort_values(['RigID', 'Time']).groupby('RigID').tail(1)
+        latest_rig_entries = df.sort_values(['RigID', 'Date']).groupby('RigID').tail(1)
 
         aggregation_rules = {
             'JobNo': 'first',
             'JobName': 'first',
-            'Time': 'max',
-            'Piles': 'sum',
+            'Date': 'max',
+            'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
@@ -1541,7 +1541,7 @@ def apply_custom_aggregation(df,aggregation_type):
 
         # Overall: Aggregate by Date only (across all jobs and rigs)
         aggregation_rules = {
-            'Piles': 'sum',
+            'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
@@ -1562,7 +1562,7 @@ def apply_custom_aggregation(df,aggregation_type):
         if 'RigCount' not in df.columns:
             df['RigCount'] = df['RigID']
 
-        grouped_df = df.groupby('Time').agg(aggregation_rules).reset_index()
+        grouped_df = df.groupby('Date').agg(aggregation_rules).reset_index()
 
         # Add summary information
         grouped_df['Summary'] = f"Daily Total"
@@ -1589,23 +1589,20 @@ def update_grid(grouping_level):
         # Show raw data without grouping
         display_df = filtered_df
     else:
-        # Determine grouping columns
-        if grouping_level == 'daily':
-            group_columns = ['Date', 'JobNo', 'RigID']
-        elif grouping_level == 'jobno':
-            group_columns = ['JobNo']
-        elif grouping_level == 'rigid':
-            group_columns = ['RigID']
-
         # Apply custom aggregation
         display_df = apply_custom_aggregation(filtered_df,grouping_level)
 
     # Select and format columns properly
-    col_def = ['JobNo', 'JobName', 'Time', 'RigID', 'Piles', 'ConcreteDelivered',
+    col_def = ['JobNo', 'JobName', 'Date', 'RigID', 'PileCount', 'ConcreteDelivered',
                'LaborHours', 'DaysRigDrilled',
                'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
-    display_df[['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']] = display_df[['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']].round(1)
+
     display_df = display_df[col_def]
+    columns_to_round = ['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+    display_df[columns_to_round] = display_df[columns_to_round].round(1)
+    columns_to_round = ['PileCount', 'ConcreteDelivered', 'LaborHours', 'DaysRigDrilled']
+    display_df[columns_to_round] = display_df[columns_to_round].round(0)
+    display_df['Date'] = pd.to_datetime(display_df['Date']).dt.date
 
     # Convert to records - keep numeric values as numbers, not strings
     rows = display_df.to_dict("records")

@@ -685,6 +685,8 @@ class Job:
         self.last_date = None
         self.df_expected = pd.DataFrame()
 
+
+
     def add_stats_files(self,stats):
         if isinstance(stats, list):
             stats = stats[0]
@@ -694,7 +696,10 @@ class Job:
         if len(self.job2data_stats_complete)>0 and self.estimate_piles>0:
             self.job2data_stats_complete = pd.DataFrame.from_records(self.job2data_stats_complete)
             self.job2data_stats_complete['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
-
+            if not 'PileCount' in self.job2data_stats_complete.columns:
+                if 'Piles' in self.job2data_stats_complete.columns:
+                    self.job2data_stats_complete.rename(columns={ 'Piles':'PileCount'},inplace=True)
+                    print('PileCount not in columns for job '+ self.job_id)
             df_todate = self.job2data_stats_complete.copy()
 
             df_todate['ConcreteDelivered'] = pd.to_numeric(df_todate['ConcreteDelivered'])
@@ -702,7 +707,7 @@ class Job:
             df_todate['DaysRigDrilled'] = pd.to_numeric(df_todate['DaysRigDrilled'])
 
             df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
-            df_todate_tot['Piles%'] = df_todate_tot['Piles'] / self.estimate_piles
+            df_todate_tot['Piles%'] = df_todate_tot['PileCount'] / self.estimate_piles
             df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered'] / self.estimate_concrete
             df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled'] / self.estimate_rig_days
             df_todate_tot['LaborHours%'] = df_todate_tot['LaborHours'] / self.estimate_labourHours
@@ -714,6 +719,9 @@ class Job:
             # df_todate_tot['Delta_Piles_vs_Labor Hours_prev'] = df_todate_tot['Delta_Piles_vs_Labor Hours'].shift(1)
 
             self.job2data_stats = df_todate_tot.reset_index()
+
+
+
 
     def add_piles_details(self,df:pd.DataFrame,df_ts:pd.DataFrame()):
         self.piles_details = df
@@ -1262,3 +1270,49 @@ class JobManager:
             job = self.add_job(job_data)
             job.add_pile(feature)
 
+    def process_job2date(self):
+        job2date = pd.DataFrame()
+        for job_id in self.jobs:
+            tmp = self.jobs[job_id].job2data_stats_complete
+            tmp['JobNo'] = job_id
+            tmp['JobName'] = self.jobs[job_id].job_name
+            job2date = pd.concat([job2date,tmp],ignore_index=True)
+
+        if len(job2date) > 0:
+            job2date.rename(columns={'Time': 'Date'}, inplace=True)
+            job2date['Date'] = pd.to_datetime(job2date['Date']).dt.date
+
+            df_daily_sum = job2date.groupby(['JobNo', 'Date', 'RigID'])[['PileCount',
+                 'ConcreteDelivered',
+                'LaborHours', 'DaysRigDrilled']].sum().reset_index() #'PilesToday','PilesTotal',
+
+            # this should be weighted average
+            df_daily_avg = job2date.groupby(['JobNo', 'Date', 'RigID'])[[
+                'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']].mean().reset_index()
+            df_daily = df_daily_sum.merge(df_daily_avg, on=['JobNo', 'Date', 'RigID'], how='outer')
+
+            # Now create a complete date range for all jobs
+            all_dates = pd.date_range(df_daily['Date'].min(), df_daily['Date'].max(), freq='D')
+
+            # Pivot the dataframe
+            pivot_df = df_daily.pivot(index='Date', columns=['JobNo', 'RigID'], values=[ 'PileCount','ConcreteDelivered',
+                                                                                        'LaborHours', 'DaysRigDrilled',
+                                                                                        'AveragePileLength',
+                                                                                        'AveragePileWaste',
+                                                                                        'AverageRigWaste']) #'PilesToday','PilesTotal',
+
+            # Reindex to include all dates in the range
+            pivot_full = pivot_df.reindex(all_dates)
+
+            # Forward fill within each job column to carry forward cumulative values
+            self.job2data_stats_pivot = pivot_full.ffill().fillna(0)
+
+            self.job2data_stats_all_dates = self.job2data_stats_pivot.stack(level=[1, 2]).reset_index()
+            self.job2data_stats_all_dates.rename(columns={'level_0':'Date'},inplace=True)
+            self.job2data_stats_all_dates=self.job2data_stats_all_dates[['Date', 'JobNo', 'RigID','PileCount',
+                                                      'ConcreteDelivered', 'LaborHours', 'DaysRigDrilled',
+                                                     'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']]
+
+            tmp = job2date[['JobNo', 'JobName']]
+            tmp.drop_duplicates(inplace=True)
+            self.job2data_stats_all_dates = self.job2data_stats_all_dates.merge(tmp, on='JobNo',how='left')

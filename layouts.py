@@ -345,17 +345,69 @@ def add_charts():
                 is_open=False
             )
     return charts
+
+def add_pile_schedule_table():
+    # DRILLED	NOT DRILLED	HOLD / NOT RELEASED	DELETED	ABANDONED	TOTAL
+    columnDefs = [
+        {"headerName": "Pile Type", "field": "PileType", "filter": True, "enableRowGroup": True},
+        {"headerName": "DRILLED", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "NOT DRILLED", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "HOLD", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "DELETED", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "ABANDONED", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "TOTAL", "field": "JobName", "filter": True, "enableRowGroup": True},
+    ]
+    table = html.Div([
+        html.H4("Pile Schedule", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
+        # AG Grid
+        dag.AgGrid(
+            id="plie_schedule_table",
+            columnDefs=columnDefs,
+            rowData=[],
+            className="ag-theme-alpine-dark",
+            columnSize="sizeToFit",
+            defaultColDef={
+                "resizable": True,
+                "sortable": True,
+                "filter": True,
+                "minWidth": 100,
+                "wrapHeaderText": True,  # ✅ allow text wrapping in header
+                "autoHeaderHeight": True,  # ✅ auto-adjust header height
+            },
+
+            dashGridOptions={
+                "rowSelection": "single",
+                "pagination": True,
+                "paginationPageSize": 20,
+                "enableRangeSelection": True,
+                "enableCharts": True,
+                "animateRows": False,
+                "enableSorting": True,
+                "enableFilter": True,
+                "enableRangeHandle": True,
+
+            },
+
+            style={"height": "600px", "width": "100%", "marginTop": '5px'}
+        ),
+
+    ])
+
+    return table
+
+
 # ======================================================================================
 # =============JOB METRICS==============================================================
+# ======================================================================================
 # JobNo	Time	RigID	Production Piles	Pile Count	ConcreteDelivered	LaborHours	RigDays	DaysRigDrilled	AveragePileLength	AveragePileWaste	AverageRigWaste
 def add_drilling_summary():
     #  {"headerName": "Field", "field": "Field",
     columnDefs = [
         {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True},
-        {"field": "Job Name", "filter": True, "enableRowGroup": True},
-        {"field": "Time", "filter": True, "enableRowGroup": True},
+        {"headerName": "Job\nName","field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "Date","field": "Date", "filter": True, "enableRowGroup": True},
         {"field": "RigID", "filter": True, "enableRowGroup": True},
-        {"headerName": "Piles\nToDate", "field": "Piles", "filter": "agNumberColumnFilter"},
+        {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
         {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
         {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
         {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
@@ -375,9 +427,9 @@ def add_drilling_summary():
                     id='grouping-level',
                     options=[
                         {'label': 'Overall', 'value': 'overall'},
-                        {'label': 'Daily Level', 'value': 'daily'},
-                        {'label': 'JobNo Level', 'value': 'jobno'},
-                        {'label': 'RigID Level', 'value': 'rigid'},
+                        {'label': 'Job Daily Level', 'value': 'daily'},
+                        {'label': 'Job Total Level', 'value': 'jobno'},
+                        {'label': 'RigID Total Level', 'value': 'rigid'},
                         {'label': 'No Grouping (Raw Data)', 'value': 'none'}
                     ],
                     value='jobno',
@@ -425,11 +477,13 @@ def add_drilling_summary():
             rowData=[],
             className="ag-theme-alpine-dark",
             columnSize="sizeToFit",
-            defaultColDef={
-                "resizable": True,
-                "sortable": True,
-                "filter": True,
-                "minWidth": 100
+            defaultColDef= {
+            "resizable": True,
+            "sortable": True,
+            "filter": True,
+            "minWidth": 100,
+            "wrapHeaderText": True,  # ✅ allow text wrapping in header
+            "autoHeaderHeight": True,  # ✅ auto-adjust header height
             },
 
             dashGridOptions={

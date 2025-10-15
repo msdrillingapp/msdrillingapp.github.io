@@ -962,9 +962,9 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
     unique_pile_count = properties_df["PileID"].nunique()
     unique_pile_count_filters = filtered_df['PileID'].nunique()
     if selected_piletype is None:
-        text_schedule = "📅 Schedule:"
+        text_schedule = "📅 IFC:"
     else:
-        text_schedule = "📅 Schedule by PileType:"
+        text_schedule = "📅 IFC by PileType:"
     # Create info cards
     return [
     dbc.Row([
@@ -999,7 +999,7 @@ def update_summary_cards_jobid(selected_jobid,selected_date,selected_rigid,selec
         dbc.Col(
             dbc.Card(
                 dbc.CardBody([
-                    html.Div("# Drilled Piles",
+                    html.Div("# Drilled Records",
                             className="card-title",
                             style={"textAlign": "center", "fontWeight": "bold"}),
                     html.Div(str(unique_pile_count),

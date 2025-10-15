@@ -1,8 +1,10 @@
 import pandas as pd
 import requests
+import os
+from dotenv import load_dotenv
+load_dotenv()
+jwt_token = os.environ.get('JWT_TOKEN')
 # from convert_locala_coordinates_to_global import convert_easting_northing_to_lonlat_unit
-
-jwt_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwiaWF0IjoxNzU1Njc1MTA3LCJleHAiOjE3ODcyMTExMDd9.mPayiVpvTOjkaUwHe04_a6-CrXuTWIg0gchId2iUlHM'
 
 def get_estimate(job:str):
     # project_url =f'https://piletrack-api-production.pilemetrics.com/api/projects?populate=company&populate=location&populate=configuration.areas&populate=configuration.tolerances&populate=pileTypes.estimate&populate=capConfiguration&populate=image&filters%5B%24and%5D%5B0%5D%5BprojectStatus%5D%5B%24eq%5D=scheduled&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B0%5D%5Btitle%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B1%5D%5Bdescription%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B2%5D%5Blocation%5D%5Bname%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B3%5D%5Blocation%5D%5BformattedAddress%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B4%5D%5Blocation%5D%5Blocality%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B5%5D%5BprojectManager%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B6%5D%5BjobId%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B7%5D%5Bclient%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B8%5D%5BprojectOwner%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B9%5D%5BgeneralContractor%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B10%5D%5BindustrySector%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B11%5D%5BstructuralEngineer%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B12%5D%5BgeotechnicalEngineer%5D%5B%24containsi%5D=1642&filters%5B%24and%5D%5B1%5D%5B%24or%5D%5B13%5D%5BthirdPartyTesting%5D%5B%24containsi%5D=1642&pagination%5Bpage%5D=1&pagination%5BpageSize%5D=20&sort=createdAt%3Adesc'
@@ -42,14 +44,6 @@ def get_estimate(job:str):
 
         if len(df_schedule)>0:
             df_schedule = df_schedule.merge(df_pileTypes[['type','productCode','color_rrggbb']], on='type',how='left')
-            # eastings = list(df_schedule['easting'].values)
-            # northings = list(df_schedule['northing'].values)
-            # try:
-            #     lat,lon = convert_easting_northing_to_lonlat_unit(location['longitude'],location['latitude'],eastings, northings)
-            #     df_schedule['latitude_'] = lat
-            #     df_schedule['longitude_'] = lon
-            # except:
-            #     pass
 
         for p in pileTypes:
             piletype = p.get('title','')
