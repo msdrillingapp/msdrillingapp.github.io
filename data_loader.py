@@ -58,7 +58,7 @@ class DataManager:
                 # for 1640
                 # result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=reload)
                 # Call your data loading function
-                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False)
+                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=reload)
                 my_jobs = JobManager()
                 for jobID, v in results_pileMetrics.items():
                     print(jobID)
@@ -208,7 +208,7 @@ def load_geojson_data(jobs=[],reload:bool=False):
             # =========================================================
             # Process Pile Design
             # =========================================================
-            estimates, location, df_design, markers_design = get_design(jobID, reload)
+            df_design, estimates, location, markers_design = get_design(jobID, reload)
             # df_design = pd.DataFrame()
             # try:
             #     estimates, location, df_design = get_estimate(jobID)
@@ -569,9 +569,9 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
     drilling_data = None
     if reload:
         pkl_path = 'assets//dropbox_pkl'
-        fname_drilling = os.path.join(pkl_path, 'drilling_data_recent.pkl')
+        fname_drilling = os.path.join(pkl_path, 'drilling_data.pkl')
         drilling_data = read_data(fname_drilling)
-        fname_stats = os.path.join(pkl_path, 'stats_data_recent.pkl')
+        fname_stats = os.path.join(pkl_path, 'stats_data.pkl')
         stats_data = read_data(fname_stats)
         if drilling_data is None:
             drilling_data,stats_data = read_json_files(base_folder='',jobs=jobs)
@@ -579,12 +579,13 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
         jobs = drilling_data.keys()
 
     for jobID in jobs:
-
         try:
             print(jobID)
             get_data = True
             if not reload:
                 cache_file = _get_filepath(jobID+'_new')
+                if jobID =='1640':
+                    cache_file = _get_filepath(jobID)
                 if os.path.exists(cache_file):
                     (properties_df, jobid_pile_data,merged_df,markers,cpt_header, jobid_cpt_data,estimates,location,df_design,markers_design,stats_file) = pd.read_pickle(cache_file)
                     result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df,markers)
@@ -610,7 +611,7 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
                     # =========================================================
                     # Process Pile Design
                     # =========================================================
-                    estimates, location, df_design, markers_design = get_design(jobID, reload_pilemetrics)
+                    df_design, estimates, location, markers_design = get_design(jobID, reload_pilemetrics)
                     # df_design = None
                     # try:
                     #     estimates, location, df_design = get_estimate(jobID)
@@ -671,136 +672,139 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
                         features = geojson_data.get("features", [])
 
                         for feature in features:
-                            properties = feature.get("properties", {})
-                            geometry = feature.get("geometry", {})
-                            coords = geometry.get("coordinates", [])
-                            pile_id = properties['PileID']
-                            # print(pile_id)
-                            lon = None
-                            lat = None
-                            if coords and len(coords) >= 2:
-                                lon, lat = coords[:2]  # Ensure correct coordinate order
+                            try:
+                                properties = feature.get("properties", {})
+                                geometry = feature.get("geometry", {})
+                                coords = geometry.get("coordinates", [])
+                                pile_id = properties['PileID']
+                                # print(pile_id)
+                                lon = None
+                                lat = None
+                                if coords and len(coords) >= 2:
+                                    lon, lat = coords[:2]  # Ensure correct coordinate order
 
-                            if lon is None:
-                                if pile_id.upper().endswith('RD'):
-                                    pile_id = pile_id.upper().split('RD')[0]
-                                if len(df_design)>0:
-                                    if pile_id in df_design[nc.ds_pileid].values:
-                                        lat = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lat].values[0]
-                                        lon = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lon].values[0]
                                 if lon is None:
-                                    lat = float(location['latitude'])
-                                    lon = float(location['longitude'])
+                                    if pile_id.upper().endswith('RD'):
+                                        pile_id = pile_id.upper().split('RD')[0]
+                                    if len(df_design)>0:
+                                        if pile_id in df_design[nc.ds_pileid].values:
+                                            lat = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lat].values[0]
+                                            lon = df_design[df_design[nc.ds_pileid]==pile_id][nc.ds_lon].values[0]
+                                    if lon is None:
+                                        lat = float(location['latitude'])
+                                        lon = float(location['longitude'])
 
-                            properties["latitude"] = lat
-                            properties["longitude"] = lon
-                            # ================================================
-                            DelayTime = properties["CycleTime"] if not properties["CycleTime"] is None else 0
-                            properties["CycleTime"] = round(float(str(DelayTime).split(' ')[0]), 1)
-                            DelayTime = properties["DelayTime"] if not properties["DelayTime"] is None else 0
-                            properties["DelayTime"] = round(float(str(DelayTime).split(' ')[0]),1)
-                            MoveTime = properties["MoveTime"] if not properties["MoveTime"] is None else 0
-                            properties["MoveTime"] = round(float(str(MoveTime).split(' ')[0]),1)
-                            DrillTime = properties["DrillTime"] if not properties["DrillTime"] is None else 0
-                            properties["DrillTime"] = round(float(str(DrillTime).split(' ')[0]),1)
-                            InstallTime = properties["InstallTime"] if not properties["InstallTime"] is None else 0
-                            properties["InstallTime"] = round(float(str(InstallTime).split(' ')[0]),1)
-                            GroutTime = properties["GroutTime"] if not properties["GroutTime"] is None else 0
-                            properties["GroutTime"] = round(float(str(GroutTime).split(' ')[0]),1)
-                            MoveDistance = properties.get("MoveDistance",0)  if not properties.get("MoveDistance",0)  is None else 0
-                            properties["MoveDistance"] = round(float(MoveDistance),1)
-                            MoveVelocity = properties.get("MoveVelocity", 0) if not properties.get("MoveVelocity",                                                                   0) is None else 0
-                            properties["MoveVelocity"] = round(float(MoveVelocity), 1)
-                            properties['PileLength'] = round(float(properties.get('PileLength',0)), 1)
-                            # properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
-                            overbreak = properties['OverBreak'] if not properties['OverBreak'] is None else 1
-                            try:
-                                overbreak = (float(overbreak)-1)*100
-                                if overbreak<=0:
-                                    overbreak = 0
-                                properties['OverBreak'] = f"{overbreak :.0f}%"
-                            except:
-                                pass
-                            # ================================================
-                            # ================================================
-                            #  do not include incomplete piles
-                            pileStatus = properties.get("PileStatus")
-                            if (pileStatus =='Incomplete') and not (pile_id.upper().startswith('RP') or pile_id.upper().startswith('PB') or pile_id.upper().startswith('TP')):
-                                print('Pile: ' + pile_id +' is incomplete.')
-                                continue
-
-                            properties['PileType'] = str(properties['PileType'])
-                            if (properties['PileType'] is None) or (properties['PileType']=='nan') :
-                                properties['PileType'] = 'None'
-
-                            if (properties['ProductCode'] is None) or (properties['ProductCode']==''):
-                                if jobID=='1650':
-                                    properties['ProductCode'] = 'DeWaal Pile'
-                                else:
-                                    properties['ProductCode'] = 'DWP'
-
-                            pile_id = properties['PileID']
-                            if len(estimates) > 0:
+                                properties["latitude"] = lat
+                                properties["longitude"] = lon
+                                # ================================================
+                                DelayTime = properties["CycleTime"] if not properties["CycleTime"] is None else 0
+                                properties["CycleTime"] = round(float(str(DelayTime).split(' ')[0]), 1)
+                                DelayTime = properties["DelayTime"] if not properties["DelayTime"] is None else 0
+                                properties["DelayTime"] = round(float(str(DelayTime).split(' ')[0]),1)
+                                MoveTime = properties["MoveTime"] if not properties["MoveTime"] is None else 0
+                                properties["MoveTime"] = round(float(str(MoveTime).split(' ')[0]),1)
+                                DrillTime = properties["DrillTime"] if not properties["DrillTime"] is None else 0
+                                properties["DrillTime"] = round(float(str(DrillTime).split(' ')[0]),1)
+                                InstallTime = properties["InstallTime"] if not properties["InstallTime"] is None else 0
+                                properties["InstallTime"] = round(float(str(InstallTime).split(' ')[0]),1)
+                                GroutTime = properties["GroutTime"] if not properties["GroutTime"] is None else 0
+                                properties["GroutTime"] = round(float(str(GroutTime).split(' ')[0]),1)
+                                MoveDistance = properties.get("MoveDistance",0)  if not properties.get("MoveDistance",0)  is None else 0
+                                properties["MoveDistance"] = round(float(MoveDistance),1)
+                                MoveVelocity = properties.get("MoveVelocity", 0) if not properties.get("MoveVelocity",                                                                   0) is None else 0
+                                properties["MoveVelocity"] = round(float(MoveVelocity), 1)
+                                properties['PileLength'] = round(float(properties.get('PileLength',0)), 1)
+                                # properties['PumpCalibration'] = round(float(properties.get('PumpCalibration', 2)), 1)
+                                overbreak = properties['OverBreak'] if not properties['OverBreak'] is None else 1
                                 try:
-                                    colorCode  = estimates[properties['PileType']]['colorCode']
+                                    overbreak = (float(overbreak)-1)*100
+                                    if overbreak<=0:
+                                        overbreak = 0
+                                    properties['OverBreak'] = f"{overbreak :.0f}%"
                                 except:
+                                    pass
+                                # ================================================
+                                # ================================================
+                                #  do not include incomplete piles
+                                pileStatus = properties.get("PileStatus")
+                                if (pileStatus =='Incomplete') and not (pile_id.upper().startswith('RP') or pile_id.upper().startswith('PB') or pile_id.upper().startswith('TP')):
+                                    # print('Pile: ' + pile_id +' is incomplete.')
+                                    continue
+
+                                properties['PileType'] = str(properties['PileType'])
+                                if (properties['PileType'] is None) or (properties['PileType']=='nan') :
+                                    properties['PileType'] = 'None'
+
+                                if (properties['ProductCode'] is None) or (properties['ProductCode']==''):
+                                    if jobID=='1650':
+                                        properties['ProductCode'] = 'DeWaal Pile'
+                                    else:
+                                        properties['ProductCode'] = 'DWP'
+
+                                pile_id = properties['PileID']
+                                if len(estimates) > 0:
+                                    try:
+                                        colorCode  = estimates[properties['PileType']]['colorCode']
+                                    except:
+                                        colorCode = None
+                                else:
                                     colorCode = None
-                            else:
-                                colorCode = None
-                            properties['colorCode'] = colorCode
+                                properties['colorCode'] = colorCode
 
-                            job_id = properties.get("JobNumber")
-                            if str(job_id)!=jobID:
-                                print('Error '+str(job_id))
-                                pileid_list_wrong.append(pile_id)
-                                properties['JobNumber'] = jobID
+                                job_id = properties.get("JobNumber")
+                                if str(job_id)!=jobID:
+                                    print('Error '+str(job_id))
+                                    pileid_list_wrong.append(pile_id)
+                                    properties['JobNumber'] = jobID
 
-                            calibration = properties["PumpCalibration"]
-                            strokes = properties["Data"].get("Strokes", [])
-                            depths = properties["Data"].get("Depth", [])
-                            strokes = pd.Series(strokes, dtype=object).ffill().tolist()
-                            depths = pd.Series(depths, dtype=object).ffill().tolist()
-                            time_start = properties["Data"].get("Time", [])
-                            try:
-                                time_start = pd.to_datetime(time_start[0],format='%d.%m.%Y %H:%M:%S')
-                            except:
-                                time_start = pd.to_datetime(time_start[0], format='%Y-%m-%d %H:%M:%S')
+                                calibration = properties["PumpCalibration"]
+                                strokes = properties["Data"].get("Strokes", [])
+                                depths = properties["Data"].get("Depth", [])
+                                strokes = pd.Series(strokes, dtype=object).ffill().tolist()
+                                depths = pd.Series(depths, dtype=object).ffill().tolist()
+                                time_start = properties["Data"].get("Time", [])
+                                try:
+                                    time_start = pd.to_datetime(time_start[0],format='%d.%m.%Y %H:%M:%S')
+                                except:
+                                    time_start = pd.to_datetime(time_start[0], format='%Y-%m-%d %H:%M:%S')
 
-                            date = time_start.date().strftime(format='%Y-%m-%d')
+                                date = time_start.date().strftime(format='%Y-%m-%d')
 
-                            properties['Time'] = date
-                            properties["date"] = date  # Store the date from the filename
+                                properties['Time'] = date
+                                properties["date"] = date  # Store the date from the filename
 
-                            properties['MaxStroke'] = max(strokes)
-                            properties['MinDepth'] = round(min(depths),1)
-                            properties['Time_Start'] = time_start
+                                properties['MaxStroke'] = max(strokes)
+                                properties['MinDepth'] = round(min(depths),1)
+                                properties['Time_Start'] = time_start
 
-                            if float(properties['PileDiameter']) > 3:
-                                print('For PileID:' + pile_id + ' diameter is  ' + str(properties['PileDiameter']))
+                                if float(properties['PileDiameter']) > 3:
+                                    print('For PileID:' + pile_id + ' diameter is  ' + str(properties['PileDiameter']))
 
-                            volume = [calibration*float(x) for x in strokes]
-                            data_names= list(properties['Data'].keys())
-                            if 'PenetrationRate' not in data_names:
-                                if 'Speed' in data_names:
-                                    properties['Data']['PenetrationRate'] = properties['Data']['Speed']
-                            if 'Pulldown' not in data_names:
-                                if 'WinchLoad' in data_names:
-                                    properties['Data']['Pulldown'] = properties['Data']['WinchLoad']
-                            if pile_id and "Data" in properties:
-                                time = properties["Data"].get("Time", [])
-                                pile_data[pile_id] = {properties['date']: {
-                                    "Time": properties["Data"].get("Time", []),
-                                    "Strokes": properties["Data"].get("Strokes", [0]*len(time)),
-                                    "Depth": properties["Data"].get("Depth", [0]*len(time)),
-                                    'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', [0]*len(time)),
-                                    'Rotation': properties['Data'].get('Rotation', [0]*len(time)),
-                                    'PenetrationRate': properties['Data'].get('PenetrationRate', [0]*len(time)),
-                                    'Pulldown': properties['Data'].get('Pulldown', [0]*len(time)),
-                                    'Torque': properties['Data'].get('Torque', [0]*len(time)),
-                                    'Volume': volume}}
+                                volume = [calibration*float(x) for x in strokes]
+                                data_names= list(properties['Data'].keys())
+                                if 'PenetrationRate' not in data_names:
+                                    if 'Speed' in data_names:
+                                        properties['Data']['PenetrationRate'] = properties['Data']['Speed']
+                                if 'Pulldown' not in data_names:
+                                    if 'WinchLoad' in data_names:
+                                        properties['Data']['Pulldown'] = properties['Data']['WinchLoad']
+                                if pile_id and "Data" in properties:
+                                    time = properties["Data"].get("Time", [])
+                                    pile_data[pile_id] = {properties['date']: {
+                                        "Time": properties["Data"].get("Time", []),
+                                        "Strokes": properties["Data"].get("Strokes", [0]*len(time)),
+                                        "Depth": properties["Data"].get("Depth", [0]*len(time)),
+                                        'RotaryHeadPressure': properties['Data'].get('RotaryHeadPressure', [0]*len(time)),
+                                        'Rotation': properties['Data'].get('Rotation', [0]*len(time)),
+                                        'PenetrationRate': properties['Data'].get('PenetrationRate', [0]*len(time)),
+                                        'Pulldown': properties['Data'].get('Pulldown', [0]*len(time)),
+                                        'Torque': properties['Data'].get('Torque', [0]*len(time)),
+                                        'Volume': volume}}
 
-                            all_data.append(properties)
-
+                                all_data.append(properties)
+                            except Exception as e:
+                                print('Error in Pile '+ pile_id + str(e) )
+                                continue
                     jobid_pile_data[jobID] = pile_data.copy()
                     # data2send = prepare_dataframe_for_db(pile_data,nc.type_conversions_DrillingRecords)
                     # data_storage.write_to_storage(data2send)
@@ -857,7 +861,7 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
                     results_pileMetrics[jobID] = (estimates,location,df_design,markers_design,stats_file)
                     result = (properties_df, jobid_pile_data,merged_df,markers,cpt_header,jobid_cpt_data,estimates,location,df_design,markers_design,stats_file)
 
-                    save_pickle(jobID,result)
+                    save_pickle(jobID+'_new',result)
         except Exception as e:
             print('Error for job:'+str(jobID) + str(e))
             continue
@@ -898,6 +902,7 @@ def get_design(jobID,reload):
     else:
         cache_file = _get_filepath(jobID + '_pilemetrics')
         (df_design, estimates, location, markers_design) = pd.read_pickle(cache_file)
+
 
     return df_design, estimates, location, markers_design
 

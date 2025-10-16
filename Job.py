@@ -1282,20 +1282,21 @@ class JobManager:
             job2date.rename(columns={'Time': 'Date'}, inplace=True)
             job2date['Date'] = pd.to_datetime(job2date['Date']).dt.date
 
-            df_daily_sum = job2date.groupby(['JobNo', 'Date', 'RigID'])[['PileCount',
-                 'ConcreteDelivered',
-                'LaborHours', 'DaysRigDrilled']].sum().reset_index() #'PilesToday','PilesTotal',
+            cols_to_convert = ['PileCount','ConcreteDelivered','LaborHours', 'DaysRigDrilled']
+            job2date[cols_to_convert] = job2date[cols_to_convert].apply(pd.to_numeric, errors='coerce')
+            df_daily_sum = job2date.groupby(['JobNo', 'Date', 'RigID'])[cols_to_convert].sum().reset_index() #'PilesToday','PilesTotal',
 
+            cols_to_convert = ['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+            job2date[cols_to_convert] = job2date[cols_to_convert].apply(pd.to_numeric, errors='coerce')
             # this should be weighted average
-            df_daily_avg = job2date.groupby(['JobNo', 'Date', 'RigID'])[[
-                'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']].mean().reset_index()
+            df_daily_avg = job2date.groupby(['JobNo', 'Date', 'RigID'])[cols_to_convert].mean().reset_index()
             df_daily = df_daily_sum.merge(df_daily_avg, on=['JobNo', 'Date', 'RigID'], how='outer')
 
             # Now create a complete date range for all jobs
             all_dates = pd.date_range(df_daily['Date'].min(), df_daily['Date'].max(), freq='D')
 
             # Pivot the dataframe
-            pivot_df = df_daily.pivot(index='Date', columns=['JobNo', 'RigID'], values=[ 'PileCount','ConcreteDelivered',
+            pivot_df = df_daily.pivot(index='Date', columns=['JobNo', 'RigID'], values=['PileCount','ConcreteDelivered',
                                                                                         'LaborHours', 'DaysRigDrilled',
                                                                                         'AveragePileLength',
                                                                                         'AveragePileWaste',

@@ -23,3 +23,4 @@ holidays
 dropbox
 python-dotenv
 psycopg2
+dash-daq

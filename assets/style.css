@@ -87,6 +87,35 @@ body, html, #app {
     font-weight: bold !important;  /* Make text bold */
 }
 
+.grouping-button {
+    background-color: #000000 !important;  /* Black background */
+    color: white;               /* White text */
+    border: 1px solid #444;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: normal;
+}
+
+.grouping-button:hover {
+    background-color: #333333!important;  /* Dark gray on hover */
+    border-color: #666;
+    color: white;
+}
+
+.grouping-button:active {
+    background-color: #007BFF!important;  /* Dark gray on hover */
+    border-color:  #0056b3;
+    color: white;
+}
+
+.grouping-button.active {
+    background-color: #007BFF !important;  /* Blue for active state */
+    border-color: #0056b3;
+    font-weight: bold;
+    color: white;
+}
 .mb-3 {background-color: #193153  !important;
      color: white !important;
      border: 2px solid #193153 !important;

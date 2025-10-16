@@ -363,7 +363,7 @@ class PostgresDrillingDb():
                         sql = f'''
                         INSERT INTO daily_statistics ({cols_sql}) 
                         VALUES %s 
-                        ON CONFLICT ("JobNumber", "Time") 
+                        ON CONFLICT ("JobNumber", "Time","RigID") 
                         DO UPDATE SET {set_clause};
                         '''
                         execute_values(cursor, sql, unique_values)
@@ -408,7 +408,7 @@ class PostgresDrillingDb():
                                     row.append(None)
                             else:
                                 # Other columns
-                                col_data = daily.get(col, [])
+                                col_data = job_to_date.get(col, [])
                                 row.append(col_data[i] if i < len(col_data) else None)
                         values.append(row)
                     # values = []
@@ -424,7 +424,7 @@ class PostgresDrillingDb():
                     unique_values = []
                     for row in values:
                         if len(row) > 0:  # Ensure row has at least Time column
-                            key = (job_number, row[0])  # (JobNumber, Time)
+                            key = (job_number, row[0],row[1])  # (JobNumber, Time)
                             if key not in seen:
                                 seen.add(key)
                                 unique_values.append([job_number] + row)
@@ -442,7 +442,7 @@ class PostgresDrillingDb():
                         sql = f'''
                         INSERT INTO todate_statistics ({cols_sql}) 
                         VALUES %s 
-                        ON CONFLICT ("JobNumber", "Time") 
+                        ON CONFLICT ("JobNumber", "Time","RigID") 
                         DO UPDATE SET {set_clause};
                         '''
                         execute_values(cursor, sql, unique_values)

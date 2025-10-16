@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import dash
 import dash_ag_grid as dag
-from datetime import date,timedelta
+from datetime import date,timedelta, datetime
 from collections import defaultdict
 import holidays
 import dash_bootstrap_components as dbc
@@ -97,16 +97,17 @@ def load_data_metrics():
     summary_metrics ={}
 
     my_jobs = get_data_summary('my_jobs')
-    # df_stats = pd.DataFrame()
+    df_stats_daily = pd.DataFrame()
     for jb,job in my_jobs.jobs.items():
          summary_metrics[jb] = job.job2data_stats
          summary_dict_daily[jb] = job.daily_stats
-         # tmp = job.job2data_stats_complete
-         # tmp['JobNo'] = job.job_id
-         # tmp['JobName'] = job.job_name
-         # df_stats = pd.concat([df_stats,tmp],ignore_index=True)
+         tmp = job.daily_stats
+         tmp['JobNo'] = job.job_id
+         tmp['JobName'] = job.job_name
+         df_stats_daily = pd.concat([df_stats_daily,tmp],ignore_index=True)
     df_stats = my_jobs.job2data_stats_all_dates
-    return summary_metrics,summary_dict_daily,df_stats
+
+    return summary_metrics,summary_dict_daily,df_stats,df_stats_daily
 
 
 # ======================
@@ -123,40 +124,6 @@ def prepare_table_data(summary_metrics, selected_date):
             continue
 
         current = df_on_date.iloc[-1]
-
-        # previous = df_on_date.iloc[-2]
-
-        # def format_delta(curr, prev):
-        #     if pd.isna(curr):
-        #         return "", "black"
-        #     if pd.isna(prev) or curr == prev:
-        #         return f"→ {curr:.1f}%", "black"
-        #     elif curr > prev:
-        #         return f"↑ {curr:.1f}%", "red"  # worse
-        #     else:
-        #         return f"↓ {curr:.1f}%", "green"  # better
-
-        # delta_cells = {}
-        # delta_colors = {}
-        # for col in ['Delta_Piles_vs_Concrete', 'Delta_Piles_vs_RigDays', 'Delta_Piles_vs_Labor Hours']:
-        #     text, color = format_delta(current[col]*100, previous[col]*100)
-        #     delta_cells[col] = text
-        #     delta_colors[col] = color
-
-        # Status classification
-        # max_delta = max(abs(current['Delta_Piles_vs_Concrete']),
-        #                 abs(current['Delta_Piles_vs_RigDays']),
-        #                 abs(current['Delta_Piles_vs_Labor Hours']))
-        # max_delta=abs(max_delta*100)
-        # if max_delta < 5:
-        #     status = "green"
-        #     status_symbol = "✅"
-        # elif max_delta <= 10:
-        #     status = "orange"
-        #     status_symbol = "⚠"
-        # else:
-        #     status = "red"
-        #     status_symbol = "❌"
         piles_per_day = round(current['PileCount']/current['DaysRigDrilled'],0)
         rows.append({
             "JobID": str(job) +'-'+ str(my_jobs.jobs[job].job_name),
@@ -233,7 +200,7 @@ def prepare_time_spent_stats(summary_dict_daily,jobID):
     return out_df
 
 
-summary_metrics,summary_dic_daily,df_stats = load_data_metrics()
+summary_metrics,summary_dic_daily,df_stats,df_stats_daily = load_data_metrics()
 
 # ======================
 # Dash AG Grid
@@ -371,8 +338,7 @@ layout = html.Div([
             width=12
         )
     ], style={"marginTop": "20px"}),
-    html.Br(),
-    add_drilling_summary(),
+
 
     dbc.Button("Show Job Metrics Bar Charts", id="toggle-bar-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
 
@@ -470,6 +436,9 @@ layout = html.Div([
     ),#close collapse
     html.Hr(),
     html.Div(id="rig-charts-container"),
+
+    html.Br(),
+    add_drilling_summary(),
 ],
     style={
         'backgroundColor': '#193153',
@@ -1515,15 +1484,15 @@ def apply_custom_aggregation(df,aggregation_type):
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
         grouped_df = df.groupby(['JobNo', 'Date']).agg(aggregation_rules).reset_index()
-
+        grouped_df = grouped_df.sort_values(by=['JobNo', 'Date'], ascending=False)
     elif aggregation_type == 'rigid':
         # For RigID: get latest entry for each RigID
-        latest_rig_entries = df.sort_values(['RigID', 'Date']).groupby('RigID').tail(1)
+        # latest_rig_entries = df.sort_values(['RigID', 'Date']).groupby('RigID').tail(1)
 
         aggregation_rules = {
-            'JobNo': 'first',
+            # 'JobNo': 'first',
             'JobName': 'first',
-            'Date': 'max',
+            # 'Date': 'max',
             'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
@@ -1533,10 +1502,11 @@ def apply_custom_aggregation(df,aggregation_type):
             'AverageRigWaste': 'mean'
         }
 
-        available_columns = [col for col in aggregation_rules.keys() if col in latest_rig_entries.columns]
+        available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
-        grouped_df = latest_rig_entries.groupby('RigID').agg(aggregation_rules).reset_index()
+        grouped_df = df.groupby(['JobNo', 'Date','RigID']).agg(aggregation_rules).reset_index()
+        grouped_df = grouped_df.sort_values(by=['JobNo','RigID','Date'], ascending=False)
     elif aggregation_type == 'overall':
 
         # Overall: Aggregate by Date only (across all jobs and rigs)
@@ -1569,28 +1539,159 @@ def apply_custom_aggregation(df,aggregation_type):
         grouped_df['JobNo'] = "All Jobs"
         grouped_df['RigID'] = "All Rigs"
         grouped_df['JobName'] = "Daily Summary"
-
+        grouped_df = grouped_df.sort_values('Date', ascending=False)
 
     else:
         grouped_df = df.copy()
+        grouped_df = grouped_df.sort_values(['JobNo', 'Date','RigID'], ascending=False)
+
+    # grouped_df = grouped_df.sort_values('Date', ascending=False)
 
     return grouped_df
 
 
+@callback(
+    Output("btn-overall", "className"),
+    Output("btn-daily", "className"),
+    Output("btn-rigid", "className"),
+    Output("btn-none", "className"),
+    Input("btn-overall", "n_clicks"),
+    Input("btn-daily", "n_clicks"),
+    Input("btn-rigid", "n_clicks"),
+    Input("btn-none", "n_clicks"),
+)
+def toggle_active(btn_overall, btn_daily, btn_rigid, btn_none):
+    # Find which button triggered
+    triggered = ctx.triggered_id or "btn-overall"
 
+    def active_class(btn_id):
+        return "grouping-button active" if triggered == btn_id else "grouping-button"
+
+    return (
+        active_class("btn-overall"),
+        active_class("btn-daily"),
+        active_class("btn-rigid"),
+        active_class("btn-none"),
+    )
+
+
+
+# @callback(
+#     Output("rig-summary-data-grid", "rowData"),
+#     [Input("grouping-level", "value")]
+# )
+# def update_grid(grouping_level):
+#     # Apply date range filtering
+#     filtered_df = df_stats.copy()
+#     if grouping_level == 'none':
+#         # Show raw data without grouping
+#         display_df = filtered_df
+#     else:
+#         # Apply custom aggregation
+#         display_df = apply_custom_aggregation(filtered_df,grouping_level)
+#
+#     # Select and format columns properly
+#     col_def = ['JobNo', 'JobName', 'Date', 'RigID', 'PileCount', 'ConcreteDelivered',
+#                'LaborHours', 'DaysRigDrilled',
+#                'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+#
+#     display_df = display_df[col_def]
+#     columns_to_round = ['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+#     display_df[columns_to_round] = display_df[columns_to_round].round(1)
+#     columns_to_round = ['PileCount', 'ConcreteDelivered', 'LaborHours', 'DaysRigDrilled']
+#     display_df[columns_to_round] = display_df[columns_to_round].round(0)
+#     display_df['Date'] = pd.to_datetime(display_df['Date']).dt.date
+#
+#     # Convert to records - keep numeric values as numbers, not strings
+#     rows = display_df.to_dict("records")
+#
+#     return rows
+
+# Define column visibility rules
+def get_column_visibility(grouping_level,cum:bool):
+    visibility_rules = {
+        'overall': {
+            'JobNo': False,
+            'JobName': False,
+            'RigID': False,
+            'Date': True,
+            'DaysRigDrilled':cum
+        },
+        'daily': {
+            'JobNo': True,
+            'JobName': True,
+            'RigID': True,
+            'Date': True,
+            'DaysRigDrilled':cum
+        },
+        # 'jobno': {
+        #     'JobNo': True,
+        #     'JobName': True,
+        #     'RigID': True,
+        #     'Date': False  # Hide date for job totals
+        # },
+        'rigid': {
+            'JobNo': True,
+            'JobName': True,
+            'RigID': True,
+            'Date': True,
+            'DaysRigDrilled':cum
+        },
+        'none': {
+            'JobNo': True,
+            'JobName': True,
+            'RigID': True,
+            'Date': True,
+            'DaysRigDrilled':cum
+        }
+    }
+    return visibility_rules.get(grouping_level, {})
 @callback(
     Output("rig-summary-data-grid", "rowData"),
-    [Input("grouping-level", "value")]
-)
-def update_grid(grouping_level):
+    Output("rig-summary-data-grid", "columnDefs"),
+    [Input("btn-overall", "n_clicks"),
+     Input("btn-daily", "n_clicks"),
+     # Input("btn-jobno", "n_clicks"),
+     Input("btn-rigid", "n_clicks"),
+     Input("btn-none", "n_clicks"),
+     Input("cumulative-switch", "on")],
+    prevent_initial_call=False
+)#jobno_clicks,
+def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulative_on):
+    # Determine which grouping level was selected
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        # Default to overall on initial load
+        grouping_level = 'overall'
+    else:
+        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+        # Map button IDs to grouping levels
+        grouping_map = {
+            'btn-overall': 'overall',
+            'btn-daily': 'daily',
+            # 'btn-jobno': 'jobno',
+            'btn-rigid': 'rigid',
+            'btn-none': 'none'
+        }
+        grouping_level = grouping_map.get(triggered_id, 'overall')
+
     # Apply date range filtering
     filtered_df = df_stats.copy()
+
+    # Handle cumulative vs daily data
+    if not cumulative_on:
+        filtered_df = df_stats_daily.copy()
+        filtered_df['Time'] = pd.to_datetime(filtered_df['Time']).dt.date
+        filtered_df.rename(columns={'Time':'Date','Piles':'PileCount','mean_PileLength':'AveragePileLength','PileWaste':'AveragePileWaste', 'RigWaste':'AverageRigWaste'},inplace=True)
+        filtered_df['DaysRigDrilled'] = 0
+
     if grouping_level == 'none':
         # Show raw data without grouping
         display_df = filtered_df
     else:
         # Apply custom aggregation
-        display_df = apply_custom_aggregation(filtered_df,grouping_level)
+        display_df = apply_custom_aggregation(filtered_df, grouping_level)
 
     # Select and format columns properly
     col_def = ['JobNo', 'JobName', 'Date', 'RigID', 'PileCount', 'ConcreteDelivered',
@@ -1607,33 +1708,50 @@ def update_grid(grouping_level):
     # Convert to records - keep numeric values as numbers, not strings
     rows = display_df.to_dict("records")
 
-    return rows
+    visibility = get_column_visibility(grouping_level,cumulative_on)
+
+    column_defs = [
+        {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True,
+         "hide": not visibility.get('JobNo', True)},
+        {"headerName": "Job\nName", "field": "JobName", "filter": True, "enableRowGroup": True,
+         "hide": not visibility.get('JobName', True)},
+        {"headerName": "Date", "field": "Date", "filter": True, "enableRowGroup": True,
+         "hide": not visibility.get('Date', True)},
+        {"headerName": "RigID", "field": "RigID", "filter": True, "enableRowGroup": True,
+         "hide": not visibility.get('RigID', True)},
+        {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
+        {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
+        {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
+        {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter","hide": not visibility.get('DaysRigDrilled', True)},
+        {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
+        {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
+        {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
+    ]
+
+    return rows,column_defs
 
 
 @callback(
     Output("download-dataframe-csv", "data"),
-    Input("btn-rigsummary-export-csv", "n_clicks"),
-    [State("rig-summary-data-grid", "rowData"),
-     State("grouping-level", "value"),
-     # State("date-range", "start_date"),
-     # State("date-range", "end_date")
-     ],
+    Input("btn-download-csv", "n_clicks"),
+    [State("rig-summary-data-grid", "rowData")],
     prevent_initial_call=True
 )
-def export_to_csv(n_clicks, row_data, grouping_level): #, start_date, end_date
+def download_csv(n_clicks, row_data):
+    if not row_data:
+        return dash.no_update
+
     if n_clicks > 0 and row_data:
         # Convert row data back to DataFrame
         export_df = pd.DataFrame(row_data)
+    # Create filename with context
+    filename = f"drilling_statistics_summary_"
+    # if grouping_level != 'none':
+    #     filename += f"_{grouping_level}_grouped_"
+    date_str = datetime.now().strftime(("%Y/%m/%d, %H:%M:%S"))
+    filename += date_str+".csv"
 
-        # Create filename with context
-        filename = f"drilling_data"
-        if grouping_level != 'none':
-            filename += f"_{grouping_level}_grouped"
-        # if start_date and end_date:
-        #     filename += f"_{start_date}_to_{end_date}"
-        filename += ".csv"
-
-        return dcc.send_data_frame(export_df.to_csv, filename, index=False)
+    return dcc.send_data_frame(export_df.to_csv, filename, index=False)
 
 
 # Add this callback to handle clicks on individual location charts

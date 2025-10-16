@@ -69,19 +69,19 @@ layout = html.Div([
         dbc.Button("Show Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
         dbc.Collapse(
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
-                # dl.TileLayer(
-                #     # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
-                #     # maxZoom=19,  # Higher max zoom (OSM supports up to 19)
-                #     # minZoom=2,  # Lower min zoom (adjust as needed)
-                # ),
+                dl.TileLayer(
+                    # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
+                    # maxZoom=19,  # Higher max zoom (OSM supports up to 19)
+                    # minZoom=2,  # Lower min zoom (adjust as needed)
+                ),
                 # dl.TileLayer(
                 #     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
                 #     attribution="© OpenStreetMap & CARTO"
                 # ),
-                dl.TileLayer(
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    attribution="Tiles © Esri — Source: Esri, Earthstar Geographics, Maxar"
-                ),
+                # dl.TileLayer(
+                #     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                #     attribution="Tiles © Esri — Source: Esri, Earthstar Geographics, Maxar"
+                # ),
                 dl.LayerGroup(markers, id="map-markers"),
 
             ], style={
