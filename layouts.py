@@ -362,7 +362,7 @@ def add_pile_schedule_table():
         html.H4("Pile Schedule", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
         # AG Grid
         dag.AgGrid(
-            id="plie_schedule_table",
+            id="pile_schedule_table",
             columnDefs=columnDefs,
             rowData=[],
             className="ag-theme-alpine-dark",
@@ -400,110 +400,6 @@ def add_pile_schedule_table():
 # ======================================================================================
 # =============JOB METRICS==============================================================
 # ======================================================================================
-# JobNo	Time	RigID	Production Piles	Pile Count	ConcreteDelivered	LaborHours	RigDays	DaysRigDrilled	AveragePileLength	AveragePileWaste	AverageRigWaste
-# def add_drilling_summary():
-#     #  {"headerName": "Field", "field": "Field",
-#     columnDefs = [
-#         {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True},
-#         {"headerName": "Job\nName","field": "JobName", "filter": True, "enableRowGroup": True},
-#         {"headerName": "Date","field": "Date", "filter": True, "enableRowGroup": True},
-#         {"field": "RigID", "filter": True, "enableRowGroup": True},
-#         {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
-#         {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
-#     ]
-#     return html.Div([
-#         html.H4("Drilling Summary (!Work in Progress!)", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
-#
-#         # Controls Row
-#         html.Div([
-#             # Grouping Controls
-#             html.Div([
-#                 html.Label("Select Grouping Level:", style={'color':'white','fontWeight': 'bold'}),
-#                 dcc.Dropdown(
-#                     id='grouping-level',
-#                     options=[
-#                         {'label': 'Overall', 'value': 'overall'},
-#                         {'label': 'Job Daily Level', 'value': 'daily'},
-#                         {'label': 'Job Total Level', 'value': 'jobno'},
-#                         {'label': 'RigID Total Level', 'value': 'rigid'},
-#                         {'label': 'No Grouping (Raw Data)', 'value': 'none'}
-#                     ],
-#                     value='jobno',
-#                     style={'width': '100%'},
-#                     className="dark-dropdown"
-#                 )
-#             ], style={'width': '23%', 'display': 'inline-block', 'padding': '10px'}),
-#
-#             # # Date Range Controls
-#             # html.Div([
-#             #     html.Label("Date Range Filter:", style={'fontWeight': 'bold'}),
-#             #     dcc.DatePickerRange(
-#             #         id='date-range',
-#             #         start_date=min_date,
-#             #         end_date=max_date,
-#             #         min_date_allowed=min_date,
-#             #         max_date_allowed=max_date,
-#             #         display_format='YYYY-MM-DD',
-#             #         style={'width': '100%'}
-#             #     )
-#             # ], style={'width': '30%', 'display': 'inline-block', 'padding': '10px'}),
-#
-#             # Export Controls
-#             # html.Div([
-#             #     # html.Label("Export Rig Summary Data:", style={'fontWeight': 'bold'}),
-#             #     # html.Br(),
-#             #     html.Button("Export Summary to CSV", id="btn-rigsummary-export-csv", n_clicks=0,
-#             #                 style={'backgroundColor': '#0074D9', 'color': 'white',
-#             #                        'border': 'none', 'padding': '8px 16px',
-#             #                        'borderRadius': '4px', 'cursor': 'pointer',"align":'left'}),
-#             #     dcc.Download(id="download-dataframe-csv")
-#             # ], style={'width': '23%', 'display': 'inline-block', 'padding': '10px', 'verticalAlign': 'top'}),
-#
-#             # Info Display
-#             # html.Div([
-#             #     html.Label("Current View:", style={'fontWeight': 'bold'}),
-#             #     html.Div(id='grid-info', style={'marginTop': '5px', 'fontSize': '14px'})
-#             # ], style={'width': '20%', 'display': 'inline-block', 'padding': '10px', 'verticalAlign': 'top'})
-#         ], style={ 'marginBottom': '20px', 'padding': '10px'}),#'border': '1px solid #ddd', 'borderRadius': '5px',
-#
-#         # AG Grid
-#         dag.AgGrid(
-#             id="rig-summary-data-grid",
-#             columnDefs=columnDefs,
-#             rowData=[],
-#             className="ag-theme-alpine-dark",
-#             columnSize="sizeToFit",
-#             defaultColDef= {
-#             "resizable": True,
-#             "sortable": True,
-#             "filter": True,
-#             "minWidth": 100,
-#             "wrapHeaderText": True,  # ✅ allow text wrapping in header
-#             "autoHeaderHeight": True,  # ✅ auto-adjust header height
-#             },
-#
-#             dashGridOptions={
-#                 "rowSelection": "single",
-#                 "pagination": True,
-#                 "paginationPageSize": 20,
-#                 "enableRangeSelection": True,
-#                 "enableCharts": True,
-#                 "animateRows": False,
-#                 "enableSorting": True,
-#                 "enableFilter": True,
-#                 "enableRangeHandle": True,
-#
-#             },
-#
-#             style={"height": "600px", "width": "100%","marginTop":'5px'}
-#         ),
-#
-#     ])
 
 def add_drilling_summary():
     columnDefs = [
@@ -521,7 +417,7 @@ def add_drilling_summary():
     ]
 
     return html.Div([
-        html.H4("Drilling Summary (!Work in Progress!)",
+        html.H4("Drilling Summary",
                 style={'color': 'white', 'textAlign': 'left', 'marginBottom': 30}),
 
         # Controls Row

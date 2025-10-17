@@ -91,8 +91,10 @@ class ChartDataCache:
                         except:
                             continue
 
-
-                        df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                        try:
+                            df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                        except:
+                            df['Time'] = pd.to_datetime(df['Time'],format = '%Y-%m-%d %H:%M:%S')
 
                         # Get the start time (minimum time) for this pile on this date
                         start_time = df['Time'].min()
@@ -109,7 +111,11 @@ class ChartDataCache:
                             df = pd.DataFrame(day_data)
                         except:
                             continue
-                        df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                        try:
+                            df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                        except:
+                            df['Time'] = pd.to_datetime(df['Time'],format = '%Y-%m-%d %H:%M:%S')
+
                         df.sort_values('Time', inplace=True)
                         df['PileID'] = pile_id
 
@@ -187,7 +193,11 @@ class ChartDataCache:
 
                     # Preprocess the data once
                     df = pd.DataFrame(day_data)
-                    df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                    try:
+                        df['Time'] = pd.to_datetime(df['Time'], format='%d.%m.%Y %H:%M:%S')
+                    except:
+                        df['Time'] = pd.to_datetime(df['Time'], format='%Y-%m-%d %H:%M:%S')
+
                     df.sort_values('Time', inplace=True)
                     df['PileID'] = pile_id
 

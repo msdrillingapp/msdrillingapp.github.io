@@ -1171,6 +1171,52 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
 
 
 
+# plie_schedule_table
+
+@callback(
+    Output("pile_schedule_table", "rowData"),
+    Input('jobid-filter','value'),
+    prevent_initial_call=False
+)#jobno_clicks,
+def update_pile_schedule(selected_jobid):
+    my_jobs = get_data_loaded('my_jobs')
+    df_design = my_jobs.jobs[selected_jobid].pile_schedule
+    rows = []
+    if len(df_design)>0:
+        pivot_df = df_design.pivot_table(
+            index='nc.ds_piletype',
+            columns='nc.ds_status',
+            values='nc.ds_pileid',
+            aggfunc='count',
+            fill_value=0
+        ).reset_index()
+
+    return rows
+
+
+@callback(
+    Output("download-dataframe-csv-pile-schedule", "data"),
+    Input("btn-download-csv", "n_clicks"),
+    [State("pile_schedule_table", "rowData"),
+     State('jobid-filter','value'),],
+    prevent_initial_call=True
+)
+def download_csv(n_clicks, row_data,selected_jobid):
+    if not row_data:
+        return dash.no_update
+
+    if n_clicks > 0 and row_data:
+        # Convert row data back to DataFrame
+        export_df = pd.DataFrame(row_data)
+    # Create filename with context
+    filename = f"pile_schedule_table_job_{selected_jobid}_"
+
+    date_str = datetime.now().strftime(("%Y/%m/%d, %H:%M:%S"))
+    filename += date_str+".csv"
+
+    return dcc.send_data_frame(export_df.to_csv, filename, index=False)
+
+
 
 
 

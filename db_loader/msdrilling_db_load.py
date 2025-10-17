@@ -345,7 +345,7 @@ class PostgresDrillingDb():
                     unique_values = []
                     for row in values:
                         if len(row) > 0:  # Ensure row has at least Time column
-                            key = (job_number, row[0])  # (JobNumber, Time)
+                            key = (job_number, row[0], row[1])  # (JobNumber, Time)
                             if key not in seen:
                                 seen.add(key)
                                 unique_values.append([job_number] + row)
