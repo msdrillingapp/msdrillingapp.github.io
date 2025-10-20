@@ -1676,7 +1676,7 @@ def get_column_visibility(grouping_level,cum:bool):
      # Input("btn-jobno", "n_clicks"),
      Input("btn-rigid", "n_clicks"),
      Input("btn-none", "n_clicks"),
-     Input("cumulative-switch", "on")],
+     Input("cumulative-switch", "value")],
     prevent_initial_call=False
 )#jobno_clicks,
 def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulative_on):
@@ -1702,12 +1702,13 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
     filtered_df = df_stats.copy()
 
     # Handle cumulative vs daily data
-    if not cumulative_on:
+    if cumulative_on =='daily':
         filtered_df = df_stats_daily.copy()
         filtered_df['Time'] = pd.to_datetime(filtered_df['Time']).dt.date
         filtered_df.rename(columns={'Time':'Date','Piles':'PileCount','mean_PileLength':'AveragePileLength','PileWaste':'AveragePileWaste', 'RigWaste':'AverageRigWaste'},inplace=True)
         filtered_df['DaysRigDrilled'] = 0
 
+    visibility = get_column_visibility(grouping_level, cumulative_on)
     if grouping_level == 'none':
         # Show raw data without grouping
         display_df = filtered_df
@@ -1715,10 +1716,54 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
         # Apply custom aggregation
         display_df = apply_custom_aggregation(filtered_df, grouping_level)
 
-    # Select and format columns properly
-    col_def = ['JobNo', 'JobName', 'Date', 'RigID', 'PileCount', 'ConcreteDelivered',
-               'LaborHours', 'DaysRigDrilled',
-               'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+    if grouping_level == 'rigid':
+        # Select and format columns properly
+        col_def = ['RigID','JobNo', 'JobName', 'Date',  'PileCount', 'ConcreteDelivered',
+                   'LaborHours', 'DaysRigDrilled',
+                   'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+
+        column_defs = [
+            {"headerName": "RigID", "field": "RigID", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('RigID', True)},
+            {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('JobNo', True)},
+            {"headerName": "Job\nName", "field": "JobName", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('JobName', True)},
+            {"headerName": "Date", "field": "Date", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('Date', True)},
+            {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
+            {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
+            {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
+            {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter",
+             "hide": not visibility.get('DaysRigDrilled', True)},
+            {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
+            {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
+            {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
+        ]
+    else:
+        # Select and format columns properly
+        col_def = ['JobNo', 'JobName', 'Date', 'RigID', 'PileCount', 'ConcreteDelivered',
+                   'LaborHours', 'DaysRigDrilled',
+                   'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+
+        column_defs = [
+            {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('JobNo', True)},
+            {"headerName": "Job\nName", "field": "JobName", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('JobName', True)},
+            {"headerName": "Date", "field": "Date", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('Date', True)},
+            {"headerName": "RigID", "field": "RigID", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('RigID', True)},
+            {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
+            {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
+            {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
+            {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter",
+             "hide": not visibility.get('DaysRigDrilled', True)},
+            {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
+            {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
+            {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
+        ]
 
     display_df = display_df[col_def]
     columns_to_round = ['AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
@@ -1730,25 +1775,9 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
     # Convert to records - keep numeric values as numbers, not strings
     rows = display_df.to_dict("records")
 
-    visibility = get_column_visibility(grouping_level,cumulative_on)
 
-    column_defs = [
-        {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True,
-         "hide": not visibility.get('JobNo', True)},
-        {"headerName": "Job\nName", "field": "JobName", "filter": True, "enableRowGroup": True,
-         "hide": not visibility.get('JobName', True)},
-        {"headerName": "Date", "field": "Date", "filter": True, "enableRowGroup": True,
-         "hide": not visibility.get('Date', True)},
-        {"headerName": "RigID", "field": "RigID", "filter": True, "enableRowGroup": True,
-         "hide": not visibility.get('RigID', True)},
-        {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
-        {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
-        {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
-        {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter","hide": not visibility.get('DaysRigDrilled', True)},
-        {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
-        {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
-        {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
-    ]
+
+
 
     return rows,column_defs
 

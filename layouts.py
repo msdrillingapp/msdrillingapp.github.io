@@ -427,7 +427,7 @@ def add_drilling_summary():
                 html.Label("Select Grouping Level:",
                            style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '10px'}),
                 html.Div([
-                    html.Button("Overall", id="btn-overall", n_clicks=0,
+                    html.Button("By Date", id="btn-overall", n_clicks=0,
                                 className="grouping-button active",
                                 style={'marginRight': '5px', 'marginBottom': '5px'}),
                     html.Button("By Job", id="btn-daily", n_clicks=0,
@@ -449,14 +449,33 @@ def add_drilling_summary():
             html.Div([
                 html.Label("Data View:", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '10px'}),
                 html.Div([
-                    html.Span("Daily", style={'color': 'white', 'marginRight': '10px', 'fontSize': '14px'}),
-                    daq.BooleanSwitch(
+                    dcc.RadioItems(
                         id='cumulative-switch',
-                        on=True,
-                        color="#007BFF",
-                        style={'display': 'inline-block'}
+                        options=[
+                            {'label': 'Daily', 'value': 'daily'},
+                            {'label': 'ToDate', 'value': 'cum'}
+                        ],
+                        value='cum',
+                        inline=True,
+                        style={
+                            'color': 'white',
+                            'fontSize': '12px',
+                            'textAlign': 'right',
+                            'marginBottom': '10px',
+                            'justifyContent': 'flex-end',
+                            'display': 'flex',
+                            'gap': '15px'
+                        },
+                        labelStyle={'marginRight': '10px'}
                     ),
-                    html.Span("Cumulative", style={'color': 'white', 'marginLeft': '10px', 'fontSize': '14px'}),
+                    # html.Span("Daily", style={'color': 'white', 'marginRight': '10px', 'fontSize': '14px'}),
+                    # daq.BooleanSwitch(
+                    #     id='cumulative-switch',
+                    #     on=True,
+                    #     color="#007BFF",
+                    #     style={'display': 'inline-block'}
+                    # ),
+                    # html.Span("Cumulative", style={'color': 'white', 'marginLeft': '10px', 'fontSize': '14px'}),
                 ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'})
             ], style={'width': '35%', 'display': 'inline-block', 'padding': '10px', 'textAlign': 'center',
                       'verticalAlign': 'top'}),

@@ -1356,7 +1356,7 @@ class JobManager:
             # Forward fill within each job column to carry forward cumulative values
             self.job2data_stats_pivot = pivot_full.ffill().fillna(0)
 
-            self.job2data_stats_all_dates = self.job2data_stats_pivot.stack(level=[1, 2]).reset_index()
+            self.job2data_stats_all_dates = self.job2data_stats_pivot.stack(level=[1, 2]).reset_index() #,future_stack=True
             self.job2data_stats_all_dates.rename(columns={'level_0':'Date'},inplace=True)
             self.job2data_stats_all_dates=self.job2data_stats_all_dates[['Date', 'JobNo', 'RigID','PileCount',
                                                       'ConcreteDelivered', 'LaborHours', 'DaysRigDrilled',
