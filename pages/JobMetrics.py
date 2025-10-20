@@ -1776,9 +1776,6 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
     rows = display_df.to_dict("records")
 
 
-
-
-
     return rows,column_defs
 
 
