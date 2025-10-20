@@ -1,5 +1,6 @@
 import json
 import pandas as pd
+import numpy as np
 from datetime import datetime,timedelta
 from typing import List, Dict, Optional
 import os
@@ -25,6 +26,37 @@ assets_path = os.path.join(os.getcwd(),'assets')
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
 name_cpt_file_header = 'CPT-online-header.csv'
 
+
+def sum_times(series):
+    """Sum time strings in format hh:mm:ss with error handling"""
+    total_seconds = 0
+    valid_count = 0
+
+    for time_str in series:
+        if pd.notna(time_str) and time_str != '':
+            try:
+                # Handle different time formats
+                parts = time_str.split(':')
+                if len(parts) == 3:  # hh:mm:ss
+                    h, m, s = map(int, parts)
+                elif len(parts) == 2:  # mm:ss
+                    h, m, s = 0, int(parts[0]), int(parts[1])
+                else:  # ss only or invalid
+                    continue
+
+                total_seconds += h * 3600 + m * 60 + s
+                valid_count += 1
+            except (ValueError, TypeError):
+                continue
+
+    if valid_count == 0:
+        return "00:00:00"
+
+    # Convert back to hh:mm:ss format
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
 def format_time_to_hours_minutes(time_str):
     """Convert HH:MM:SS to Xh Ym format"""
@@ -705,8 +737,24 @@ class Job:
             df_todate['ConcreteDelivered'] = pd.to_numeric(df_todate['ConcreteDelivered'])
             df_todate['LaborHours'] = pd.to_numeric(df_todate['LaborHours'])
             df_todate['DaysRigDrilled'] = pd.to_numeric(df_todate['DaysRigDrilled'])
+            # Apply to all Hours columns
+            hours_columns = [col for col in df_todate.columns if col.startswith('Hours')]
 
-            df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
+            aggregation_dict = {
+                **{col: sum_times for col in hours_columns},
+                **{'PileCount': 'sum',
+                    'ConcreteDelivered': 'sum',
+                    'LaborHours': 'sum',
+                    'DaysRigDrilled': 'sum',
+                    'AveragePileLength': lambda x: x.replace(0, np.nan).mean(skipna=True),
+                    'AveragePileWaste': lambda x: x.replace(0, np.nan).mean(skipna=True),
+                    'AverageRigWaste': lambda x: x.replace(0, np.nan).mean(skipna=True),
+                }
+            }
+
+            df_todate_tot = df_todate.groupby('Time').agg(aggregation_dict)
+
+            # df_todate_tot = df_todate.groupby('Time').sum(numeric_only=True)
             df_todate_tot['Piles%'] = df_todate_tot['PileCount'] / self.estimate_piles
             df_todate_tot['Concrete%'] = df_todate_tot['ConcreteDelivered'] / self.estimate_concrete
             df_todate_tot['RigDays%'] = df_todate_tot['DaysRigDrilled'] / self.estimate_rig_days

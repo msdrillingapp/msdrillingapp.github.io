@@ -117,7 +117,7 @@ def prepare_table_data(summary_metrics, selected_date):
     rows = []
     my_jobs = get_data_summary('my_jobs')
     for job, df in summary_metrics.items():
-        if len(df)==0:
+        if len(df) == 0:
             continue
         df_on_date = df[pd.to_datetime(df['Time']) <= selected_date].sort_values('Time')
         if len(df_on_date) < 2:
@@ -272,13 +272,15 @@ layout = html.Div([
         style=date_picker_style,
         className="dash-datepicker",
     ),
+    html.Hr(style={'border': '1px solid #cccccc'}),
+    html.H5('Daily summary', style={'color': 'white', "marginTop": "20px"}),
 
     # Summary cards
     html.Div(
         id="summary-cards",
         style={"display": "flex", "gap": "20px", "marginTop": "20px"}
     ),
-
+    html.Hr(style={'border': '1px solid #cccccc'}),
     html.Br(),
 
     # Job bar chart
@@ -434,8 +436,16 @@ layout = html.Div([
         id="collapse-job-metrics-pie_chart",
         is_open=False
     ),#close collapse
+
+    dbc.Button("Show Pile Sequence Charts", id="toggle-rig-chart", color="primary", className="mb-2", style={"marginTop": "20px"}),
     html.Hr(),
-    html.Div(id="rig-charts-container"),
+    dbc.Collapse(
+        html.Div([
+            html.Div(id="rig-charts-container"),
+        ]),  # close DIV
+        id="collapse-rig-charts-container",
+        is_open=False
+    ),  # close collapse
 
     html.Br(),
     add_drilling_summary(),
@@ -451,7 +461,7 @@ layout = html.Div([
 @callback(
     Output("job-table", "rowData"),
     Output("summary-cards", "children"),
-    Input("date-picker", "date"),prevent_initial_call=True
+    Input("date-picker", "date")#,prevent_initial_call=True
 )
 def update_table(selected_date):
     selected_date = pd.to_datetime(selected_date)
@@ -690,7 +700,7 @@ def update_time_chart(selected_rows, selected_date,metric_unit):
         fig.add_trace(
             go.Bar(
                 x=data['Time'],
-                y=data['Piles'],
+                y=data['PileCount'],
                 name='Piles',
                 marker_color=BLUE_COLOR,
                 opacity=0.7,
@@ -1068,6 +1078,15 @@ def toggle_views(n_clicks, is_open):
         return not is_open
     return is_open
 
+@callback(Output("collapse-rig-charts-container","is_open"),
+    [Input("toggle-rig-chart", "n_clicks")],
+    [State("collapse-rig-charts-container", "is_open")],prevent_initial_call=True
+)
+def toggle_views(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
 @callback(
     Output("collapse-job-metrics-line_chart", "is_open"),
     [Input("toggle-line-chart", "n_clicks")],
@@ -1435,10 +1454,18 @@ def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, s
     return fig
 
 
-def apply_custom_aggregation(df,aggregation_type):
+
+def apply_custom_aggregation(df, aggregation_type):
     """
     Apply custom aggregation based on grouping type
     """
+
+    def mean_no_zero(x):
+        """Calculate mean excluding zero values"""
+        non_zero = x[x != 0]
+        if len(non_zero) == 0:
+            return 0  # Return 0 if all values are zero
+        return non_zero.mean()
 
     if aggregation_type == 'jobno':
         # Find the latest date for each JobNo
@@ -1456,9 +1483,9 @@ def apply_custom_aggregation(df,aggregation_type):
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
-            'AveragePileLength': 'mean',
-            'AveragePileWaste': 'mean',
-            'AverageRigWaste': 'mean'
+            'AveragePileLength': mean_no_zero,
+            'AveragePileWaste': mean_no_zero,
+            'AverageRigWaste': mean_no_zero
         }
 
         available_columns = [col for col in aggregation_rules.keys() if col in latest_data.columns]
@@ -1475,9 +1502,9 @@ def apply_custom_aggregation(df,aggregation_type):
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
-            'AveragePileLength': 'mean',
-            'AveragePileWaste': 'mean',
-            'AverageRigWaste': 'mean',
+            'AveragePileLength': mean_no_zero,
+            'AveragePileWaste': mean_no_zero,
+            'AverageRigWaste': mean_no_zero,
         }
 
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
@@ -1485,39 +1512,36 @@ def apply_custom_aggregation(df,aggregation_type):
 
         grouped_df = df.groupby(['JobNo', 'Date']).agg(aggregation_rules).reset_index()
         grouped_df = grouped_df.sort_values(by=['JobNo', 'Date'], ascending=False)
+
     elif aggregation_type == 'rigid':
         # For RigID: get latest entry for each RigID
-        # latest_rig_entries = df.sort_values(['RigID', 'Date']).groupby('RigID').tail(1)
-
         aggregation_rules = {
-            # 'JobNo': 'first',
             'JobName': 'first',
-            # 'Date': 'max',
             'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
-            'AveragePileLength': 'mean',
-            'AveragePileWaste': 'mean',
-            'AverageRigWaste': 'mean'
+            'AveragePileLength': mean_no_zero,
+            'AveragePileWaste': mean_no_zero,
+            'AverageRigWaste': mean_no_zero
         }
 
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
-        grouped_df = df.groupby(['JobNo', 'Date','RigID']).agg(aggregation_rules).reset_index()
-        grouped_df = grouped_df.sort_values(by=['JobNo','RigID','Date'], ascending=False)
-    elif aggregation_type == 'overall':
+        grouped_df = df.groupby(['JobNo', 'Date', 'RigID']).agg(aggregation_rules).reset_index()
+        grouped_df = grouped_df.sort_values(by=['JobNo', 'RigID', 'Date'], ascending=False)
 
+    elif aggregation_type == 'overall':
         # Overall: Aggregate by Date only (across all jobs and rigs)
         aggregation_rules = {
             'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
-            'AveragePileLength': 'mean',
-            'AveragePileWaste': 'mean',
-            'AverageRigWaste': 'mean',
+            'AveragePileLength': mean_no_zero,
+            'AveragePileWaste': mean_no_zero,
+            'AverageRigWaste': mean_no_zero,
             'JobCount': 'nunique',  # Count of unique jobs per day
             'RigCount': 'nunique',  # Count of unique rigs per day
         }
@@ -1543,9 +1567,7 @@ def apply_custom_aggregation(df,aggregation_type):
 
     else:
         grouped_df = df.copy()
-        grouped_df = grouped_df.sort_values(['JobNo', 'Date','RigID'], ascending=False)
-
-    # grouped_df = grouped_df.sort_values('Date', ascending=False)
+        grouped_df = grouped_df.sort_values(['JobNo', 'Date', 'RigID'], ascending=False)
 
     return grouped_df
 
@@ -1620,7 +1642,7 @@ def get_column_visibility(grouping_level,cum:bool):
         'daily': {
             'JobNo': True,
             'JobName': True,
-            'RigID': True,
+            'RigID': False,
             'Date': True,
             'DaysRigDrilled':cum
         },

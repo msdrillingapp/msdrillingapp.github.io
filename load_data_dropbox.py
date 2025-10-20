@@ -171,19 +171,21 @@ if __name__ == '__main__':
     # jobs = nc.ALL_AVAILABLE_JOBS
     jobs = ['1639','1648','1632',  '1641', '1642', '1643','1648', '1650', '1652', '1653',
                           '1655','1657', '1660']
-    reload = False
+    reload = True
+    load_recent = False
     if reload:
-        drilling_data,stats_data = read_json_files_recent(base_folder='/JSON',jobs=jobs,days_threshold=3)
-        fname_drilling = os.path.join(dropbox_pkl_dir,'drilling_data_recent.pkl')
-        write_data(fname_drilling,drilling_data)
-        fname_stats = os.path.join(dropbox_pkl_dir, 'stats_data_recent.pkl')
-        write_data(fname_stats, stats_data)
-
-        # drilling_data, stats_data = read_json_files(base_folder='/JSON', jobs=jobs)
-        # fname_drilling = os.path.join(dropbox_pkl_dir, 'drilling_data.pkl')
-        # write_data(fname_drilling, drilling_data)
-        # fname_stats = os.path.join(dropbox_pkl_dir, 'stats_data.pkl')
-        # write_data(fname_stats, stats_data)
+        if load_recent:
+            drilling_data,stats_data = read_json_files_recent(base_folder='/JSON',jobs=jobs,days_threshold=3)
+            fname_drilling = os.path.join(dropbox_pkl_dir,'drilling_data_recent.pkl')
+            write_data(fname_drilling,drilling_data)
+            fname_stats = os.path.join(dropbox_pkl_dir, 'stats_data_recent.pkl')
+            write_data(fname_stats, stats_data)
+        else:
+            drilling_data, stats_data = read_json_files(base_folder='/JSON', jobs=jobs)
+            fname_drilling = os.path.join(dropbox_pkl_dir, 'drilling_data.pkl')
+            write_data(fname_drilling, drilling_data)
+            fname_stats = os.path.join(dropbox_pkl_dir, 'stats_data.pkl')
+            write_data(fname_stats, stats_data)
     else:
         drilling_data = read_data(os.path.join(dropbox_pkl_dir,'drilling_data_recent.pkl'))
         stats_data = read_data(os.path.join(dropbox_pkl_dir,'stats_data_recent.pkl'))
@@ -198,10 +200,11 @@ if __name__ == '__main__':
             db_host=database_host,
             db_port="5432")
         try:
-            for data in drilling_data[jobID]:
-                ok_meta, ok_series = loader.insert_pile(data)
-
-            # ok_stats = loader.insert_statistics(jobID, stats_data[jobID])
+            if len((drilling_data[jobID]))>0:
+                for data in drilling_data[jobID]:
+                    ok_meta, ok_series = loader.insert_pile(data)
+            if len(stats_data[jobID])>0:
+                ok_stats = loader.insert_statistics(jobID, stats_data[jobID])
             loader.connection.close()
         except:
             print('Error job: '+ str(jobID))
