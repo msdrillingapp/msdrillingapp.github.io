@@ -495,16 +495,19 @@ def get_color_marker(coloCode):
 
 def get_shape_marker(pile_code,pile_status):
     if pile_code.lower() == "Production Pile".lower():  # Circle
-        shape='donut'
+        # shape='donut'
+        shape = 'circle'
     elif pile_code.lower() == "TEST PILE".lower():  # Square
         shape = 'square'
     elif pile_code.lower() == "REACTION PILE".lower():  # Octagon
-        shape = 'target'
+        # shape = 'target'
+        shape='diamond'
     else:
         shape ='triangle'
-    if pile_status == 'Complete':
-        shape += '_fill'
-
+    # if pile_status == 'Complete':
+        # shape += '_fill'
+    if pile_status !='Coomplete':
+        shape+='-stroked'
     return shape
 
 

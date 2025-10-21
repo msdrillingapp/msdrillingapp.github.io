@@ -6,7 +6,9 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import pandas as pd
-
+import plotly.express as px
+# import plotly.graph_objs as px
+from utils import get_shape_marker
 
 import naming_conventions as nc
 from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,remove_min
@@ -68,6 +70,9 @@ layout = html.Div([
         # Map Section
         dbc.Button("Show Map", id="toggle-map", color="primary", className="mb-2",style={"backgroundColor": "#f7b500", "color": "black",  "border": "2px solid #f7b500"}),
         dbc.Collapse(
+            # html.Div([
+            #     dcc.Graph(id="map-graph", style={'height': '70vh'}),
+            #     html.Div(id="map-container", style={'display': 'none'}) ]), # Hidden container for the key
             dl.Map(id="map", center=map_center, zoom=zoom_level, zoomControl=True, children=[
                 dl.TileLayer(
                     # url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  # Default OSM tiles
@@ -747,7 +752,125 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
                         #         markers.append(marker)
 
     return markers, center, zoom_level, f"map-{center[0]}-{center[1]}-{zoom_level}"
-
+# @callback(
+#     [Output("map-graph", "figure"),
+#      Output("map-container", "children")],
+#     [Input("date-filter", "value"),
+#      Input("rigid-filter", "value"),
+#      Input("pileid-filter", "value"),
+#      Input('jobid-filter', "value"),
+#      Input('pilecode-filter', "value"),
+#      Input('pilestatus-filter', "value"),
+#      Input('piletype-filter', "value"),
+#      Input('productcode-filter', "value")],
+#     prevent_initial_call=False
+# )
+# def update_map_markers(selected_date, selected_rigid, selected_pileid, selected_jobid,
+#                        selected_pilecode, selected_pilestatus, selected_piletype, selected_productcode):
+#
+#     my_jobs = get_data_loaded('my_jobs')
+#     plot_data = []
+#     import plotly.graph_objects as go
+#     # --- CASE 1: No job selected => show jobs as blue markers ---
+#     if selected_jobid is None:
+#         for key, job in my_jobs.jobs.items():
+#             if hasattr(job, 'latitude') and hasattr(job, 'longitude') and job.latitude and job.longitude:
+#                 plot_data.append({
+#                     'job_id': key,
+#                     'job_name': getattr(job, 'job_name', 'Unknown'),
+#                     'description': getattr(job, 'description', ''),
+#                     'latitude': job.latitude,
+#                     'longitude': job.longitude
+#                 })
+#
+#         if not plot_data:
+#             return px.scatter_mapbox(), "no-data"
+#
+#         df = pd.DataFrame(plot_data)
+#         fig = go.Figure()
+#         for i, row in df.iterrows():
+#             fig.add_trace(go.Scattermapbox(
+#                 lat=[row['latitude']],
+#                 lon=[row['longitude']],
+#                 mode='markers',
+#                 name = row['job_id']+' '+row["job_name"],
+#                 hovertext=  row["description"],
+#                 showlegend=False,
+#                 marker = {'symbol': "square"},
+#             ))
+#
+#             # fig.data[i].marker.symbol = 'circle'
+#             # fig.data[i].marker.size = 14
+#
+#         fig.update_layout(
+#             mapbox=dict(
+#                 style="open-street-map",
+#                 center=dict(lat=df['latitude'].mean(), lon=df['longitude'].mean()),
+#                 zoom=12
+#             ),
+#             margin=dict(l=0, r=0, t=0, b=0)
+#         )
+#
+#         return fig, f"map-updated-{len(plot_data)}"
+#
+#     # --- CASE 2: A job is selected => show piles by shape/color ---
+#     else:
+#         result_MWD = get_data_loaded('result_MWD')
+#         if selected_jobid not in result_MWD:
+#             return px.scatter_mapbox(), "no-job-data"
+#
+#         df = result_MWD[selected_jobid][0].copy()
+#         df['shape'] = df.apply(lambda row: get_shape_marker(row['PileCode'], row['PileStatus']),
+#                                axis=1)
+#
+#         # Apply filters
+#         filters = {
+#             "date": selected_date,
+#             "RigID": selected_rigid,
+#             "PileID": selected_pileid,
+#             "PileCode": selected_pilecode,
+#             "PileStatus": selected_pilestatus,
+#             "PileType": selected_piletype,
+#             "ProductCode": selected_productcode
+#         }
+#         for col, val in filters.items():
+#             if val is not None and col in df.columns:
+#                 df = df[df[col] == val]
+#
+#         # Filter valid coordinates
+#         df = df[df["latitude"].notna() & df["longitude"].notna()]
+#
+#         if df.empty:
+#             return px.scatter_mapbox(), "no-pile-data"
+#
+#         # Create map
+#         fig = px.scatter_mapbox(
+#             df,
+#             lat="latitude",
+#             lon="longitude",
+#             color="color",
+#             # symbol="shape",   # <-- key line
+#             hover_name="PileID",
+#             hover_data=["RigID", "PileStatus", "PileType"],
+#             zoom=12,
+#             height=600
+#         )
+#
+#         fig.update_traces(
+#             marker=dict(size=8, opacity=0.9),
+#             selector=dict(mode="markers")
+#         )
+#
+#         fig.update_layout(
+#             mapbox_style="open-street-map",
+#             margin=dict(r=0, t=0, l=0, b=0),
+#             mapbox=dict(
+#                 center=dict(lat=df["latitude"].mean(), lon=df["longitude"].mean()),
+#                 zoom=12
+#             )
+#         )
+#
+#         return fig, f"map-updated-{len(df)}"
 
 @callback(
     Output("time_graph", "figure"),
