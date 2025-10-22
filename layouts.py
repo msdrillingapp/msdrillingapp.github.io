@@ -402,19 +402,6 @@ def add_pile_schedule_table():
 # ======================================================================================
 
 def add_drilling_summary():
-    columnDefs = [
-        {"headerName": "JobNo", "field": "JobNo", "filter": True, "enableRowGroup": True},
-        {"headerName": "Job\nName", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "Date", "field": "Date", "filter": True, "enableRowGroup": True},
-        {"field": "RigID", "filter": True, "enableRowGroup": True},
-        {"headerName": "Piles\nTotal", "field": "PileCount", "filter": "agNumberColumnFilter"},
-        {"headerName": "Concrete\nDelivered", "field": "ConcreteDelivered", "filter": "agNumberColumnFilter"},
-        {"headerName": "Labor\nHours", "field": "LaborHours", "filter": "agNumberColumnFilter"},
-        {"headerName": "Days Rig\nDrilled", "field": "DaysRigDrilled", "filter": "agNumberColumnFilter"},
-        {"headerName": "Avg\nPile Length", "field": "AveragePileLength", "filter": "agNumberColumnFilter"},
-        {"headerName": "Avg\nPile Waste", "field": "AveragePileWaste", "filter": "agNumberColumnFilter"},
-        {"headerName": "Avg\nRig Waste", "field": "AverageRigWaste", "filter": "agNumberColumnFilter"},
-    ]
 
     return html.Div([
         html.H4("Drilling Summary",
@@ -433,9 +420,7 @@ def add_drilling_summary():
                     html.Button("By Job", id="btn-daily", n_clicks=0,
                                 className="grouping-button",
                                 style={'marginRight': '5px', 'marginBottom': '5px'}),
-                    # html.Button("Job Total", id="btn-jobno", n_clicks=0,
-                    #             className="grouping-button active",
-                    #             style={'marginRight': '5px', 'marginBottom': '5px'}),
+
                     html.Button("By Rig", id="btn-rigid", n_clicks=0,
                                 className="grouping-button",
                                 style={'marginRight': '5px', 'marginBottom': '5px'}),
@@ -468,15 +453,30 @@ def add_drilling_summary():
                         },
                         labelStyle={'marginRight': '10px'}
                     ),
-                    # html.Span("Daily", style={'color': 'white', 'marginRight': '10px', 'fontSize': '14px'}),
-                    # daq.BooleanSwitch(
-                    #     id='cumulative-switch',
-                    #     on=True,
-                    #     color="#007BFF",
-                    #     style={'display': 'inline-block'}
-                    # ),
-                    # html.Span("Cumulative", style={'color': 'white', 'marginLeft': '10px', 'fontSize': '14px'}),
-                ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'})
+
+                ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}),
+
+                html.Div([
+                    dcc.RadioItems(
+                        id='time-period-selector',
+                        options=[
+                            {'label': 'Weekly', 'value': 'weekly'},
+                            {'label': 'Monthly', 'value': 'monthly'}
+                        ],
+                        value='weekly',  # default value
+                        inline=True,
+
+                        style={'display': 'none'},  # hidden by default
+                        labelStyle={
+                            'color': 'white',
+                            'fontSize': '12px',
+                            'margin-right': '15px',
+                            'display': 'inline-block'
+                        },
+                        inputStyle={'margin-right': '5px'}
+
+                    )
+                ]),
             ], style={'width': '35%', 'display': 'inline-block', 'padding': '10px', 'textAlign': 'center',
                       'verticalAlign': 'top'}),
 
@@ -507,7 +507,15 @@ def add_drilling_summary():
                 "enableSorting": True,
                 "enableFilter": True,
                 "enableRangeHandle": True,
+                "ensureDomOrder": True,
+                "suppressDragLeaveHidesColumns": True,
+                "maintainColumnOrder": True,
+                # ✅ Automatically size columns when defs update
+                "onFirstDataRendered": {"function": "params.api.sizeColumnsToFit();"},
+                "onColumnDefsChanged": {"function": "params.api.sizeColumnsToFit();"},
+
             },
+
             style={"height": "600px", "width": "100%", "marginTop": '5px'}
         ),
         html.Button(

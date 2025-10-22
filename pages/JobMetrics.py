@@ -17,7 +17,7 @@ from plotly.subplots import make_subplots
 
 from layouts import add_drilling_summary
 from functools import lru_cache
-
+import uuid
 
 dash.register_page(
     __name__,
@@ -458,7 +458,16 @@ layout = html.Div([
     })
     # style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
-
+# Add a callback to show/hide the time period selector based on cumulative_on
+@callback(
+    Output('time-period-selector', 'style'),
+    Input('cumulative-switch', 'value')
+)
+def toggle_time_period_selector(cumulative_on):
+    if cumulative_on != 'daily':
+        return {'display': 'block'}  # show the selector
+    else:
+        return {'display': 'none'}   # hide the selector
 @callback(
     Output("job-table", "rowData"),
     Output("summary-cards", "children"),
@@ -1792,6 +1801,57 @@ def get_filtered_df(cumulative_on):
         df = df_stats.copy()
     return df
 
+
+def summarize_by_time_period(df, period):
+    """
+    Summarize data by weekly or monthly periods
+    """
+    # Identify the date column
+    date_col = 'Date'
+
+    if date_col not in df.columns:
+        return df
+
+    # Ensure datetime format
+    df = df.copy()
+    df[date_col] = pd.to_datetime(df[date_col])
+
+    # Create period groups
+    if period == 'weekly':
+        df['Period'] = df[date_col].dt.to_period('W')
+        df['Date'] = df[date_col].dt.to_period('W').apply(lambda r: r.start_time.date())
+    elif period == 'monthly':
+        df['Period'] = df[date_col].dt.to_period('M')
+        df['Date'] = df[date_col].dt.to_period('M').apply(lambda r: r.start_time.date())
+
+    # Define aggregation functions
+    agg_functions = {
+        'PileCount': 'sum',
+        'ConcreteDelivered': 'sum',
+        'LaborHours': 'sum',
+        'DaysRigDrilled': 'sum',
+        'AveragePileLength': 'mean',
+        'AveragePileWaste': 'mean',
+        'AverageRigWaste': 'mean'
+    }
+
+    # Add other columns to group by if they exist
+    group_cols = ['Period', 'Date','RigID', 'JobNo', 'JobName']
+
+    # Perform aggregation
+    aggregated_df = df.groupby(group_cols).agg(agg_functions).reset_index()
+
+    # Clean up the period column
+    if 'Period' in aggregated_df.columns:
+        aggregated_df = aggregated_df.drop('Period', axis=1)
+
+
+    ordered_cols = ['RigID', 'JobNo', 'JobName', 'Date', 'PileCount', 'ConcreteDelivered',
+                    'LaborHours', 'DaysRigDrilled', 'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+    aggregated_df = aggregated_df[[c for c in ordered_cols if c in aggregated_df.columns]]
+    return aggregated_df
+
+
 @callback(
     Output("rig-summary-data-grid", "rowData"),
     Output("rig-summary-data-grid", "columnDefs"),
@@ -1799,10 +1859,11 @@ def get_filtered_df(cumulative_on):
      Input("btn-daily", "n_clicks"),
      Input("btn-rigid", "n_clicks"),
      Input("btn-none", "n_clicks"),
-     Input("cumulative-switch", "value")],
+     Input("cumulative-switch", "value"),
+     Input("time-period-selector", "value")],
     prevent_initial_call=False
 )
-def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulative_on):
+def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulative_on,time_period):
 
     triggered_id = ctx.triggered_id or 'btn-overall'
     grouping_map = {
@@ -1811,9 +1872,21 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
         'btn-rigid': 'rigid',
         'btn-none': 'none'
     }
-    grouping_level = grouping_map.get(triggered_id, 'overall')
+    # grouping_level = grouping_map.get(triggered_id, 'overall')
+    if triggered_id in grouping_map:
+        grouping_level = grouping_map[triggered_id]
+    else:
+        # Reuse last grouping_level if not triggered by a button
+        grouping_level = getattr(update_grid, "last_grouping", "overall")
+
+    update_grid.last_grouping = grouping_level  # remember for next call
 
     filtered_df = get_filtered_df(cumulative_on)
+    # Apply weekly/monthly summarization when cumulative_on is not 'daily'
+    if cumulative_on != 'daily' and time_period in ['weekly', 'monthly']:
+        df = get_filtered_df('daily')
+        filtered_df = summarize_by_time_period(df, time_period)
+
     visibility = get_column_visibility(grouping_level, cumulative_on)
 
     display_df = (
@@ -1846,9 +1919,17 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
     column_defs = [
         {"headerName": col, "field": col, "filter": True,
          "enableRowGroup": True, "hide": not visibility.get(col, True),
-         "key": grouping_level + "_" + col}  # force refresh
+         "key": f"{grouping_level}_{time_period}_{col}"}
+         # "key": grouping_level + "_" + col}  # force refresh
         for col in col_def
     ]
+
+    if grouping_level == 'rigid':
+        column_defs[0] = {"headerName": "RigID", "field": "RigID", "filter": True, "enableRowGroup": True,
+             "hide": not visibility.get('RigID', True),
+             "pinned": "left", "lockPosition": True, "suppressMovable": True,
+             "key": f"{grouping_level}_{time_period}_RigID"}
+
 
     return rows, column_defs
 
