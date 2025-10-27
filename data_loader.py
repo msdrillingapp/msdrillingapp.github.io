@@ -58,7 +58,7 @@ class DataManager:
                 # for 1640
                 # result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=reload)
                 # Call your data loading function
-                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=reload)
+                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False)
                 my_jobs = JobManager()
                 for jobID, v in results_pileMetrics.items():
                     print(jobID)
@@ -924,8 +924,8 @@ if __name__ == "__main__":
     # '1657']
     # jobs = ['1639']
     # jobs = ['1657']'1633', '1640','1640','1640',
-    # '1640',
-    jobs = [ '1640','1639', '1632','1641', '1642', '1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
+    # '1640','1643',
+    jobs = [ '1640','1639', '1632','1641', '1642', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
     # jobs = ['1650']
     data_manager.load_data(jobs=jobs,reload=True)
 
