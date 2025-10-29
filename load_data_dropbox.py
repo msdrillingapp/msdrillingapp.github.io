@@ -172,7 +172,7 @@ if __name__ == '__main__':
     jobs = ['1639','1648','1632',  '1641', '1642', '1643','1648', '1650', '1652', '1653',
                           '1655','1657', '1660']
     reload = True
-    load_recent = False
+    load_recent = True
     if reload:
         if load_recent:
             drilling_data,stats_data = read_json_files_recent(base_folder='/JSON',jobs=jobs,days_threshold=3)

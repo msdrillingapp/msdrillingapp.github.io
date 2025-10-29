@@ -17,7 +17,8 @@ from plotly.subplots import make_subplots
 
 from layouts import add_drilling_summary
 from functools import lru_cache
-import uuid
+from utils import is_timedelta_column,seconds_to_smart_d_hms
+
 
 dash.register_page(
     __name__,
@@ -104,7 +105,8 @@ def load_data_metrics():
          summary_dict_daily[jb] = job.daily_stats
          tmp = job.daily_stats
          tmp['JobNo'] = job.job_id
-         tmp['JobName'] = job.job_name
+         # tmp['JobName'] = job.job_name
+         tmp['JobFullID'] = job.job_full_id
          df_stats_daily = pd.concat([df_stats_daily,tmp],ignore_index=True)
     df_stats = my_jobs.job2data_stats_all_dates
 
@@ -192,7 +194,10 @@ def prepare_time_spent_stats(summary_dict_daily,jobID):
     for name in df.columns:
         if name.startswith('mean_') and name.endswith('Time'):
             name_= name.split('_')[1]
-            tmp[name_] = df[name].str.split('min',expand=True)[0]
+            if is_timedelta_column(df[name]):
+                tmp[name_] = df[name].dt.total_seconds()
+            else:
+                tmp[name_] = df[name].str.split('min',expand=True)[0]
             # tmp[name_] = pd.to_datetime(tmp[name_],format = '%H:%M:%S')
             # tmp[name_] = pd.to_numeric(tmp[name_],errors= 'coerce')
 
@@ -209,20 +214,6 @@ summary_metrics,summary_dic_daily,df_stats,df_stats_daily = load_data_metrics()
 column_defs = [
     {"headerName": "JobID", "field": "JobID","cellStyle": {"textAlign": "left"}},
     {"headerName": "JobNumber", "field": "JobNumber","hide": True},
-    # {
-    #     "headerName": "Status",
-    #     "field": "StatusSymbol",
-    #     "cellStyle": {
-    #         "function": """
-    #             function(params) {
-    #                 if (params.data.StatusColor === 'green') return {backgroundColor: '#d4edda', textAlign: 'center'};
-    #                 if (params.data.StatusColor === 'orange') return {backgroundColor: '#fff3cd', textAlign: 'center'};
-    #                 if (params.data.StatusColor === 'red') return {backgroundColor: '#f8d7da', textAlign: 'center'};
-    #                 return {textAlign: 'center'};
-    #             }
-    #         """
-    #     }
-    # },
     {"headerName": "Piles Drilled", "field": "Piles Drilled"},
     {"headerName": "Piles %", "field": "Piles %"},
     {"headerName": "Concrete Delivered (cyd)", "field": "Concrete Delivered"},
@@ -233,28 +224,6 @@ column_defs = [
     {"headerName": "Rig Days %", "field": "Rig Days %"},
     {"headerName": "Average Piles/Day", "field": "Average Piles/Day"},
     {"headerName": "Average PileLength (ft)", "field": "AveragePileLength"},
-
-    # {
-    #     "headerName": "Delta Piles vs Concrete",
-    #     "field": "Delta_Piles_vs_Concrete",
-    #     "cellStyle": {
-    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Concrete'], textAlign: 'center'};}"
-    #     }
-    # },
-    # {
-    #     "headerName": "Delta Piles vs RigDays",
-    #     "field": "Delta_Piles_vs_RigDays",
-    #     "cellStyle": {
-    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_RigDays'], textAlign: 'center'};}"
-    #     }
-    # },
-    # {
-    #     "headerName": "Delta Piles vs Labor Hours",
-    #     "field": "Delta_Piles_vs_Labor Hours",
-    #     "cellStyle": {
-    #         "function": "function(params) {return {color: params.data.DeltaColors['Delta_Piles_vs_Labor Hours'], textAlign: 'center'};}"
-    #     }
-    # }
 ]
 date_picker_style = {
     "backgroundColor": "#193153",
@@ -449,6 +418,7 @@ layout = html.Div([
     ),  # close collapse
 
     html.Br(),
+    html.Hr(style={'border': '1px solid #cccccc'}),
     add_drilling_summary(),
 ],
     style={
@@ -459,15 +429,15 @@ layout = html.Div([
     # style={'backgroundColor': '#193153', 'height': '550vh', 'padding': '20px', 'position': 'relative'})
 
 # Add a callback to show/hide the time period selector based on cumulative_on
-@callback(
-    Output('time-period-selector', 'style'),
-    Input('cumulative-switch', 'value')
-)
-def toggle_time_period_selector(cumulative_on):
-    if cumulative_on != 'daily':
-        return {'display': 'block'}  # show the selector
-    else:
-        return {'display': 'none'}   # hide the selector
+# @callback(
+#     Output('time-period-selector', 'style'),
+#     Input('cumulative-switch', 'value')
+# )
+# def toggle_time_period_selector(cumulative_on):
+#     if cumulative_on != 'daily':
+#         return {'display': 'block'}  # show the selector
+#     else:
+#         return {'display': 'none'}   # hide the selector
 @callback(
     Output("job-table", "rowData"),
     Output("summary-cards", "children"),
@@ -588,9 +558,13 @@ from datetime import timedelta
 def sum_timestamps(time_strings):
     total_seconds = 0
     for time_str in time_strings:
-        if str(time_str)!='nan':
-            h, m, s = map(int, time_str.split(':'))
-            total_seconds += h * 3600 + m * 60 + s
+        if isinstance(time_str,str):
+            if str(time_str)!='nan':
+                h, m, s = map(int, time_str.split(':'))
+                total_seconds += h * 3600 + m * 60 + s
+        elif isinstance(time_str,float):
+            total_seconds+=time_str
+
 
     # Convert back to time format
     # total_time = timedelta(seconds=total_seconds)
@@ -1149,21 +1123,29 @@ def update_rig_charts(selected_rows, selected_date, click_data_list, current_chi
         # Try to get job from existing charts or return current children
         return current_children or []
 
-    # Fast check using cache manager
-    cache_manager = get_data_summary('cache_manager')
-    if not cache_manager.is_date_available(job, selected_date):
-        return []
+    # # Fast check using cache manager
+    # cache_manager = get_data_summary('cache_manager')
+    # if not cache_manager.is_date_available(job, selected_date):
+    #     return []
+    #
+    # # GET PRECOMPUTED DATA
+    # precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
 
-    # GET PRECOMPUTED DATA
-    precomputed_data = cache_manager.get_precomputed_rig_data(job, selected_date)
+    # if not precomputed_data or not precomputed_data['rig_pile_dataframes']:
+    #     raise PreventUpdate
 
-    if not precomputed_data or not precomputed_data['rig_pile_dataframes']:
-        raise PreventUpdate
-
-    piles_by_rig = precomputed_data['piles_by_rig']
-    rig_pile_dataframes = precomputed_data['rig_pile_dataframes']
+    # piles_by_rig = precomputed_data['piles_by_rig']
+    # rig_pile_dataframes = precomputed_data['rig_pile_dataframes']
     result_MWD = get_data_summary('result_MWD')
     df_prop = result_MWD[str(job)][0]
+
+    my_jobs = get_data_summary('my_jobs')
+    piles_timeseries = my_jobs.jobs[str(job)].piles_timeseries
+    piles_timeseries['Date'] = pd.to_datetime(piles_timeseries['Time']).dt.date
+    df_ts = piles_timeseries[piles_timeseries['Date']==pd.to_datetime(selected_date).date()]
+    df_ts.sort_values(by='Time',inplace=True)
+    df_ts.reset_index(drop=True,inplace=True)
+    #
 
     # Get selected pile from click (if any)
     selected_pile_id = None
@@ -1176,18 +1158,24 @@ def update_rig_charts(selected_rows, selected_date, click_data_list, current_chi
 
     # Create chart pairs for each rig
     chart_components = []
-    rigs =list(piles_by_rig.keys())
+    # rigs =list(piles_by_rig.keys())
+    rigs = list(df_prop['RigID'].unique())
     rigs = [x for x in rigs if not x is None]
     for index, rig_id in enumerate(rigs):
-        if rig_id not in rig_pile_dataframes:
-            continue
-
+        # if rig_id not in rig_pile_dataframes:
+        #     continue
+        piles_by_rig = list(df_prop[df_prop['RigID']==rig_id]['PileID'].unique())
+        df_ts_rig = df_ts[(df_ts['PileID'].isin(piles_by_rig))]
         # Create location chart for this rig
-        location_fig = create_rig_location_chart(index,rig_id, piles_by_rig[rig_id], rig_pile_dataframes[rig_id], df_prop,
+        # location_fig = create_rig_location_chart(index,rig_id, piles_by_rig[rig_id], rig_pile_dataframes[rig_id], df_prop,
+        #                                          selected_pile_id)
+        location_fig = create_rig_location_chart(index, rig_id, piles_by_rig, df_ts_rig,
+                                                 df_prop,
                                                  selected_pile_id)
 
         # Create time chart for this rig
-        time_fig = create_rig_time_chart(rig_id, piles_by_rig[rig_id], rig_pile_dataframes[rig_id], selected_pile_id)
+        # time_fig = create_rig_time_chart(rig_id, piles_by_rig[rig_id], rig_pile_dataframes[rig_id], selected_pile_id)
+        time_fig = create_rig_time_chart(rig_id, piles_by_rig, df_ts_rig, selected_pile_id)
 
         # Add charts to components with pattern matching IDs
         chart_components.extend([
@@ -1210,7 +1198,7 @@ def update_rig_charts(selected_rows, selected_date, click_data_list, current_chi
     return chart_components
 
 
-def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=None):
+def create_rig_time_chart(rig_id, pile_ids, pile_data, selected_pile_id=None):
     """Create time chart for a specific rig"""
     # Create subplot for this rig only
     fig = make_subplots(
@@ -1226,10 +1214,12 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
 
     annotations = []
 
-    for pile_idx, mdict in enumerate(pile_data_dict):
-        pile_id = list(mdict.keys())[0]
-        pile_df = mdict[pile_id]
-
+    # for pile_idx, mdict in enumerate(pile_data_dict):
+    #     pile_id = list(mdict.keys())[0]
+    #     pile_df = mdict[pile_id]
+    pile_list = list(pile_data['PileID'].unique())
+    for pile_idx, pile_id in enumerate(pile_list, start=1):
+        pile_df = pile_data[pile_data['PileID']==pile_id]
         # Determine if this pile should be highlighted
         is_highlighted = (selected_pile_id == pile_id)
         line_width = 4 if is_highlighted else 2
@@ -1364,7 +1354,7 @@ def create_rig_time_chart(rig_id, pile_ids, pile_data_dict, selected_pile_id=Non
     return fig
 
 
-def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, selected_pile_id=None):
+def create_rig_location_chart(index,rig_id, pile_ids, pile_data, df_prop, selected_pile_id=None):
     """Create location chart for a specific rig"""
     fig = go.Figure()
 
@@ -1378,9 +1368,10 @@ def create_rig_location_chart(index,rig_id, pile_ids, pile_data_dict, df_prop, s
     position = []
     marker_sizes = []
     marker_colors = []
-
-    for order_num, mdict in enumerate(pile_data_dict, start=1):
-        pile_id = list(mdict.keys())[0]
+    pile_list = list(pile_data['PileID'].unique())
+    # for order_num, mdict in enumerate(pile_data, start=1):
+    for order_num, pile_id in enumerate(pile_list, start=1):
+        # pile_id = list(mdict.keys())[0]
         tmp = df_prop[df_prop['PileID'] == pile_id][['XEasting', 'YNorthing']]
         if not tmp.empty:
             x_coords.append(tmp['XEasting'].values[0])
@@ -1477,36 +1468,39 @@ def apply_custom_aggregation(df, aggregation_type):
             return 0  # Return 0 if all values are zero
         return non_zero.mean()
 
-    if aggregation_type == 'jobno':
-        # Find the latest date for each JobNo
-        latest_dates = df.groupby('JobNo')['Date'].max().reset_index()
-
-        # Merge to get only the latest entries for each JobNo
-        latest_data = pd.merge(df, latest_dates, on=['JobNo', 'Date'], how='inner')
-
-        # Now aggregate by JobNo (summing numeric columns, taking first for others)
-        aggregation_rules = {
-            'JobName': 'first',
-            'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
-            'Date': 'last',
-            'PileCount': 'sum',
-            'ConcreteDelivered': 'sum',
-            'LaborHours': 'sum',
-            'DaysRigDrilled': 'sum',
-            'AveragePileLength': mean_no_zero,
-            'AveragePileWaste': mean_no_zero,
-            'AverageRigWaste': mean_no_zero
-        }
-
-        available_columns = [col for col in aggregation_rules.keys() if col in latest_data.columns]
-        aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
-
-        grouped_df = latest_data.groupby('JobNo').agg(aggregation_rules).reset_index()
-
-    elif aggregation_type == 'daily':
+    # if aggregation_type == 'jobno':
+    #     # Find the latest date for each JobNo
+    #     latest_dates = df.groupby('JobFullID')['Date'].max().reset_index()
+    #
+    #     # Merge to get only the latest entries for each JobNo
+    #     latest_data = pd.merge(df, latest_dates, on=['JobFullID', 'Date'], how='inner')
+    #
+    #     # Now aggregate by JobNo (summing numeric columns, taking first for others)
+    #     aggregation_rules = {
+    #         # 'JobName': 'first',
+    #         'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
+    #         'Date': 'last',
+    #         'PileCount': 'sum',
+    #         'ConcreteDelivered': 'sum',
+    #         'LaborHours': 'sum',
+    #         'DaysRigDrilled': 'sum',
+    #         'AveragePileLength': mean_no_zero,
+    #         'AveragePileWaste': mean_no_zero,
+    #         'AverageRigWaste': mean_no_zero
+    #     }
+    #
+    #     available_columns = [col for col in aggregation_rules.keys() if col in latest_data.columns]
+    #     aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+    #
+    #     grouped_df = latest_data.groupby('JobFullID').agg(aggregation_rules).reset_index()
+    conv_columns= ['PileCount','LaborHours','DaysRigDrilled','AveragePileLength','AveragePileWaste','AverageRigWaste']
+    for col in conv_columns:
+        df[col] = pd.to_numeric(df[col])
+    df['HoursTurn'] = df['HoursTurn'].dt.total_seconds()
+    if aggregation_type == 'job':
         # Daily aggregation by JobNo + Date + RigID
         aggregation_rules = {
-            'JobName': 'first',
+            # 'JobFullID': 'first',
             'RigID': lambda x: ', '.join(sorted(set(x.astype(str)))),
             'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
@@ -1515,32 +1509,34 @@ def apply_custom_aggregation(df, aggregation_type):
             'AveragePileLength': mean_no_zero,
             'AveragePileWaste': mean_no_zero,
             'AverageRigWaste': mean_no_zero,
+            'HoursTurn':'sum'
         }
 
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
-        grouped_df = df.groupby(['JobNo', 'Date']).agg(aggregation_rules).reset_index()
-        grouped_df = grouped_df.sort_values(by=['JobNo', 'Date'], ascending=False)
+        grouped_df = df.groupby(['JobFullID', 'Date']).agg(aggregation_rules).reset_index()
+        grouped_df = grouped_df.sort_values(by=['JobFullID', 'Date'], ascending=False)
 
     elif aggregation_type == 'rigid':
         # For RigID: get latest entry for each RigID
         aggregation_rules = {
-            'JobName': 'first',
+            # 'JobFullID': 'first',
             'PileCount': 'sum',
             'ConcreteDelivered': 'sum',
             'LaborHours': 'sum',
             'DaysRigDrilled': 'sum',
             'AveragePileLength': mean_no_zero,
             'AveragePileWaste': mean_no_zero,
-            'AverageRigWaste': mean_no_zero
+            'AverageRigWaste': mean_no_zero,
+            'HoursTurn': 'sum'
         }
 
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
 
-        grouped_df = df.groupby(['JobNo', 'Date', 'RigID']).agg(aggregation_rules).reset_index()
-        grouped_df = grouped_df.sort_values(by=['JobNo', 'RigID', 'Date'], ascending=False)
+        grouped_df = df.groupby(['JobFullID', 'Date', 'RigID']).agg(aggregation_rules).reset_index()
+        grouped_df = grouped_df.sort_values(by=['JobFullID', 'RigID', 'Date'], ascending=False)
 
     elif aggregation_type == 'overall':
         # Overall: Aggregate by Date only (across all jobs and rigs)
@@ -1554,15 +1550,19 @@ def apply_custom_aggregation(df, aggregation_type):
             'AverageRigWaste': mean_no_zero,
             'JobCount': 'nunique',  # Count of unique jobs per day
             'RigCount': 'nunique',  # Count of unique rigs per day
+            'HoursTurn': 'sum'
         }
 
         # Only use columns that exist in the dataframe
         available_columns = [col for col in aggregation_rules.keys() if col in df.columns]
         aggregation_rules = {col: aggregation_rules[col] for col in available_columns}
+        for col in available_columns:
+            df[col] = pd.to_numeric(df[col])
 
         # Add count columns if they don't exist
         if 'JobCount' not in df.columns:
-            df['JobCount'] = df['JobNo']
+            # df['JobCount'] = df['JobNo']
+            df['JobCount'] = df['JobFullID']
         if 'RigCount' not in df.columns:
             df['RigCount'] = df['RigID']
 
@@ -1570,25 +1570,25 @@ def apply_custom_aggregation(df, aggregation_type):
 
         # Add summary information
         grouped_df['Summary'] = f"Daily Total"
-        grouped_df['JobNo'] = "All Jobs"
+        grouped_df['JobFullID'] = "All Jobs"
         grouped_df['RigID'] = "All Rigs"
-        grouped_df['JobName'] = "Daily Summary"
+        # grouped_df['JobName'] = "Daily Summary"
         grouped_df = grouped_df.sort_values('Date', ascending=False)
 
     else:
         grouped_df = df.copy()
-        grouped_df = grouped_df.sort_values(['JobNo', 'Date', 'RigID'], ascending=False)
+        grouped_df = grouped_df.sort_values(['JobFullID', 'Date', 'RigID'], ascending=False)
 
     return grouped_df
 
 
 @callback(
     Output("btn-overall", "className"),
-    Output("btn-daily", "className"),
+    Output("btn-job", "className"),
     Output("btn-rigid", "className"),
     Output("btn-none", "className"),
     Input("btn-overall", "n_clicks"),
-    Input("btn-daily", "n_clicks"),
+    Input("btn-job", "n_clicks"),
     Input("btn-rigid", "n_clicks"),
     Input("btn-none", "n_clicks"),
 )
@@ -1601,7 +1601,7 @@ def toggle_active(btn_overall, btn_daily, btn_rigid, btn_none):
 
     return (
         active_class("btn-overall"),
-        active_class("btn-daily"),
+        active_class("btn-job"),
         active_class("btn-rigid"),
         active_class("btn-none"),
     )
@@ -1640,21 +1640,19 @@ def toggle_active(btn_overall, btn_daily, btn_rigid, btn_none):
 #     return rows
 
 # Define column visibility rules
-def get_column_visibility(grouping_level,cum:bool):
+def get_column_visibility(grouping_level):
     visibility_rules = {
         'overall': {
-            'JobNo': False,
-            'JobName': False,
+            'JobFullID': False,
             'RigID': False,
             'Date': True,
-            'DaysRigDrilled':cum
+            'DaysRigDrilled':True
         },
         'daily': {
-            'JobNo': True,
-            'JobName': True,
+            'JobFullID': True,
             'RigID': False,
             'Date': True,
-            'DaysRigDrilled':cum
+            'DaysRigDrilled':False
         },
         # 'jobno': {
         #     'JobNo': True,
@@ -1663,18 +1661,16 @@ def get_column_visibility(grouping_level,cum:bool):
         #     'Date': False  # Hide date for job totals
         # },
         'rigid': {
-            'JobNo': True,
-            'JobName': True,
+            'JobFullID': True,
             'RigID': True,
             'Date': True,
-            'DaysRigDrilled':cum
+            'DaysRigDrilled':False
         },
         'none': {
-            'JobNo': True,
-            'JobName': True,
+            'JobFullID': True,
             'RigID': True,
             'Date': True,
-            'DaysRigDrilled':cum
+            'DaysRigDrilled':True
         }
     }
     return visibility_rules.get(grouping_level, {})
@@ -1789,14 +1785,14 @@ def get_column_visibility(grouping_level,cum:bool):
 #     return rows,column_defs
 @lru_cache(maxsize=8)
 def get_filtered_df(cumulative_on):
-    if cumulative_on == 'daily':
+    if cumulative_on != 'total':
         df = df_stats_daily.copy()
         df['Time'] = pd.to_datetime(df['Time']).dt.date
         df.rename(columns={
             'Time':'Date','Piles':'PileCount','mean_PileLength':'AveragePileLength',
-            'PileWaste':'AveragePileWaste', 'RigWaste':'AverageRigWaste'
+            'PileWaste':'AveragePileWaste', 'RigWaste':'AverageRigWaste','TurnTime':'HoursTurn'
         }, inplace=True)
-        df['DaysRigDrilled'] = 0
+        # df['DaysRigDrilled'] = 0
     else:
         df = df_stats.copy()
     return df
@@ -1823,6 +1819,11 @@ def summarize_by_time_period(df, period):
     elif period == 'monthly':
         df['Period'] = df[date_col].dt.to_period('M')
         df['Date'] = df[date_col].dt.to_period('M').apply(lambda r: r.start_time.date())
+    elif period == 'daily':
+        df['Period'] = df[date_col]
+    else:
+        raise ValueError
+
 
     # Define aggregation functions
     agg_functions = {
@@ -1832,11 +1833,12 @@ def summarize_by_time_period(df, period):
         'DaysRigDrilled': 'sum',
         'AveragePileLength': 'mean',
         'AveragePileWaste': 'mean',
-        'AverageRigWaste': 'mean'
+        'AverageRigWaste': 'mean',
+        'HoursTurn': 'sum'
     }
 
     # Add other columns to group by if they exist
-    group_cols = ['Period', 'Date','RigID', 'JobNo', 'JobName']
+    group_cols = ['Period', 'Date','RigID', 'JobFullID'] #'JobNo',
 
     # Perform aggregation
     aggregated_df = df.groupby(group_cols).agg(agg_functions).reset_index()
@@ -1845,9 +1847,9 @@ def summarize_by_time_period(df, period):
     if 'Period' in aggregated_df.columns:
         aggregated_df = aggregated_df.drop('Period', axis=1)
 
-
-    ordered_cols = ['RigID', 'JobNo', 'JobName', 'Date', 'PileCount', 'ConcreteDelivered',
-                    'LaborHours', 'DaysRigDrilled', 'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']
+#'JobNo',
+    ordered_cols = ['RigID',  'JobFullID', 'Date', 'PileCount', 'ConcreteDelivered',
+                    'LaborHours', 'DaysRigDrilled', 'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste','HoursTurn']
     aggregated_df = aggregated_df[[c for c in ordered_cols if c in aggregated_df.columns]]
     return aggregated_df
 
@@ -1856,23 +1858,22 @@ def summarize_by_time_period(df, period):
     Output("rig-summary-data-grid", "rowData"),
     Output("rig-summary-data-grid", "columnDefs"),
     [Input("btn-overall", "n_clicks"),
-     Input("btn-daily", "n_clicks"),
+     Input("btn-job", "n_clicks"),
      Input("btn-rigid", "n_clicks"),
      Input("btn-none", "n_clicks"),
-     Input("cumulative-switch", "value"),
      Input("time-period-selector", "value")],
     prevent_initial_call=False
-)
-def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulative_on,time_period):
+) #cumulative_on,
+def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, time_period):
 
     triggered_id = ctx.triggered_id or 'btn-overall'
     grouping_map = {
         'btn-overall': 'overall',
-        'btn-daily': 'daily',
+        'btn-job': 'job',
         'btn-rigid': 'rigid',
         'btn-none': 'none'
     }
-    # grouping_level = grouping_map.get(triggered_id, 'overall')
+
     if triggered_id in grouping_map:
         grouping_level = grouping_map[triggered_id]
     else:
@@ -1881,40 +1882,51 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
 
     update_grid.last_grouping = grouping_level  # remember for next call
 
-    filtered_df = get_filtered_df(cumulative_on)
+    filtered_df = get_filtered_df(time_period)
     # Apply weekly/monthly summarization when cumulative_on is not 'daily'
-    if cumulative_on != 'daily' and time_period in ['weekly', 'monthly']:
+    if time_period in ['daily','weekly', 'monthly']:
         df = get_filtered_df('daily')
         filtered_df = summarize_by_time_period(df, time_period)
 
-    visibility = get_column_visibility(grouping_level, cumulative_on)
+    visibility = get_column_visibility(grouping_level)
 
     display_df = (
         filtered_df if grouping_level == 'none'
         else apply_custom_aggregation(filtered_df, grouping_level)
     )
 
+    display_df.rename(columns={'DaysRigDrilled': 'RigDays', 'JobFullID': 'JobID'}, inplace=True)
     if grouping_level == 'rigid':
-        col_def = ['RigID','JobNo','JobName','Date','PileCount','ConcreteDelivered',
-                   'LaborHours','DaysRigDrilled','AveragePileLength','AveragePileWaste','AverageRigWaste']
+        col_def = ['RigID','JobID','Date','PileCount','ConcreteDelivered',
+                   'LaborHours','RigDays','AveragePileLength','AveragePileWaste','AverageRigWaste','HoursTurn']
+        display_df.sort_values(by=['Date','RigID'],ascending=[False,True],inplace=True)
     else:
-        col_def = ['JobNo','JobName','Date','RigID','PileCount','ConcreteDelivered',
-                   'LaborHours','DaysRigDrilled','AveragePileLength','AveragePileWaste','AverageRigWaste']
+        col_def = ['JobID','Date','RigID','PileCount','ConcreteDelivered',
+                   'LaborHours','RigDays','AveragePileLength','AveragePileWaste','AverageRigWaste','HoursTurn']
+        if grouping_level =='overall':
+            display_df.sort_values(by=['Date'], ascending=[False], inplace=True)
+        elif grouping_level =='job':
+            display_df.sort_values(by=['Date', 'JobID'], ascending=[False, True], inplace=True)
 
     display_df = display_df[[c for c in col_def if c in display_df.columns]]
 
     # Round numeric values
-    for c in ['AveragePileLength','AveragePileWaste','AverageRigWaste']:
+    for c in ['AveragePileWaste','AverageRigWaste']:
         if c in display_df.columns:
-            display_df[c] = display_df[c].round(1)
+            display_df[c] = display_df[c].round(2)
+    display_df['AveragePileLength'] = display_df['AveragePileLength'].round(0)
     for c in ['PileCount','ConcreteDelivered','LaborHours','DaysRigDrilled']:
         if c in display_df.columns:
-            display_df[c] = display_df[c].round(0)
+            display_df[c] = pd.to_numeric(display_df[c], errors='coerce').round(0)
 
     if 'Date' in display_df.columns:
         display_df['Date'] = pd.to_datetime(display_df['Date']).dt.date
 
-    rows = display_df.to_dict('records')
+    display_df['HoursTurn'] = display_df['HoursTurn'].apply(seconds_to_smart_d_hms)
+
+    # apply sorting
+
+
 
     column_defs = [
         {"headerName": col, "field": col, "filter": True,
@@ -1930,6 +1942,7 @@ def update_grid(overall_clicks, daily_clicks, rigid_clicks, none_clicks, cumulat
              "pinned": "left", "lockPosition": True, "suppressMovable": True,
              "key": f"{grouping_level}_{time_period}_RigID"}
 
+    rows = display_df.to_dict('records')
 
     return rows, column_defs
 

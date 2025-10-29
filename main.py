@@ -75,6 +75,7 @@ navbar = dbc.NavbarSimple(
         dbc.NavItem(dbc.NavLink("Jobs", href="/", active="exact")),
         dbc.NavItem(dbc.NavLink("CPT", href="/CPT", active="exact")),
         dbc.NavItem(dbc.NavLink("Jobs Summary", href="/Metrics", active="exact")),
+        dbc.NavItem(dbc.NavLink("RS Report", href="/RS_Report", active="exact")),
     ],
 
     brand=html.Span([

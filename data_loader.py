@@ -10,6 +10,7 @@ import dash_leaflet as dl
 from datetime import datetime
 # from database.DatabaseStorage import Databasestorage
 # from flask_login import current_user
+import gzip
 
 from load_data_dropbox import read_json_files,read_data
 
@@ -58,7 +59,7 @@ class DataManager:
                 # for 1640
                 # result_MWD, results_CPT, results_pileMetrics = load_geojson_data(jobs, reload=reload)
                 # Call your data loading function
-                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False)
+                result_MWD, results_CPT,results_pileMetrics = load_dropbox_data(jobs, reload=False,reload_pilemetrics=False)
                 my_jobs = JobManager()
                 for jobID, v in results_pileMetrics.items():
                     print(jobID)
@@ -68,24 +69,25 @@ class DataManager:
                     my_job.add_colorCodes(v[0])
                     my_job.add_design_markers(v[3])
                     my_job.add_stats_files(v[4])
-                    my_job.add_piles_details(result_MWD[jobID][0],result_MWD[jobID][1][jobID])
+                    my_job.add_piles_details(result_MWD[jobID][0], result_MWD[jobID][1])
+                    # my_job.add_piles_details(result_MWD[jobID][0],result_MWD[jobID][1][jobID])
                     # my_job.generate_daily_summary_pdf()
                 my_jobs.process_job2date()
-                cache_manager = ChartDataCache(result_MWD, reload=reload)
+                # cache_manager = ChartDataCache(result_MWD, reload=reload)
 
 
                 self._data = {
                     'result_MWD': result_MWD,
                     'results_CPT': results_CPT,
                     'my_jobs': my_jobs,
-                    'cache_manager': cache_manager
+                    # 'cache_manager': cache_manager
                 }
 
                 self._is_loaded = True
                 print(f"Data loaded successfully: {len(result_MWD)} jobs")
             except Exception as e:
                 print(f"Error : {e}")
-                self._data = {'result_MWD': {}, 'results_CPT': {}, 'my_jobs': None,'cache_manager':None}
+                self._data = {'result_MWD': {}, 'results_CPT': {}, 'my_jobs': None} #,'cache_manager':None
                 self._is_loaded = True
         return self._data
 
@@ -586,11 +588,17 @@ def load_dropbox_data(jobs=[],reload:bool=False,reload_dropbox:bool=False,reload
             print(jobID)
             get_data = True
             if not reload:
-                cache_file = _get_filepath(jobID+'_new')
+                # cache_file = _get_filepath(jobID+'_new')
+                cache_file = _get_filepath(jobID + '_db')
                 if jobID =='1640':
                     cache_file = _get_filepath(jobID)
                 if os.path.exists(cache_file):
-                    (properties_df, jobid_pile_data,merged_df,markers,cpt_header, jobid_cpt_data,estimates,location,df_design,markers_design,stats_file) = pd.read_pickle(cache_file)
+                    if jobID =='1640':
+                        (properties_df, jobid_pile_data,merged_df,markers,cpt_header, jobid_cpt_data,estimates,location,df_design,markers_design,stats_file) = pd.read_pickle(cache_file)
+                    else:
+                        (properties_df, jobid_pile_data, merged_df, markers, cpt_header, jobid_cpt_data, estimates,
+                         location, df_design, markers_design, stats_file) = pd.read_pickle(cache_file,
+                                                                                           compression='gzip')
                     result_MWD[jobID] = (properties_df, jobid_pile_data,merged_df,markers)
                     results_CPT[jobID] = (cpt_header, jobid_cpt_data)
                     results_pileMetrics[jobID] = (estimates,location,df_design,markers_design,stats_file)
@@ -888,6 +896,8 @@ def get_design(jobID,reload):
                 df_design[nc.ds_pileid] = df_design[nc.ds_pileid].astype(str)
                 df_design_merge['JobNumber'] = jobID
                 df_design['color'] = df_design[nc.ds_cage_color].map(color_map).fillna('blue')
+                df_design['latitude'] = df_design['latitude'].fillna(location['latitude'])
+                df_design['longitude'] = df_design['longitude'].fillna(location['longitude'])
                 # Create the dictionary markers_design
                 for _, row in df_design.iterrows():
                     markers_design[row[nc.ds_pileid]] = dl.Marker(
@@ -924,8 +934,8 @@ if __name__ == "__main__":
     # '1657']
     # jobs = ['1639']
     # jobs = ['1657']'1633', '1640','1640','1640',
-    # '1640','1643',
-    jobs = [ '1640','1639', '1632','1641', '1642','1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
+    # '1640',
+    jobs = [ '1640','1639', '1632','1641', '1642', '1643', '1648','1650', '1652', '1653','1655','1657', '1660']  # '1657','1633','1640''1648'
     # jobs = ['1650']
     data_manager.load_data(jobs=jobs,reload=True)
 

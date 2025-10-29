@@ -134,10 +134,10 @@ def get_filters(): #results_MWD
 
 def get_pilelist():
 
-   pileList = html.Div([
+   # pileList = html.Div([
         # Map Section
-        dbc.Button("Show Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
-        dbc.Collapse(
+        # dbc.Button("Show Pile List", id="toggle-pilelist", color="primary", className="mb-2"),
+   pileList = (dbc.Collapse(
             [
                 dag.AgGrid(
                     id="pilelist-table",
@@ -215,9 +215,10 @@ def get_pilelist():
             ],
             id="collapse-pilelist",
             is_open=False
-        ),
+        ))
+        # ,
 
-    ], style={"backgroundColor": "#193153"})
+    # ], style={"backgroundColor": "#193153"})
 
    return pileList
 
@@ -348,22 +349,23 @@ def add_charts():
     return charts
 
 def add_pile_schedule_table():
+    # type	pileStatus
     # DRILLED	NOT DRILLED	HOLD / NOT RELEASED	DELETED	ABANDONED	TOTAL
     columnDefs = [
         {"headerName": "Pile Type", "field": "PileType", "filter": True, "enableRowGroup": True},
-        {"headerName": "DRILLED", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "NOT DRILLED", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "HOLD", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "DELETED", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "ABANDONED", "field": "JobName", "filter": True, "enableRowGroup": True},
-        {"headerName": "TOTAL", "field": "JobName", "filter": True, "enableRowGroup": True},
+        {"headerName": "DRILLED", "field": "drilled", "filter": True, "enableRowGroup": True},
+        {"headerName": "NOT DRILLED", "field": "scheduled", "filter": True, "enableRowGroup": True},
+        {"headerName": "HOLD", "field": "hold", "filter": True, "enableRowGroup": True},
+        {"headerName": "DELETED", "field": "deleted", "filter": True, "enableRowGroup": True},
+        {"headerName": "ABANDONED", "field": "abandoned", "filter": True, "enableRowGroup": True},
+        {"headerName": "TOTAL", "field": "total", "filter": True, "enableRowGroup": True},
     ]
     table = html.Div([
         html.H4("Pile Schedule", style={'color':'white','textAlign': 'left', 'marginBottom': 30}),
         # AG Grid
         dag.AgGrid(
             id="pile_schedule_table",
-            columnDefs=columnDefs,
+            columnDefs=[],
             rowData=[],
             className="ag-theme-alpine-dark",
             columnSize="sizeToFit",
@@ -371,7 +373,7 @@ def add_pile_schedule_table():
                 "resizable": True,
                 "sortable": True,
                 "filter": True,
-                "minWidth": 100,
+                "minWidth": 50,
                 "wrapHeaderText": True,  # ✅ allow text wrapping in header
                 "autoHeaderHeight": True,  # ✅ auto-adjust header height
             },
@@ -386,10 +388,11 @@ def add_pile_schedule_table():
                 "enableSorting": True,
                 "enableFilter": True,
                 "enableRangeHandle": True,
+                'domLayout': 'autoHeight'
 
             },
-
-            style={"height": "600px", "width": "100%", "marginTop": '5px'}
+            # This makes the grid height fit the content
+            style={"height": "200px", "width": "100%", "marginTop": '5px'}
         ),
 
     ])
@@ -414,10 +417,10 @@ def add_drilling_summary():
                 html.Label("Select Grouping Level:",
                            style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '10px'}),
                 html.Div([
-                    html.Button("By Date", id="btn-overall", n_clicks=0,
+                    html.Button("Overall", id="btn-overall", n_clicks=0,
                                 className="grouping-button active",
                                 style={'marginRight': '5px', 'marginBottom': '5px'}),
-                    html.Button("By Job", id="btn-daily", n_clicks=0,
+                    html.Button("By Job", id="btn-job", n_clicks=0,
                                 className="grouping-button",
                                 style={'marginRight': '5px', 'marginBottom': '5px'}),
 
@@ -432,51 +435,28 @@ def add_drilling_summary():
 
             # Cumulative/Daily Switch
             html.Div([
-                html.Label("Data View:", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '10px'}),
-                html.Div([
-                    dcc.RadioItems(
-                        id='cumulative-switch',
-                        options=[
-                            {'label': 'Daily', 'value': 'daily'},
-                            {'label': 'ToDate', 'value': 'cum'}
-                        ],
-                        value='cum',
-                        inline=True,
-                        style={
-                            'color': 'white',
-                            'fontSize': '12px',
-                            'textAlign': 'right',
-                            'marginBottom': '10px',
-                            'justifyContent': 'flex-end',
-                            'display': 'flex',
-                            'gap': '15px'
-                        },
-                        labelStyle={'marginRight': '10px'}
-                    ),
+                # html.Label("Period:", style={'color': 'white', 'fontWeight': 'bold', 'marginBottom': '10px'}),
 
-                ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}),
+                dcc.RadioItems(
+                    id='time-period-selector',
+                    options=[
+                        {'label': 'Daily', 'value': 'daily'},
+                        {'label': 'Weekly', 'value': 'weekly'},
+                        {'label': 'Monthly', 'value': 'monthly'},
+                        # {'label': 'Total', 'value': 'total'}
+                    ],
+                    value='daily',  # default value
+                    inline=True,
 
-                html.Div([
-                    dcc.RadioItems(
-                        id='time-period-selector',
-                        options=[
-                            {'label': 'Weekly', 'value': 'weekly'},
-                            {'label': 'Monthly', 'value': 'monthly'}
-                        ],
-                        value='weekly',  # default value
-                        inline=True,
-
-                        style={'display': 'none'},  # hidden by default
-                        labelStyle={
-                            'color': 'white',
-                            'fontSize': '12px',
-                            'margin-right': '15px',
-                            'display': 'inline-block'
-                        },
-                        inputStyle={'margin-right': '5px'}
-
-                    )
-                ]),
+                    style={'display':  'flex'},  # was None ==>hidden by default
+                    labelStyle={
+                        'color': 'white',
+                        'fontSize': '12px',
+                        'margin-right': '15px',
+                        'display': 'inline-block'
+                    },
+                    inputStyle={'margin-right': '5px'})
+                # ]),
             ], style={'width': '35%', 'display': 'inline-block', 'padding': '10px', 'textAlign': 'center',
                       'verticalAlign': 'top'}),
 

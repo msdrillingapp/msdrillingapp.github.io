@@ -26,37 +26,39 @@ assets_path = os.path.join(os.getcwd(),'assets')
 columns_cpt = ['Depth (feet)','Elevation (feet)','q_c (tsf)','q_t (tsf)','f_s (tsf)','U_2 (ft-head)','U_0 (ft-head)','R_f (%)','Zone_Icn','SBT_Icn','B_q','F_r','Q_t','Ic','Q_tn','Q_s (Tons)','Q_b (Tons)','Q_ult (Tons)']
 name_cpt_file_header = 'CPT-online-header.csv'
 
-
-def sum_times(series):
-    """Sum time strings in format hh:mm:ss with error handling"""
-    total_seconds = 0
-    valid_count = 0
-
-    for time_str in series:
-        if pd.notna(time_str) and time_str != '':
-            try:
-                # Handle different time formats
-                parts = time_str.split(':')
-                if len(parts) == 3:  # hh:mm:ss
-                    h, m, s = map(int, parts)
-                elif len(parts) == 2:  # mm:ss
-                    h, m, s = 0, int(parts[0]), int(parts[1])
-                else:  # ss only or invalid
-                    continue
-
-                total_seconds += h * 3600 + m * 60 + s
-                valid_count += 1
-            except (ValueError, TypeError):
-                continue
-
-    if valid_count == 0:
-        return "00:00:00"
-
-    # Convert back to hh:mm:ss format
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
+def sum_times(timedelta_series):
+    """Sum a series of timedelta objects"""
+    return timedelta_series.sum()
+# def sum_times(series):
+#     """Sum time strings in format hh:mm:ss with error handling"""
+#     total_seconds = 0
+#     valid_count = 0
+#
+#     for time_str in series:
+#         if pd.notna(time_str) and time_str != '':
+#             try:
+#                 # Handle different time formats
+#                 parts = time_str.split(':')
+#                 if len(parts) == 3:  # hh:mm:ss
+#                     h, m, s = map(int, parts)
+#                 elif len(parts) == 2:  # mm:ss
+#                     h, m, s = 0, int(parts[0]), int(parts[1])
+#                 else:  # ss only or invalid
+#                     continue
+#
+#                 total_seconds += h * 3600 + m * 60 + s
+#                 valid_count += 1
+#             except (ValueError, TypeError):
+#                 continue
+#
+#     if valid_count == 0:
+#         return "00:00:00"
+#
+#     # Convert back to hh:mm:ss format
+#     hours = total_seconds // 3600
+#     minutes = (total_seconds % 3600) // 60
+#     seconds = total_seconds % 60
+#     return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
 def format_time_to_hours_minutes(time_str):
     """Convert HH:MM:SS to Xh Ym format"""
@@ -690,6 +692,7 @@ class Job:
     def __init__(self, job_data: Dict):
         self.job_id = job_data.get('JobID', '')
         self.job_name = job_data.get('jobName', '')
+        self.job_full_id = self.job_id + '_'+ self.job_name
         self.location = job_data.get('locality', '')
         self.longitude = job_data.get('longitude', '')
         self.latitude = job_data.get('latitude', '')
@@ -730,15 +733,31 @@ class Job:
             self.job2data_stats_complete['Time'] = pd.to_datetime(self.job2data_stats_complete['Time']).dt.date
             if not 'PileCount' in self.job2data_stats_complete.columns:
                 if 'Piles' in self.job2data_stats_complete.columns:
-                    self.job2data_stats_complete.rename(columns={ 'Piles':'PileCount'},inplace=True)
+                    self.job2data_stats_complete.rename(columns={'Piles':'PileCount'}, inplace=True)
                     print('PileCount not in columns for job '+ self.job_id)
-            df_todate = self.job2data_stats_complete.copy()
 
+            df = self.job2data_stats_complete[['RigID', 'Time','DaysRigDrilled']]
+            # Sort by RigID, JobID, and Time
+            df = df.sort_values(['RigID', 'Time'])
+            # Calculate daily values
+            df['Daily_DaysRigDrilled'] = df.groupby('RigID')['DaysRigDrilled'].diff()
+            df['Daily_DaysRigDrilled'] = df['Daily_DaysRigDrilled'].fillna(df['DaysRigDrilled'])
+            df.drop(columns=['DaysRigDrilled'],inplace=True)
+            df.rename(columns={'Daily_DaysRigDrilled':'DaysRigDrilled'},inplace=True)
+            self.daily_stats = self.daily_stats.merge(df,on=['RigID','Time'],how='left')
+
+            df_todate = self.job2data_stats_complete.copy()
             df_todate['ConcreteDelivered'] = pd.to_numeric(df_todate['ConcreteDelivered'])
             df_todate['LaborHours'] = pd.to_numeric(df_todate['LaborHours'])
             df_todate['DaysRigDrilled'] = pd.to_numeric(df_todate['DaysRigDrilled'])
             # Apply to all Hours columns
             hours_columns = [col for col in df_todate.columns if col.startswith('Hours')]
+
+            # Ensure hours columns are timedelta
+            for col in hours_columns:
+                if not pd.api.types.is_timedelta64_dtype(df_todate[col]):
+                    # Convert to timedelta if they're strings
+                    df_todate[col] = pd.to_timedelta(df_todate[col], errors='coerce')
 
             aggregation_dict = {
                 **{col: sum_times for col in hours_columns},
@@ -1323,7 +1342,8 @@ class JobManager:
         for job_id in self.jobs:
             tmp = self.jobs[job_id].job2data_stats_complete
             tmp['JobNo'] = job_id
-            tmp['JobName'] = self.jobs[job_id].job_name
+            # tmp['JobName'] = self.jobs[job_id].job_name
+            tmp['JobFullID'] = self.jobs[job_id].job_full_id
             job2date = pd.concat([job2date,tmp],ignore_index=True)
 
         if len(job2date) > 0:
@@ -1362,6 +1382,6 @@ class JobManager:
                                                       'ConcreteDelivered', 'LaborHours', 'DaysRigDrilled',
                                                      'AveragePileLength', 'AveragePileWaste', 'AverageRigWaste']]
 
-            tmp = job2date[['JobNo', 'JobName']]
+            tmp = job2date[['JobNo', 'JobFullID']]
             tmp.drop_duplicates(inplace=True)
             self.job2data_stats_all_dates = self.job2data_stats_all_dates.merge(tmp, on='JobNo',how='left')

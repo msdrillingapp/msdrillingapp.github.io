@@ -6,6 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.exceptions import PreventUpdate
 import pandas as pd
+import math
 import plotly.express as px
 # import plotly.graph_objs as px
 from utils import get_shape_marker
@@ -14,7 +15,7 @@ import naming_conventions as nc
 from functions import get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples,remove_min
 from data_loader import get_data,ensure_data_loaded
 
-from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts
+from layouts import get_filters,get_pilelist,get_pile_details_cards,get_header,get_filtered_table,add_charts, add_pile_schedule_table
 from functions import generate_mwd_pdf, filter_none, create_time_chart,create_depth_chart#,result_MWD
 #generate_all_pdfs_task,
 import dash_bootstrap_components as dbc
@@ -99,45 +100,54 @@ layout = html.Div([
             is_open=True
         ),
     ]),
-    # ======================================================
-    html.Br(),
-    # =====================================================================================
-    pilelist,
-    # ======================================================
+
     # Table & Chart Side by Side
     html.Div([
+        # =====================================================================================
+        dbc.Button("Show Pile List", id="toggle-pilelist", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        pilelist,
+        # ======================================================
         # Plots Section
         dbc.Button("Show Plots", id="toggle-plots", color="primary", className="mb-2", style={"marginTop": "20px"}),
         charts,
     # =======================================================================
-    # Views Section (Main Table)
-    dbc.Button("Show Table", id="toggle-views", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        # Views Section (Main Table)
+        dbc.Button("Show Details Table", id="toggle-views", color="primary", className="mb-2", style={"marginTop": "20px"}),
 
-    dbc.Collapse(
-        html.Div([
-            dbc.Row([
-                dbc.Col(
-                    html.Div([
-                            html.Label("Filter by Group:", style={'color': 'white'}),
-                            dcc.Dropdown(
-                                id="group-filter",
-                                options=[{"label": g, "value": g} for g in groups_list],
-                                placeholder="Filter by Group",
-                                value='Edit',
-                                style={'marginBottom': '20px', 'marginRight': '10px'},
-                                className="dark-dropdown"
-                            ),]),
-                    xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
-                )
-            ]),
-            filtered_table,
-            html.Br(),
-            ]),
-            id="collapse-views",
-            is_open=False
-        )
+        dbc.Collapse(
+            html.Div([
+                dbc.Row([
+                    dbc.Col(
+                        html.Div([
+                                html.Label("Filter by Group:", style={'color': 'white'}),
+                                dcc.Dropdown(
+                                    id="group-filter",
+                                    options=[{"label": g, "value": g} for g in groups_list],
+                                    placeholder="Filter by Group",
+                                    value='Edit',
+                                    style={'marginBottom': '20px', 'marginRight': '10px'},
+                                    className="dark-dropdown"
+                                ),]),
+                        xs=10, sm=5, md=8, lg=3, xl=3  # Move these properties outside as well
+                    )
+                ]),
+                filtered_table,
+                # html.Br(),
+                ]),
+                id="collapse-views",
+                is_open=False
+            ),
+    # html.Br(),
+        dbc.Button("Show Pile Schedule", id="toggle-pile-schedule", color="primary", className="mb-2", style={"marginTop": "20px"}),
+        dbc.Collapse(
+        add_pile_schedule_table(),
+                id="collapse-pile-schedule",
+                is_open=False
+            ),
 
     ]),
+    # ====================================================================
+
     # ===============================================================================================
     # Scroll to Top Button
     html.Button("⬆ Scroll to Top", id="scroll-top-button", n_clicks=0, style={
@@ -147,7 +157,7 @@ layout = html.Div([
         'borderRadius': '5px'
     })
 
-], style={'backgroundColor': '#193153', 'height': '650vh', 'padding': '20px', 'position': 'relative'})
+], style={'backgroundColor': '#193153', 'height': '750vh', 'padding': '20px', 'position': 'relative'})
 # 'height': '650vh'
 # ================================================================================================
 # ================================================================================================
@@ -337,38 +347,40 @@ def update_table(selected_jobid, selected_date,selected_rigid,selected_pilecode,
         else:
             use_date = datetime.today().date().strftime(format='%Y-%m-%d')
 
-        min_depth = None
-        max_strokes = None
-        if not selected_jobid is None:
-            # job = my_jobs.jobs[selected_jobid]
-            # pile = job.piles[pile_id]
+        # min_depth = None
+        # max_strokes = None
+        # if not selected_jobid is None:
+        #     job = my_jobs.jobs[selected_jobid]
+        #     pile = job.piles[pile_id]
             # min_depth = pile.mindepth
             # max_strokes = pile.maxstrokes
 
-            jobid_pile_data = result_MWD[selected_jobid][1]
-            # Retrieve Depth & Strokes from pile_data
-            pile_data = jobid_pile_data[selected_jobid].copy()
-            if selected_date:
-                if pile_id in pile_data and use_date in pile_data[pile_id]:
-                    depth_values = pile_data[pile_id][use_date]["Depth"]
-                    strokes_values = pile_data[pile_id][use_date]["Strokes"]
-                    depth_values = [x if not x is None else 0 for x in depth_values]
-                    strokes_values = [x if not x is None else 0 for x in strokes_values]
-                    min_depth = round(np.nanmin(depth_values),0) if depth_values else None
-                    max_strokes = round(np.nanmax(strokes_values),0) if strokes_values else None
-                else:
-                    min_depth = None
-                    max_strokes = None
-            else:
-                if pile_id in pile_data:
-                    for k,v in pile_data[pile_id].items():
-                        depths_list = [x if not x is None else 0 for x in v['Depth']]
-                        strokes_list = [x if not x is None else 0 for x in v['Strokes']]
-                        min_depth = round(np.nanmin(depths_list),0)
-                        max_strokes = round(np.nanmax(strokes_list),0)
-                else:
-                    min_depth = None
-                    max_strokes = None
+            # jobid_pile_data = result_MWD[selected_jobid][1]
+            # # Retrieve Depth & Strokes from pile_data
+            # pile_data = jobid_pile_data[selected_jobid].copy()
+            # if selected_date:
+            #     if pile_id in pile_data and use_date in pile_data[pile_id]:
+            #         depth_values = pile_data[pile_id][use_date]["Depth"]
+            #         strokes_values = pile_data[pile_id][use_date]["Strokes"]
+            #         depth_values = [x if not x is None else 0 for x in depth_values]
+            #         strokes_values = [x if not x is None else 0 for x in strokes_values]
+            #         min_depth = round(np.nanmin(depth_values),0) if depth_values else None
+            #         max_strokes = round(np.nanmax(strokes_values),0) if strokes_values else None
+            #     else:
+            #         min_depth = None
+            #         max_strokes = None
+            # else:
+            #     if pile_id in pile_data:
+            #         for k,v in pile_data[pile_id].items():
+            #             depths_list = [x if not x is None else 0 for x in v['Depth']]
+            #             strokes_list = [x if not x is None else 0 for x in v['Strokes']]
+            #             min_depth = round(np.nanmin(depths_list),0)
+            #             max_strokes = round(np.nanmax(strokes_list),0)
+            #     else:
+            #         min_depth = None
+            #         max_strokes = None
+        min_depth = round(float(row['MinDepth']),0)
+        max_strokes = round(float(row['MaxStroke']),0)
 
         diameter = round(float(row['PileDiameter'])*feet2inch,2)
         calibration = round(float(row['PumpCalibration']),2)
@@ -647,72 +659,21 @@ def update_map_markers(selected_date, selected_rigid, selected_pileid,selected_j
         zoom_level,center = get_plotting_zoom_level_and_center_coordinates_from_lonlat_tuples(list(filter_none(filtered_df["longitude"])),list(filter_none(filtered_df["latitude"])))
         # center = (job.latitude, job.longitude)
         piles_list = list(filtered_df['PileID'].unique())
-        values_list = [markers_all.get(key) for key in piles_list]
+        values_list = []
+
+        for key in piles_list:
+            marker = markers_all.get(key)
+            # Check if marker exists and has valid data structure
+            if (marker is not None and
+                    hasattr(marker, 'position') and
+                    marker.position is not None and
+                    len(marker.position) == 2 and
+                    not math.isnan(marker.position[0]) and
+                    not math.isnan(marker.position[1])):
+                values_list.append(marker)
+
         markers.extend(values_list)
-        # for _, row in filtered_df.iterrows():
-        #     if pd.notna(row["latitude"]) and pd.notna(row["longitude"]):
-        #         pile_code = row.get("PileCode", "")
-        #         piletype = row.get("PileType", "")
-        #         pile_status = row.get("PileStatus", "")
-        #         colorCode = None
-        #         if piletype in colorCodes:
-        #             colorCode = colorCodes[piletype]
-        #         # Assign different marker styles
-        #         if pile_code.lower() == "Production Pile".lower():  # Circle
-        #             color_text = get_color_marker(colorCode)
-        #             if pile_status=='Complete':
-        #                 donut = "/assets/icons/"+color_text+"-donut_fill.png"
-        #             else:
-        #                 donut = "/assets/icons/"+color_text+"-donut.png"
-        #
-        #             marker = dl.Marker(
-        #                 position=(row["latitude"], row["longitude"]),
-        #                 icon=dict(
-        #                     iconUrl=donut,  # Path to your image in assets folder
-        #                     iconSize=[10, 10]  # Size of the icon in pixels
-        #                 ),
-        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-        #             )
-        #
-        #         elif pile_code.lower() == "TEST PILE".lower():  # Square (Using a rectangle as an approximation)
-        #             if pile_status == 'Complete':
-        #                 icon = 'assets/icons/yellow-square_fill.png'
-        #             else:
-        #                 icon = 'assets/icons/yellow-square.png'
-        #             marker = dl.Marker(
-        #                 position=(row["latitude"], row["longitude"]),
-        #                 icon=dict(
-        #                     iconUrl=icon,  # Path to your image in assets folder
-        #                     iconSize=[10, 10]  # Size of the icon in pixels
-        #                 ),
-        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-        #             )
-        #
-        #         elif pile_code.lower() == "REACTION PILE".lower():  # Octagon (Using a custom SVG marker)
-        #             marker = dl.Marker(
-        #                 position=(row["latitude"], row["longitude"]),
-        #                 icon=dict(
-        #                     iconUrl='assets/icons/blue-target.png',  # Path to your image in assets folder
-        #                     iconSize=[10, 10]  # Size of the icon in pixels
-        #                 ),
-        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-        #             )
-        #
-        #         else:  # Default marker for other PileCodes Probe
-        #             if pile_status == 'Complete':
-        #                 icon = "/assets/icons/red-triangle_fill.png"
-        #             else:
-        #                 icon = "/assets/icons/red-triangle.png"
-        #             marker = dl.Marker(
-        #                 position=(row["longitude"], row["latitude"]),
-        #                 icon=dict(
-        #                     iconUrl=icon,  # Path to your image in assets folder
-        #                     iconSize=[10, 10]  # Size of the icon in pixels
-        #                 ),
-        #                 children=[dl.Tooltip(f"PileID: {row['PileID']}, Status: {row.get('PileStatus', 'Unknown')}")]
-        #             )
-        #         center = [row["latitude"], row["longitude"]]
-        #         markers.append(marker)
+
     # ==============================================
     #  Add pile schedules
     # ==============================================
@@ -930,23 +891,16 @@ def update_combined_graph(selected_row, selected_pileid,selected_jobid,selected_
                 layout={"plot_bgcolor": "#193153", "paper_bgcolor": "#193153"}) ,True # Dark background even if empty
 
     jobid_pile_data = result_MWD[selected_jobid][1]
-    pile_data = jobid_pile_data[selected_jobid].copy()
-    pile_info = pile_data[selected_pileid][selected_date]
+    pile_data = jobid_pile_data.copy()
+    # pile_data = jobid_pile_data[selected_jobid].copy()
+    # was: pile_info = pile_data[selected_pileid][selected_date]
+    pile_info = pile_data[pile_data['PileID']==selected_pileid]
     # job = my_jobs.jobs[selected_jobid]
     # pile = job.piles[selected_pileid]
     # fig = pile.create_time_chart()
     # fig1 = pile.create_depth_chart()
     fig = create_time_chart(pile_info)
     fig1 = create_depth_chart(pile_info,diameter)
-
-    # if not window_size is None:
-    #     width = window_size['width']
-    #     if width < 768:  # Mobile breakpoint
-    #         fig1 = create_depth_chart_small_screen(pile_info,diameter)
-    #     else:
-    #         fig1 = create_depth_chart(pile_info, diameter)
-    # else:
-    #     fig1 = create_depth_chart(pile_info, diameter)
 
     return fig,fig1,False
 
@@ -1198,6 +1152,16 @@ def toggle_map(n_clicks, is_open):
     return is_open
 
 @callback(
+    Output("collapse-pile-schedule", "is_open"),
+    [Input("toggle-pile-schedule", "n_clicks")],
+    [State("collapse-pile-schedule", "is_open")],prevent_initial_call=True
+)
+def toggle_map(n_clicks, is_open):
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@callback(
     Output("collapse-plots", "is_open"),
     [Input("toggle-plots", "n_clicks")],
     [State("collapse-plots", "is_open")],prevent_initial_call=True
@@ -1298,23 +1262,54 @@ def generate_pdf_callback(n_clicks, selected_rows,selected_pileid, selected_date
 
 @callback(
     Output("pile_schedule_table", "rowData"),
+    Output("pile_schedule_table", "columnDefs"),
     Input('jobid-filter','value'),
-    prevent_initial_call=False
-)#jobno_clicks,
+    prevent_initial_call=True
+)
 def update_pile_schedule(selected_jobid):
+    if selected_jobid is None:
+        raise PreventUpdate
     my_jobs = get_data_loaded('my_jobs')
     df_design = my_jobs.jobs[selected_jobid].pile_schedule
-    rows = []
+    df_design[nc.ds_status] = df_design[nc.ds_status].astype(str).str.lower()
+    column_defs = []
+    pivot_df = pd.DataFrame()
     if len(df_design)>0:
         pivot_df = df_design.pivot_table(
-            index='nc.ds_piletype',
-            columns='nc.ds_status',
-            values='nc.ds_pileid',
+            index=nc.ds_piletype,
+            columns=nc.ds_status,
+            values=nc.ds_pileid,
             aggfunc='count',
             fill_value=0
         ).reset_index()
+        pivot_df.rename(columns= {'type':'Pile type'},inplace=True)
+        pivot_df['Total'] = pivot_df.iloc[:, 1:].sum(axis=1)
+        pivot_df.loc['Total'] = pivot_df.iloc[:, 1:].sum(axis=0)
+        pivot_df.columns = pivot_df.columns.str.capitalize()
+        pivot_df.loc[pivot_df.index[-1], 'Pile type']= 'Total'
+        column_defs = [
+            {"headerName": col, "field": col, "filter": True,
+             "enableRowGroup": True}
+            # "key": grouping_level + "_" + col}  # force refresh
+            for col in pivot_df.columns
+        ]
+        column_defs[0] = {
+                "field": "Pile type",
+                "headerName": "Pile Type",
+                "cellStyle": {"fontWeight": "bold"},
+                "pinned": "left"
+            }
+        column_defs.pop(-1)
+        column_defs.append( {
+                "field": "Total",
+                "headerName": "Row Total",
+                "type": "numericColumn",
+                "cellStyle": {"backgroundColor": "black", "fontWeight": "bold"},
+                # "pinned": "right"
+            })
 
-    return rows
+
+    return pivot_df.to_dict("records"),column_defs
 
 
 @callback(

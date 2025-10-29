@@ -1,4 +1,8 @@
 from datetime import datetime
+import pandas as pd
+import pickle
+import gzip
+from typing import Any
 
 
 def safe_timestamp_parse(timestamp_str):
@@ -44,6 +48,35 @@ def get_shape_marker(pile_code,pile_status):
         shape ='triangle'
     if pile_status == 'Complete':
         shape += '_fill'
-    # if pile_status !='Coomplete':
+    # if pile_status !='Complete':
     #     shape+='-stroked'
     return shape
+
+
+def is_timedelta_column(column):
+    """Check if a pandas column is timedelta format"""
+    return pd.api.types.is_timedelta64_dtype(column)
+
+
+def seconds_to_smart_d_hms(seconds):
+    """Convert seconds, only show days when > 0"""
+    if pd.isna(seconds):
+        return '00:00:00'
+
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = int(seconds % 60)
+
+    if days > 0:
+        return f"{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
+    else:
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+
+def pack(obj: Any) -> bytes:
+    return gzip.compress(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+
+def unpack(b: bytes) -> Any:
+    return pickle.loads(gzip.decompress(b))
