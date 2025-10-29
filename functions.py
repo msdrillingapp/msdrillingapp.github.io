@@ -476,8 +476,10 @@ def create_time_chart(pile_info):
 def create_depth_chart(pile_info,diameter=None):
 
     # Create figure with two y-axes
-    df_pile_info = pd.DataFrame.from_records(pile_info)
+    # df_pile_info = pd.DataFrame.from_records(pile_info)
+    df_pile_info = pile_info.copy()
     df_pile_info.dropna(inplace=True)
+    df_pile_info.reset_index(drop=True,inplace=True)
     # fig1 = px.line(title=f"JobID {selected_jobid} - PileID {selected_pileid} on {selected_date}")
     depths = [x if not x is None else 0 for x in df_pile_info["Depth"]]
     minD = min(depths) - 5
@@ -488,25 +490,25 @@ def create_depth_chart(pile_info,diameter=None):
         "Rotary<br>Pressure", "Pulldown", "Rotation","Volume"))
 
     # Add traces
-    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(df_pile_info["PenetrationRate"][1:],depths[1:])
+    increasing_PR, increasing_D, decreasing_PR, decreasing_D = indrease_decrease_split(df_pile_info["PenetrationRate"].iloc[1:],depths[1:])
     # increasing_PR = [-x for x in increasing_PR]
     decreasing_PR = [-x for x in decreasing_PR]
     fig1.add_trace(go.Scatter(x=increasing_PR, y=increasing_D, mode='lines', line=dict(color='red', width=2), name='DOWN'), row=1,col=1)
     fig1.add_trace(go.Scatter(x=decreasing_PR, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), name='UP'), row=1, col=1)
     # fig1.add_trace(go.Scatter(x=pile_info["PenetrationRate"], y=pile_info["Depth"], mode='lines', name='PenetrationRate'), row=1, col=1)
-    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(df_pile_info["RotaryHeadPressure"][1:],depths[1:])
+    increasing_RP, increasing_D, decreasing_RP, decreasing_D = indrease_decrease_split(df_pile_info["RotaryHeadPressure"].iloc[1:],depths[1:])
     fig1.add_trace(go.Scatter(x=increasing_RP, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=2)
     fig1.add_trace(go.Scatter(x=decreasing_RP, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=2)
     # fig1.add_trace(go.Scatter(x=pile_info['RotaryHeadPressure'], y=pile_info["Depth"], mode='lines', name='RotaryHeadPressure'), row=1, col=2)
-    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(df_pile_info["Pulldown"][1:], depths[1:])
+    increasing_Pull, increasing_D, decreasing_Pull, decreasing_D = indrease_decrease_split(df_pile_info["Pulldown"].iloc[1:], depths[1:])
     fig1.add_trace(go.Scatter(x=increasing_Pull, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False),row=1, col=3)
     fig1.add_trace(go.Scatter(x=decreasing_Pull, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=3)
     # fig1.add_trace(go.Scatter(x=pile_info['Pulldown'], y=pile_info["Depth"], mode='lines', name='Pulldown'), row=1, col=3)
-    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(df_pile_info["Rotation"][1:],depths[1:])
+    increasing_Rot, increasing_D, decreasing_Rot, decreasing_D = indrease_decrease_split(df_pile_info["Rotation"].iloc[1:],depths[1:])
     fig1.add_trace(go.Scatter(x=increasing_Rot, y=increasing_D, mode='lines', line=dict(color='red', width=2), showlegend=False), row=1, col=4)
     fig1.add_trace(go.Scatter(x=decreasing_Rot, y=decreasing_D, mode='lines', line=dict(color='blue', width=2), showlegend=False),row=1, col=4)
     # fig1.add_trace(go.Scatter(x=pile_info['Rotation'], y=pile_info["Depth"], mode='lines', name='Rotation'), row=1, col=4)
-    fig1.add_trace(go.Scatter(x=df_pile_info["Volume"][1:], y=depths[1:], name='Actual' , mode='lines', line=dict(color='#F6BE00', width=2), showlegend=True),row=1, col=5)
+    fig1.add_trace(go.Scatter(x=df_pile_info["Volume"].iloc[1:], y=depths[1:], name='Actual' , mode='lines', line=dict(color='#F6BE00', width=2), showlegend=True),row=1, col=5)
     if not diameter is None:
         feet2inch = 12
         minDepth = float(min(depths[1:]))
