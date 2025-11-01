@@ -212,3 +212,10 @@ if __name__ == '__main__':
 
     loader.connection.close()
 
+    from load_data_from_db import load_data_from_db
+    from datetime import datetime
+    start = datetime.now()
+    results = load_data_from_db(jobs=jobs, reload=True, max_workers=8)
+    duration = (datetime.now() - start).total_seconds() / 60
+    print(f"Loading and Processing completed in {duration:.2f} minutes")
+
